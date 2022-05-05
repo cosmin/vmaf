@@ -43,8 +43,7 @@ typedef struct FunqueState {
     float *dist;
     bool debug;
     
-    float *filter_ref;
-    float *filter_dist;
+    float *spat_filter;
     dwt2buffers ref_dwt2out;
     dwt2buffers dist_dwt2out;
 
@@ -214,10 +213,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
-    s->filter_ref = aligned_malloc(s->float_stride * h, 32);
-    if (!s->filter_ref) goto fail;
-    s->filter_dist = aligned_malloc(s->float_stride * h, 32);
-    if (!s->filter_dist) goto fail;
+    s->spat_filter = aligned_malloc(s->float_stride * h, 32);
+    if (!s->spat_filter) goto fail;
+
     for(unsigned i=0; i<4; i++)
     {
         s->ref_dwt2out.bands[i] = aligned_malloc(s->float_stride * h/4, 32);
@@ -248,8 +246,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 fail:
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
-    if (s->filter_ref) aligned_free(s->filter_ref);
-    if (s->filter_dist) aligned_free(s->filter_dist);
+    if (s->spat_filter) aligned_free(s->spat_filter);
+
     for(unsigned i=0; i<4; i++)
     {
         if (s->ref_dwt2out.bands[i]) aligned_free(s->ref_dwt2out.bands[i]);
@@ -277,15 +275,23 @@ static int extract(VmafFeatureExtractor *fex,
     (void) ref_pic_90;
     (void) dist_pic_90;
 
-    picture_copy(s->ref, s->float_stride, ref_pic, -128, ref_pic->bpc);
-    picture_copy(s->dist, s->float_stride, dist_pic, -128, dist_pic->bpc);
-    float *tmp_filter = aligned_malloc(ALIGN_CEIL(ref_pic->w[0] * ref_pic->h[0] * sizeof(float)), MAX_ALIGN);
-    spatial_filter(s->ref, tmp_filter, s->float_stride, -128, ref_pic->w[0], ref_pic->h[0]);
-    funque_dwt2(tmp_filter, &s->ref_dwt2out, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
-    spatial_filter(s->dist, tmp_filter, s->float_stride, -128, ref_pic->w[0], ref_pic->h[0]);
-    funque_dwt2(tmp_filter, &s->dist_dwt2out, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
+    picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
+    
+    //TODO: Move to lookup table for optimization
+    int bitdepth_pow2 = (int) pow(2, ref_pic->bpc) - 1;
+    //TODO: Create a new picture copy function with normalization?
+    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+
+    spatial_filter(s->ref, s->spat_filter, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
+    spatial_filter(s->dist, s->spat_filter, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
+    
     double score, score_num, score_den;
     double scores[8];
+
     // TODO: update to funque VIF
     err = compute_vif(s->ref, s->dist, ref_pic->w[0], ref_pic->h[0],
                       s->float_stride, s->float_stride,
@@ -359,6 +365,13 @@ static int close(VmafFeatureExtractor *fex)
     FunqueState *s = fex->priv;
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
+    if (s->spat_filter) aligned_free(s->spat_filter);
+
+    for(unsigned i=0; i<4; i++)
+    {
+        if (s->ref_dwt2out.bands[i]) aligned_free(s->ref_dwt2out.bands[i]);
+        if (s->dist_dwt2out.bands[i]) aligned_free(s->dist_dwt2out.bands[i]);
+    }
     vmaf_dictionary_free(&s->feature_name_dict);
     return 0;
 }

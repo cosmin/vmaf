@@ -17,16 +17,15 @@
  */
 #include <stddef.h>
 
-// void picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
-//                   int offset, unsigned bpc);
-
 typedef struct dwt2buffers {
     float *bands[4];
-    float width[4];
-    float height[4];
+    int width[4];
+    int height[4];
 }dwt2buffers;
 
-void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int offset, int width, int height);
+void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int height);
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+
+void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
 
