@@ -100,6 +100,8 @@ json_model_c_sources = []
 built_in_models_enabled = get_option('built_in_models') == true
 float_enabled = get_option('enable_float') == true
 cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
+funque_float_enabled = get_option('enable_float_funque') == true
+cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
 
 if built_in_models_enabled
     xxd = find_program('xxd', required: false)
@@ -277,6 +279,15 @@ if float_enabled
     ]
 endif
 
+if funque_float_enabled
+    libvmaf_feature_sources += [
+        feature_src_dir + 'float_funque.c',
+        feature_src_dir + 'funque_adm.c',
+        feature_src_dir + 'funque_vif.c',
+        feature_src_dir + 'funque_motion.c',
+        feature_src_dir + 'funque_ssim.c'
+    ]
+endif
 libvmaf_feature_static_lib = static_library(
     'libvmaf_feature',
     libvmaf_feature_sources,
