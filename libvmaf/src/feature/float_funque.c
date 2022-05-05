@@ -34,12 +34,8 @@
 #include "funque_motion.h"
 #include "funque_motion_tools.h"
 #include "picture_copy.h"
+#include "funque_filters.h"
 
-typedef struct dwt2buffers {
-    float *bands[4];
-    float width[4];
-    float height[4];
-}dwt2buffers;
 
 typedef struct FunqueState {
     size_t float_stride;
@@ -283,7 +279,11 @@ static int extract(VmafFeatureExtractor *fex,
 
     picture_copy(s->ref, s->float_stride, ref_pic, -128, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, -128, dist_pic->bpc);
-
+    float *tmp_filter = aligned_malloc(ALIGN_CEIL(ref_pic->w[0] * ref_pic->h[0] * sizeof(float)), MAX_ALIGN);
+    spatial_filter(s->ref, tmp_filter, s->float_stride, -128, ref_pic->w[0], ref_pic->h[0]);
+    funque_dwt2(tmp_filter, &s->ref_dwt2out, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    spatial_filter(s->dist, tmp_filter, s->float_stride, -128, ref_pic->w[0], ref_pic->h[0]);
+    funque_dwt2(tmp_filter, &s->dist_dwt2out, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
     double score, score_num, score_den;
     double scores[8];
     // TODO: update to funque VIF
