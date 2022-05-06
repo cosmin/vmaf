@@ -16,6 +16,4 @@
  *
  */
 
-int compute_vif(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride,
-        double *score, double *score_num, double *score_den, double *scores,
-        double vif_enhn_gain_limit, double vif_kernelscale);
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, float sigma_nsq = 0.1, )
