@@ -95,6 +95,7 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     /*if (strcmp(pool, "mean"))
         return ssim_mean;
     else if (strcmp(pool, "cov"))*/
+    
     *score = (ssim_std / ssim_mean);
 
     free(var_x);
