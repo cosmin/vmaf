@@ -16,4 +16,4 @@
  *
  */
 
-int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, float sigma_nsq = 0.1, )
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, float sigma_nsq);

@@ -29,13 +29,13 @@
 
 #include "funque_vif.h"
 #include "funque_vif_options.h"
-#include "funque_ssim.h"
 #include "funque_adm.h"
 #include "funque_adm_options.h"
 #include "funque_motion.h"
 #include "funque_motion_tools.h"
 #include "picture_copy.h"
 #include "funque_filters.h"
+#include "funque_ssim.h"
 
 
 typedef struct FunqueState {
@@ -329,7 +329,7 @@ static int extract(VmafFeatureExtractor *fex,
             s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
             vif_score_1, index);
 
-    err = compute_ssim_funque(&s->ref_dwt2out.bands[0], &s->dist_dwt2out.bands[0], &ssim_score);
+    err = compute_ssim_funque(&s->ref_dwt2out.bands[0], &s->dist_dwt2out.bands[0], &ssim_score, 1, 0.01, 0.03);
     if (err) return err;
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",

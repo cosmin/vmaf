@@ -16,6 +16,4 @@
  *
  */
 
-#include "funque_filters.h"
-
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val = 1, float K1 = 0.01, float K2 = 0.03)
+int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2);
