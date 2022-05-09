@@ -31,8 +31,7 @@
 #include "funque_vif_options.h"
 #include "funque_adm.h"
 #include "funque_adm_options.h"
-#include "funque_motion.h"
-#include "funque_motion_tools.h"
+#include "motion.h"
 #include "picture_copy.h"
 #include "funque_filters.h"
 #include "funque_ssim.h"
@@ -42,8 +41,10 @@ typedef struct FunqueState {
     size_t float_stride;
     float *ref;
     float *dist;
+    float *prev_ref_dwt2;
     bool debug;
     
+    size_t float_dwt2_stride;
     float *spat_filter;
     dwt2buffers ref_dwt2out;
     dwt2buffers dist_dwt2out;
@@ -217,6 +218,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
+    s->float_dwt2_stride = ALIGN_CEIL(w * sizeof(float) / 2);
+    s->prev_ref_dwt2 = aligned_malloc(s->float_stride * h/4, 32);
+    if (!s->prev_ref_dwt2) goto fail;
     s->spat_filter = aligned_malloc(s->float_stride * h, 32);
     if (!s->spat_filter) goto fail;
 
@@ -262,6 +266,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 fail:
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
+    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
     if (s->spat_filter) aligned_free(s->spat_filter);
 
     for(unsigned i=0; i<4; i++)
@@ -306,6 +311,28 @@ static int extract(VmafFeatureExtractor *fex,
     funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
     spatial_filter(s->dist, s->spat_filter, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
     funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
+    
+    if(index==0)
+    {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
+        memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
+                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+        
+        if (err) return err;
+    }
+    else{
+        double motion_score;
+        err |= compute_motion(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
+                                s->ref_dwt2out.width[0], s->ref_dwt2out.height[0], 
+                                s->float_stride/2, s->float_stride/2, &motion_score);
+        memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
+                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
+
+        if (err) return err;
+    }
     
     double vif_score_0, vif_score_num_0, vif_score_den_0;
     double vif_score_1, vif_score_num_1, vif_score_den_1;
@@ -385,6 +412,7 @@ static int close(VmafFeatureExtractor *fex)
     FunqueState *s = fex->priv;
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
+    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
     if (s->spat_filter) aligned_free(s->spat_filter);
 
     for(unsigned i=0; i<4; i++)
