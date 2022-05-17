@@ -173,12 +173,12 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
 
     double* g = (double*)malloc(sizeof(double) * s_width * s_height);
     double* sv_sq = (double*)malloc(sizeof(double) * s_width * s_height);
-    double exp = 1e-10;
+    double exp = (double)1e-10;
     int index;
 
-    *score = 0;
-    *score_num = 0;
-    *score_den = 0;
+    *score = (double)0;
+    *score_num = (double)0;
+    *score_den = (double)0;
 
     for (unsigned int i = 0; i < s_height; i++)
     {
