@@ -211,8 +211,8 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
             if (sv_sq[index] < exp)
                 sv_sq[index] = exp;
 
-            *score_num += (log(1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)) + (double)1e-4);
-            *score_den += (log(1 + var_x[index] / sigma_nsq) + (double)1e-4);
+            *score_num += (log((double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)) + (double)1e-4);
+            *score_den += (log((double)1 + var_x[index] / sigma_nsq) + (double)1e-4);
         }
     }
 
