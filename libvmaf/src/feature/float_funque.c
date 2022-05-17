@@ -339,13 +339,13 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score;
 
     // TODO: update to funque VIF
-    err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width[0], s->ref_dwt2out.height[0],&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, 5.0);
+    err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width[0], s->ref_dwt2out.height[0],&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0);
     if (err) return err;
 
     funque_dwt2(s->ref_dwt2out.bands[0], &s->ref_dwt2out_vif, s->float_stride/4, s->ref_dwt2out.width[0], s->ref_dwt2out.height[0]);
     funque_dwt2(s->dist_dwt2out.bands[0], &s->dist_dwt2out_vif, s->float_stride/4, s->dist_dwt2out.width[0], s->dist_dwt2out.height[0]);
 
-    err = compute_vif_funque(s->ref_dwt2out_vif.bands[0], s->dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width[0], s->ref_dwt2out_vif.height[0], &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, 5.0);
+    err = compute_vif_funque(s->ref_dwt2out_vif.bands[0], s->dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width[0], s->ref_dwt2out_vif.height[0], &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0);
     if (err) return err;
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,

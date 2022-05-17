@@ -18,26 +18,29 @@
 
 #include <math.h>
 #include <mem.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 void reflect_pad(const float* src, size_t width, size_t height, int reflect, float* dest)
 {
     size_t out_width = width + 2 * reflect;
     size_t out_height = height + 2 * reflect;
 
-    for (unsigned int i = reflect; i != (out_height - reflect); i++) {
+    for (size_t i = reflect; i != (out_height - reflect); i++) {
 
-        for (unsigned int j = 0; j != reflect; j++)
+        for (int j = 0; j != reflect; j++)
         {
             dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
         }
 
         memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(float) * width);
 
-        for (unsigned int j = 0; j != reflect; j++)
+        for (int j = 0; j != reflect; j++)
             dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
     }
 
-    for (unsigned int i = 0; i != reflect; i++) {
+    for (int i = 0; i != reflect; i++) {
         memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(float) * out_width);
         memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(float) * out_width);
     }
@@ -45,9 +48,9 @@ void reflect_pad(const float* src, size_t width, size_t height, int reflect, flo
 
 void integral_image_2(const float* src1, const float* src2, size_t width, size_t height, double* sum)
 {
-    for (int i = 0; i < (height + 1); ++i)
+    for (size_t i = 0; i < (height + 1); ++i)
     {
-        for (int j = 0; j < (width + 1); ++j)
+        for (size_t j = 0; j < (width + 1); ++j)
         {
             if (i == 0 || j == 0)
                 continue;
@@ -75,9 +78,9 @@ void integral_image_2(const float* src1, const float* src2, size_t width, size_t
 
 void integral_image(const float* src, size_t width, size_t height, double* sum)
 {
-    for (int i = 0; i < (height + 1); ++i)
+    for (size_t i = 0; i < (height + 1); ++i)
     {
-        for (int j = 0; j < (width + 1); ++j)
+        for (size_t j = 0; j < (width + 1); ++j)
         {
             if (i == 0 || j == 0)
                 continue;
@@ -107,9 +110,9 @@ void compute_metrics(const double* int_1_x, const double* int_1_y, const double*
 {
     double mx, my, vx, vy, cxy;
 
-    for (unsigned int i = 0; i < (height - kh); i++)
+    for (size_t i = 0; i < (height - kh); i++)
     {
-        for (unsigned int j = 0; j < (width - kw); j++)
+        for (size_t j = 0; j < (width - kw); j++)
         {
             mx = (int_1_x[i * width + j] - int_1_x[i * width + j + kw] - int_1_x[(i + kh) * width + j] + int_1_x[(i + kh) * width + j + kw]) / kNorm;
             my = (int_1_y[i * width + j] - int_1_y[i * width + j + kw] - int_1_y[(i + kh) * width + j] + int_1_y[(i + kh) * width + j + kw]) / kNorm;
@@ -148,7 +151,7 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
     size_t r_height = height + (2 * x_reflect);
 
     double* int_1_x, * int_1_y, * int_2_x, * int_2_y, * int_xy;
-    double* mu_x, * mu_y, * var_x, * var_y, * cov_xy;
+    double* var_x, * var_y, * cov_xy;
 
     int_1_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
     int_1_y = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
