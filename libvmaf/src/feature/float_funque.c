@@ -27,13 +27,13 @@
 #include "feature_name.h"
 #include "mem.h"
 
+#include "funque_filters.h"
 #include "funque_vif.h"
 #include "funque_vif_options.h"
 #include "funque_adm.h"
 #include "funque_adm_options.h"
 #include "motion.h"
 #include "picture_copy.h"
-#include "funque_filters.h"
 #include "funque_ssim.h"
 
 
@@ -336,6 +336,7 @@ static int extract(VmafFeatureExtractor *fex,
     
     double vif_score_0, vif_score_num_0, vif_score_den_0;
     double vif_score_1, vif_score_num_1, vif_score_den_1;
+	double adm_score, adm_score_num, adm_score_den;
     double ssim_score;
 
     // TODO: update to funque VIF
@@ -355,6 +356,11 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
             s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
             vif_score_1, index);
+			
+	err = compute_adm_funque(s->ref_dwt2out, s->dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->ref_dwt2out.width[0], s->ref_dwt2out.height[0], 0.2);
+    if (err) return err;
+	err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
+                                adm_score, index);
 
     err = compute_ssim_funque(&s->ref_dwt2out, &s->dist_dwt2out, &ssim_score, 1, 0.01, 0.03);
     if (err) return err;
@@ -362,7 +368,7 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",
                                 ssim_score, index);
 
-    //add adm and it's scores
+    
     //add motion score and it's score
     //add ssim and it's scores
 

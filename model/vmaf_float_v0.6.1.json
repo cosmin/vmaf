@@ -31,9 +31,10 @@
         "feature_names": [
     
             "FUNQUE_feature_vif_scale0_score", 
-            "FUNQUE_feature_vif_scale1_score",
-            "FUNQUE_float_ssim"
-    
+            "FUNQUE_feature_vif_scale1_score",    
+            "FUNQUE_feature_motion_score",
+            "FUNQUE_float_ssim",
+            "FUNQUE_feature_adm2_score"
         ],
         "intercepts": [
             -0.3092981927591963,

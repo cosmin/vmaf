@@ -15,10 +15,5 @@
  *     limitations under the License.
  *
  */
-
-int compute_adm(const float *ref, const float *dis, int w, int h,
-                int ref_stride, int dis_stride, double *score,
-                double *score_num, double *score_den, double *scores,
-                double border_factor, double adm_enhn_gain_limit,
-                double adm_norm_view_dist, int adm_ref_display_height,
-                int adm_csf_mode);
+				
+int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size);
