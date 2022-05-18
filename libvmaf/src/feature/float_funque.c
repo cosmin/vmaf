@@ -35,7 +35,7 @@
 #include "motion.h"
 #include "picture_copy.h"
 #include "funque_ssim.h"
-
+#include "resizer.h"
 
 typedef struct FunqueState {
     size_t float_stride;
@@ -298,6 +298,12 @@ static int extract(VmafFeatureExtractor *fex,
     (void) ref_pic_90;
     (void) dist_pic_90;
 
+    unsigned char *ref_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(ref_pic->w[0]/2) * (int)(ref_pic->h[0]/2)); 
+    unsigned char *dist_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(dist_pic->w[0]/2) * (int)(dist_pic->h[0]/2)); 
+
+    resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
+    resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
+
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
     
@@ -410,6 +416,9 @@ static int extract(VmafFeatureExtractor *fex,
     //add adm and it's scores
     //add motion score and it's score
     //add ssim and it's scores
+
+    free(ref_down_scaled);
+    free(dist_down_scaled);
     return err;
 }
 

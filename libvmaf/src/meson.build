@@ -285,7 +285,8 @@ if funque_float_enabled
         feature_src_dir + 'funque_filters.c',
         feature_src_dir + 'funque_vif.c',
         feature_src_dir + 'funque_adm.c',
-        feature_src_dir + 'funque_ssim.c'
+        feature_src_dir + 'funque_ssim.c',
+        feature_src_dir + 'resizer.c'
     ]
 endif
 libvmaf_feature_static_lib = static_library(
