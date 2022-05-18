@@ -94,10 +94,7 @@ void vresize(const int** src, unsigned char* dst, const short* beta, int width)
     const int* S0 = src[0], * S1 = src[1], * S2 = src[2], * S3 = src[3];
 
     for (int x = 0; x < width; x++)
-    {
         dst[x] = castOp(S0[x] * b0 + S1[x] * b1 + S2[x] * b2 + S3[x] * b3);
-        int t = dst[x];
-    }
 }
 
 static int clip(int x, int a, int b)
