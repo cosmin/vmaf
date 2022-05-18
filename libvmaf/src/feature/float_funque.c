@@ -301,8 +301,22 @@ static int extract(VmafFeatureExtractor *fex,
     unsigned char *ref_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(ref_pic->w[0]/2) * (int)(ref_pic->h[0]/2)); 
     unsigned char *dist_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(dist_pic->w[0]/2) * (int)(dist_pic->h[0]/2)); 
 
+    int r_temp_w = ref_pic->w[0];
+    int r_temp_h = ref_pic->h[0];
+    void *r_temp_data = ref_pic->data[0];
+    int d_temp_w = dist_pic->w[0];
+    int d_temp_h = dist_pic->h[0];
+    void *d_temp_data = dist_pic->data[0];
+
     resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
     resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
+
+    ref_pic->w[0] = (int)r_temp_w/2;
+    ref_pic->h[0] = (int)r_temp_h/2;
+    ref_pic->data[0] = ref_down_scaled;
+    dist_pic->w[0] = (int)d_temp_w/2;
+    dist_pic->h[0] = (int)d_temp_h/2;
+    dist_pic->data[0] = dist_down_scaled;
 
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
@@ -416,6 +430,13 @@ static int extract(VmafFeatureExtractor *fex,
     //add adm and it's scores
     //add motion score and it's score
     //add ssim and it's scores
+
+    ref_pic->w[0] = r_temp_w;
+    ref_pic->h[0] = r_temp_h;
+    ref_pic->data[0] = r_temp_data;
+    dist_pic->w[0] = d_temp_w;
+    dist_pic->h[0] = d_temp_h;
+    dist_pic->data[0] = d_temp_data;
 
     free(ref_down_scaled);
     free(dist_down_scaled);
