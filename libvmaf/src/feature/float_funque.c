@@ -320,6 +320,10 @@ static int extract(VmafFeatureExtractor *fex,
     dist_pic->stride[0] = dist_pic->stride[0]/2;
     dist_pic->data[0] = dist_down_scaled;
     s->float_stride = s->float_stride/2;
+    s->ref_dwt2out.width[0] = s->ref_dwt2out.width[0]/2;
+    s->ref_dwt2out.height[0] = s->ref_dwt2out.height[0]/2;
+    s->dist_dwt2out.width[0] = s->dist_dwt2out.width[0]/2;
+    s->dist_dwt2out.height[0] = s->dist_dwt2out.width[0]/2;
     
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
@@ -443,6 +447,10 @@ static int extract(VmafFeatureExtractor *fex,
     dist_pic->stride[0] = dist_pic->stride[0]*2;
     dist_pic->data[0] = d_temp_data;
     s->float_stride = s->float_stride*2;
+    s->ref_dwt2out.width[0] = s->ref_dwt2out.width[0]*2;
+    s->ref_dwt2out.height[0] = s->ref_dwt2out.height[0]*2;
+    s->dist_dwt2out.width[0] = s->dist_dwt2out.width[0]*2;
+    s->dist_dwt2out.height[0] = s->dist_dwt2out.width[0]*2;
 
     free(ref_down_scaled);
     free(dist_down_scaled);
