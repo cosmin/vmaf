@@ -313,14 +313,17 @@ static int extract(VmafFeatureExtractor *fex,
 
     ref_pic->w[0] = (int)r_temp_w/2;
     ref_pic->h[0] = (int)r_temp_h/2;
+    ref_pic->stride[0] = ref_pic->stride[0]/2;
     ref_pic->data[0] = ref_down_scaled;
     dist_pic->w[0] = (int)d_temp_w/2;
     dist_pic->h[0] = (int)d_temp_h/2;
+    dist_pic->stride[0] = dist_pic->stride[0]/2;
     dist_pic->data[0] = dist_down_scaled;
-
+    s->float_stride = s->float_stride/2;
+    
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
-    
+
     //TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int) pow(2, ref_pic->bpc) - 1;
     //TODO: Create a new picture copy function with normalization?
@@ -433,10 +436,13 @@ static int extract(VmafFeatureExtractor *fex,
 
     ref_pic->w[0] = r_temp_w;
     ref_pic->h[0] = r_temp_h;
+    ref_pic->stride[0] = ref_pic->stride[0]*2;
     ref_pic->data[0] = r_temp_data;
     dist_pic->w[0] = d_temp_w;
     dist_pic->h[0] = d_temp_h;
+    dist_pic->stride[0] = dist_pic->stride[0]*2;
     dist_pic->data[0] = d_temp_data;
+    s->float_stride = s->float_stride*2;
 
     free(ref_down_scaled);
     free(dist_down_scaled);
