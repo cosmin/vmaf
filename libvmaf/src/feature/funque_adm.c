@@ -296,6 +296,8 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
     }
     den_band += powf(den_sum, 1.0 / 3.0);
     num_band += powf(num_sum, 1.0 / 3.0);
+    num_sum = 0;
+    den_sum = 0;
   }
 
   *adm_score_num = num_band + 1e-4;
