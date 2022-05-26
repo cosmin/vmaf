@@ -324,6 +324,10 @@ static int extract(VmafFeatureExtractor *fex,
     s->ref_dwt2out.height[0] = s->ref_dwt2out.height[0]/2;
     s->dist_dwt2out.width[0] = s->dist_dwt2out.width[0]/2;
     s->dist_dwt2out.height[0] = s->dist_dwt2out.width[0]/2;
+    s->ref_dwt2out_vif.width[0] = s->ref_dwt2out_vif.width[0]/2;
+    s->ref_dwt2out_vif.height[0] = s->ref_dwt2out_vif.height[0]/2;
+    s->dist_dwt2out_vif.width[0] = s->dist_dwt2out_vif.width[0]/2;
+    s->dist_dwt2out_vif.height[0] = s->dist_dwt2out_vif.height[0]/2;
     
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
@@ -451,6 +455,10 @@ static int extract(VmafFeatureExtractor *fex,
     s->ref_dwt2out.height[0] = s->ref_dwt2out.height[0]*2;
     s->dist_dwt2out.width[0] = s->dist_dwt2out.width[0]*2;
     s->dist_dwt2out.height[0] = s->dist_dwt2out.width[0]*2;
+    s->ref_dwt2out_vif.width[0] = s->ref_dwt2out_vif.width[0]*2;
+    s->ref_dwt2out_vif.height[0] = s->ref_dwt2out_vif.height[0]*2;
+    s->dist_dwt2out_vif.width[0] = s->dist_dwt2out_vif.width[0]*2;
+    s->dist_dwt2out_vif.height[0] = s->dist_dwt2out_vif.height[0]*2;
 
     free(ref_down_scaled);
     free(dist_down_scaled);
