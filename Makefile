@@ -1,7 +1,5 @@
 all:
-
 	meson setup libvmaf/build libvmaf --buildtype release -Denable_float=true -Denable_float_funque=true && \
-
 	ninja -vC libvmaf/build
 	cd python && python3 setup.py build_ext --build-lib .
 
