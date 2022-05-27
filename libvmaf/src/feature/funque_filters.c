@@ -41,43 +41,52 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int wi
     float *band_v = dwt2_dst->bands[2];
     float *band_d = dwt2_dst->bands[3];
     float accum;
-
+    int16_t row_idx0, row_idx1, col_idx0, col_idx1;
     for (unsigned i=0; i < (height+1)/2; ++i)
     {
+        row_idx0 = 2*i;
+        // row_idx0 = row_idx0 < height ? row_idx0 : height;
+        row_idx1 = 2*i+1;
+        row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
+
         /* Vertical pass. */
         for(unsigned j=0; j<width; ++j){
             accum = 0;
-            accum += filter_coeff_lo[0] * src[(2*i)*width+j];
-            accum += filter_coeff_lo[1] * src[(2*i+1)*width+j];
+            accum += filter_coeff_lo[0] * src[(row_idx0)*width+j];
+            accum += filter_coeff_lo[1] * src[(row_idx1)*width+j];
             tmplo[j] = accum;
 
             accum = 0;
-            accum += filter_coeff_hi[0] * src[(2*i)*width+j];
-            accum += filter_coeff_hi[1] * src[(2*i+1)*width+j];
+            accum += filter_coeff_hi[0] * src[(row_idx0)*width+j];
+            accum += filter_coeff_hi[1] * src[(row_idx1)*width+j];
             tmphi[j] = accum;
         }
 
         /* Horizontal pass (lo and hi). */
         for(unsigned j=0; j<(width+1)/2; ++j)
         {
+            col_idx0 = 2*j;
+            col_idx1 = 2*j+1;
+            col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
+
             accum = 0;
-            accum += filter_coeff_lo[0] * tmplo[2*j];
-            accum += filter_coeff_lo[1] * tmplo[2*j+1];
+            accum += filter_coeff_lo[0] * tmplo[col_idx0];
+            accum += filter_coeff_lo[1] * tmplo[col_idx1];
             band_a[i*dst_px_stride+j] = accum;
 
             accum = 0;
-            accum += filter_coeff_lo[0] * tmphi[2*j];
-            accum += filter_coeff_lo[1] * tmphi[2*j+1];
+            accum += filter_coeff_lo[0] * tmphi[col_idx0];
+            accum += filter_coeff_lo[1] * tmphi[col_idx1];
             band_h[i*dst_px_stride+j] = accum;
 
             accum = 0;
-            accum += filter_coeff_hi[0] * tmplo[2*j];
-            accum += filter_coeff_hi[1] * tmplo[2*j+1];
+            accum += filter_coeff_hi[0] * tmplo[col_idx0];
+            accum += filter_coeff_hi[1] * tmplo[col_idx1];
             band_v[i*dst_px_stride+j] = accum;
 
             accum = 0;
-            accum += filter_coeff_hi[0] * tmphi[2*j];
-            accum += filter_coeff_hi[1] * tmphi[2*j+1];
+            accum += filter_coeff_hi[0] * tmphi[col_idx0];
+            accum += filter_coeff_hi[1] * tmphi[col_idx1];
             band_d[i*dst_px_stride+j] = accum;
         }
     }
