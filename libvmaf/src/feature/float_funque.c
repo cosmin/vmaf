@@ -295,9 +295,6 @@ static int extract(VmafFeatureExtractor *fex,
     FunqueState *s = fex->priv;
     int err = 0;
 
-    if(index < 179)
-        return err;
-
     (void) ref_pic_90;
     (void) dist_pic_90;
 
