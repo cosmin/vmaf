@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include "funque_filters.h"
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2)
+int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, double K1, double K2)
 {
     //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
     int ret = 1;
@@ -33,28 +33,28 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     size_t width = ref->width[0];
     size_t height = ref->height[0];
 
-    float C1 = (K1 * max_val) * (K1 * max_val);
-    float C2 = (K2 * max_val) * (K2 * max_val);
+    double C1 = (K1 * max_val) * (K1 * max_val);
+    double C2 = (K2 * max_val) * (K2 * max_val);
 
-   /* float* mu_x = (float*)calloc(width * height, sizeof(float));
-    float* mu_y = (float*)calloc(width * height, sizeof(float));*/
-    float* var_x = (float*)calloc(width * height, sizeof(float));
-    float* var_y = (float*)calloc(width * height, sizeof(float));
-    float* cov_xy = (float*)calloc(width * height, sizeof(float));
+   /* double* mu_x = (double*)calloc(width * height, sizeof(double));
+    double* mu_y = (double*)calloc(width * height, sizeof(double));*/
+    double* var_x = (double*)calloc(width * height, sizeof(double));
+    double* var_y = (double*)calloc(width * height, sizeof(double));
+    double* cov_xy = (double*)calloc(width * height, sizeof(double));
 
     // memset(var_x, 0, width * height * sizeof(var_x[0]));
     // memset(var_y, 0, width * height * sizeof(var_y[0]));
     // memset(cov_xy, 0, width * height * sizeof(cov_xy[0]));
 
-    //float* l = (float*)malloc(sizeof(float) * width * height);
-    //float* cs = (float*)malloc(sizeof(float) * width * height);
-    float* map = (float*)malloc(sizeof(float) * width * height);
+    //double* l = (double*)malloc(sizeof(double) * width * height);
+    //double* cs = (double*)malloc(sizeof(double) * width * height);
+    double* map = (double*)malloc(sizeof(double) * width * height);
 
     int win_dim = 1 << n_levels;
     int win_size = (1 << (n_levels << 1));
 
-    float mx, my, l, cs;
-    float sum = 0;
+    double mx, my, l, cs;
+    double sum = 0;
     int index = 0;
     for (int i = 0; i < height; i++)
     {
@@ -84,14 +84,14 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
         }
     }
 
-    float ssim_mean = sum / (height * width);
-    float sd = 0;
+    double ssim_mean = sum / (height * width);
+    double sd = 0;
     for (int i = 0; i < (height * width); i++)
     {
         sd += pow(map[i] - ssim_mean, 2);
     }
 
-    float ssim_std = sqrt(sd / (height * width));
+    double ssim_std = sqrt(sd / (height * width));
 
     /*if (strcmp(pool, "mean"))
         return ssim_mean;

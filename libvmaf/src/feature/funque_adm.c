@@ -41,13 +41,13 @@
 
 #include <emmintrin.h>
 
-static float rcp_s(float x)
+static double rcp_s(double x)
 {
-    float xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
+    double xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
     return xi + xi * (1.0f - x * xi);
 }
 
-static inline float clip(float value, float low, float high)
+static inline double clip(double value, double low, double high)
 {
   return value < low ? low : (value > high ? high : value);
 }
@@ -58,7 +58,7 @@ static inline float clip(float value, float low, float high)
 #define DIVS(n, d) ((n) / (d))
 #endif // __SSE2__
 
-void reflect_pad_adm(const float *src, size_t width, size_t height, int reflect, float *dest)
+void reflect_pad_adm(const double *src, size_t width, size_t height, int reflect, double *dest)
 {
   size_t out_width = width + 2 * reflect;
   size_t out_height = height + 2 * reflect;
@@ -76,7 +76,7 @@ void reflect_pad_adm(const float *src, size_t width, size_t height, int reflect,
     }
 
     // Copy corresponding row values from input image
-    memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(float) * width);
+    memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(double) * width);
 
     // Mirror last `reflect` columns
     for (j = 0; j != reflect; j++)
@@ -86,12 +86,12 @@ void reflect_pad_adm(const float *src, size_t width, size_t height, int reflect,
   // Mirror first `reflect` and last `reflect` rows
   for (i = 0; i != reflect; i++)
   {
-    memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(float) * out_width);
-    memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(float) * out_width);
+    memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(double) * out_width);
+    memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(double) * out_width);
   }
 }
 
-void integral_image_adm(const float *src, size_t width, size_t height, float *sum)
+void integral_image_adm(const double *src, size_t width, size_t height, double *sum)
 {
   int i, j;
   for (i = 0; i < (height + 1); ++i)
@@ -101,7 +101,7 @@ void integral_image_adm(const float *src, size_t width, size_t height, float *su
       if (i == 0 || j == 0)
         continue;
 
-      float val = src[(i - 1) * width + (j - 1)];
+      double val = src[(i - 1) * width + (j - 1)];
 
       if (i >= 1)
       {
@@ -123,21 +123,21 @@ void integral_image_adm(const float *src, size_t width, size_t height, float *su
   }
 }
 
-void integral_image_adm_sums(float *x, int k, int stride, float *mx, int width, int height)
+void integral_image_adm_sums(double *x, int k, int stride, double *mx, int width, int height)
 {
-  float *x_pad, *int_x;
+  double *x_pad, *int_x;
   int i, j;
 
   int x_reflect = (int)((k - stride) / 2);
 
-  x_pad = (float *)malloc(sizeof(float) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+  x_pad = (double *)malloc(sizeof(double) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
   
   reflect_pad_adm(x, width, height, x_reflect, x_pad);
   
   size_t r_width = width + (2 * x_reflect);
   size_t r_height = height + (2 * x_reflect);
 
-  int_x = (float *)calloc((r_width + 1) * (r_height + 1), sizeof(float));
+  int_x = (double *)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
   integral_image_adm(x_pad, r_width, r_height, int_x);
 
@@ -154,17 +154,17 @@ void integral_image_adm_sums(float *x, int k, int stride, float *mx, int width, 
 
 void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2buffers dlm_add)
 {
-  float eps = 1e-30;
+  double eps = 1e-30;
   size_t width = ref.width[0];
   size_t height = ref.height[0];
   int i, j, k, index;
 
-  float *psi_ref = (float *)calloc(width * height, sizeof(float));
-  float *psi_dist = (float *)calloc(width * height, sizeof(float));
-  float *psi_diff = (float *)calloc(width * height, sizeof(float));
-  float *var_k;
-  float val;
-  float tmp_val;
+  double *psi_ref = (double *)calloc(width * height, sizeof(double));
+  double *psi_dist = (double *)calloc(width * height, sizeof(double));
+  double *psi_diff = (double *)calloc(width * height, sizeof(double));
+  double *var_k;
+  double val;
+  double tmp_val;
 
   for (i = 0; i < height; i++)
   {
@@ -193,12 +193,12 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
 void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers masked_pyr, size_t width, size_t height)
 {
   int i, k, j, index;
-  float val=0;
-  float *masking_signal, *masking_threshold, *integral_sum;
+  double val=0;
+  double *masking_signal, *masking_threshold, *integral_sum;
 
-  masking_signal = (float *)calloc(width * height, sizeof(float));
-  masking_threshold = (float *)calloc(width * height, sizeof(float));
-  integral_sum = (float *)calloc(width * height, sizeof(float));
+  masking_signal = (double *)calloc(width * height, sizeof(double));
+  masking_threshold = (double *)calloc(width * height, sizeof(double));
+  integral_sum = (double *)calloc(width * height, sizeof(double));
 
   for (k = 1; k < 4; k++)
       {
@@ -247,7 +247,7 @@ void dlm_contrast_mask(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers masked_
   dlm_contrast_mask_one_way(pyr_2, pyr_1, masked_pyr_2, width, height);
 }
 
-int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size)
+int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, double border_size)
 {
   // TODO: assert len(pyr_ref) == len(pyr_dist),'Pyramids must be of equal height.'
 
@@ -255,22 +255,22 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
   int i, j, k, index;
   double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
   dwt2buffers dlm_rest, dlm_add, pyr_rest, pyr_add;
-  dlm_rest.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  pyr_add.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  pyr_add.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  pyr_add.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  pyr_add.bands[3] = (float *)malloc(sizeof(float) * height * width);
+  dlm_rest.bands[0] = (double *)malloc(sizeof(double) * height * width);
+  dlm_rest.bands[1] = (double *)malloc(sizeof(double) * height * width);
+  dlm_rest.bands[2] = (double *)malloc(sizeof(double) * height * width);
+  dlm_rest.bands[3] = (double *)malloc(sizeof(double) * height * width);
+  dlm_add.bands[0] = (double *)malloc(sizeof(double) * height * width);
+  dlm_add.bands[1] = (double *)malloc(sizeof(double) * height * width);
+  dlm_add.bands[2] = (double *)malloc(sizeof(double) * height * width);
+  dlm_add.bands[3] = (double *)malloc(sizeof(double) * height * width);
+  pyr_rest.bands[0] = (double *)malloc(sizeof(double) * height * width);
+  pyr_rest.bands[1] = (double *)malloc(sizeof(double) * height * width);
+  pyr_rest.bands[2] = (double *)malloc(sizeof(double) * height * width);
+  pyr_rest.bands[3] = (double *)malloc(sizeof(double) * height * width);
+  pyr_add.bands[0] = (double *)malloc(sizeof(double) * height * width);
+  pyr_add.bands[1] = (double *)malloc(sizeof(double) * height * width);
+  pyr_add.bands[2] = (double *)malloc(sizeof(double) * height * width);
+  pyr_add.bands[3] = (double *)malloc(sizeof(double) * height * width);
 
   dlm_decouple(ref, dist, dlm_rest, dlm_add);
 

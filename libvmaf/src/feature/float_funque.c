@@ -39,13 +39,13 @@
 
 typedef struct FunqueState {
     size_t float_stride;
-    float *ref;
-    float *dist;
-    float *prev_ref_dwt2;
+    double *ref;
+    double *dist;
+    double *prev_ref_dwt2;
     bool debug;
     
     size_t float_dwt2_stride;
-    float *spat_filter;
+    double *spat_filter;
     dwt2buffers ref_dwt2out;
     dwt2buffers dist_dwt2out;
 
@@ -212,13 +212,13 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     (void)bpc;
 
     FunqueState *s = fex->priv;
-    s->float_stride = ALIGN_CEIL(w * sizeof(float));
+    s->float_stride = ALIGN_CEIL(w * sizeof(double));
     s->ref = aligned_malloc(s->float_stride * h, 32);
     if (!s->ref) goto fail;
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
-    s->float_dwt2_stride = ALIGN_CEIL(w * sizeof(float) / 2);
+    s->float_dwt2_stride = ALIGN_CEIL(w * sizeof(double) / 2);
     s->prev_ref_dwt2 = aligned_malloc(s->float_stride * h/4, 32);
     if (!s->prev_ref_dwt2) goto fail;
     s->spat_filter = aligned_malloc(s->float_stride * h, 32);
@@ -295,48 +295,51 @@ static int extract(VmafFeatureExtractor *fex,
     FunqueState *s = fex->priv;
     int err = 0;
 
+    if(index < 179)
+        return err;
+
     (void) ref_pic_90;
     (void) dist_pic_90;
 
-    unsigned char *ref_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(ref_pic->w[0]/2) * (int)(ref_pic->h[0]/2)); 
-    unsigned char *dist_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(dist_pic->w[0]/2) * (int)(dist_pic->h[0]/2)); 
+    // unsigned char *ref_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(ref_pic->w[0]/2) * (int)(ref_pic->h[0]/2)); 
+    // unsigned char *dist_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(dist_pic->w[0]/2) * (int)(dist_pic->h[0]/2)); 
 
-    int r_temp_w = ref_pic->w[0];
-    int r_temp_h = ref_pic->h[0];
-    void *r_temp_data = ref_pic->data[0];
-    int d_temp_w = dist_pic->w[0];
-    int d_temp_h = dist_pic->h[0];
-    void *d_temp_data = dist_pic->data[0];
-    size_t t_float_stride = s->float_stride;
-    int t_ref_dwt2out_width = s->ref_dwt2out.width[0];
-    int t_ref_dwt2out_height = s->ref_dwt2out.height[0];
-    int t_dist_dwt2out_width = s->dist_dwt2out.width[0];
-    int t_dist_dwt2out_height = s->dist_dwt2out.height[0];
-    int t_ref_dwt2out_vif_width = s->ref_dwt2out_vif.width[0];
-    int t_ref_dwt2out_vif_height = s->ref_dwt2out_vif.height[0];
-    int t_dist_dwt2out_vif_width = s->dist_dwt2out_vif.width[0];
-    int t_dist_dwt2out_vif_height = s->dist_dwt2out_vif.height[0];
+    // int r_temp_w = ref_pic->w[0];
+    // int r_temp_h = ref_pic->h[0];
+    // void *r_temp_data = ref_pic->data[0];
+    // int d_temp_w = dist_pic->w[0];
+    // int d_temp_h = dist_pic->h[0];
+    // void *d_temp_data = dist_pic->data[0];
+    // size_t t_float_stride = s->float_stride;
+    // int t_ref_dwt2out_width = s->ref_dwt2out.width[0];
+    // int t_ref_dwt2out_height = s->ref_dwt2out.height[0];
+    // int t_dist_dwt2out_width = s->dist_dwt2out.width[0];
+    // int t_dist_dwt2out_height = s->dist_dwt2out.height[0];
+    // int t_ref_dwt2out_vif_width = s->ref_dwt2out_vif.width[0];
+    // int t_ref_dwt2out_vif_height = s->ref_dwt2out_vif.height[0];
+    // int t_dist_dwt2out_vif_width = s->dist_dwt2out_vif.width[0];
+    // int t_dist_dwt2out_vif_height = s->dist_dwt2out_vif.height[0];
 
-    resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
-    resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
+    // resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
+    // resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
 
-    ref_pic->w[0] = (int)(r_temp_w + 1)/2;
-    ref_pic->h[0] = (int)(r_temp_h + 1)/2;
-    ref_pic->stride[0] = ref_pic->stride[0]/2;
-    ref_pic->data[0] = ref_down_scaled;
-    dist_pic->w[0] = (int)(d_temp_w + 1)/2;
-    dist_pic->h[0] = (int)(d_temp_h + 1)/2;
-    dist_pic->stride[0] = dist_pic->stride[0]/2;
-    dist_pic->data[0] = dist_down_scaled;
-    s->float_stride = t_float_stride/2;
-    s->ref_dwt2out.width[0] = (t_ref_dwt2out_width + 1)/2;
-    s->ref_dwt2out.height[0] = (t_ref_dwt2out_height + 1)/2;
-    s->dist_dwt2out.width[0] = (t_dist_dwt2out_width + 1)/2;
-    s->dist_dwt2out.height[0] = (t_dist_dwt2out_height  + 1)/2;
-    s->ref_dwt2out_vif.width[0] = (t_ref_dwt2out_vif_width + 1)/2;
-    s->ref_dwt2out_vif.height[0] = (t_ref_dwt2out_vif_height + 1)/2;
-    s->dist_dwt2out_vif.width[0] = (t_dist_dwt2out_vif_width + 1)/2;
-    s->dist_dwt2out_vif.height[0] = (t_dist_dwt2out_vif_height + 1)/2;
+    // ref_pic->w[0] = (int)(r_temp_w + 1)/2;
+    // ref_pic->h[0] = (int)(r_temp_h + 1)/2;
+    // ref_pic->stride[0] = ref_pic->stride[0]/2;
+    // ref_pic->data[0] = ref_down_scaled;
+    // dist_pic->w[0] = (int)(d_temp_w + 1)/2;
+    // dist_pic->h[0] = (int)(d_temp_h + 1)/2;
+    // dist_pic->stride[0] = dist_pic->stride[0]/2;
+    // dist_pic->data[0] = dist_down_scaled;
+    // s->float_stride = t_float_stride/2;
+    // s->ref_dwt2out.width[0] = (t_ref_dwt2out_width + 1)/2;
+    // s->ref_dwt2out.height[0] = (t_ref_dwt2out_height + 1)/2;
+    // s->dist_dwt2out.width[0] = (t_dist_dwt2out_width + 1)/2;
+    // s->dist_dwt2out.height[0] = (t_dist_dwt2out_height  + 1)/2;
+    // s->ref_dwt2out_vif.width[0] = (t_ref_dwt2out_vif_width + 1)/2;
+    // s->ref_dwt2out_vif.height[0] = (t_ref_dwt2out_vif_height + 1)/2;
+    // s->dist_dwt2out_vif.width[0] = (t_dist_dwt2out_vif_width + 1)/2;
+    // s->dist_dwt2out_vif.height[0] = (t_dist_dwt2out_vif_height + 1)/2;
     
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
@@ -357,7 +360,7 @@ static int extract(VmafFeatureExtractor *fex,
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(double));
         
         if (err) return err;
     }
@@ -367,7 +370,7 @@ static int extract(VmafFeatureExtractor *fex,
                                 s->ref_dwt2out.width[0], s->ref_dwt2out.height[0], 
                                 s->float_stride/2, s->float_stride/2, &motion_score);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(double));
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
 
@@ -451,26 +454,26 @@ static int extract(VmafFeatureExtractor *fex,
     //add motion score and it's score
     //add ssim and it's scores
 
-    ref_pic->w[0] = r_temp_w;
-    ref_pic->h[0] = r_temp_h;
-    ref_pic->stride[0] = ref_pic->stride[0]*2;
-    ref_pic->data[0] = r_temp_data;
-    dist_pic->w[0] = d_temp_w;
-    dist_pic->h[0] = d_temp_h;
-    dist_pic->stride[0] = dist_pic->stride[0]*2;
-    dist_pic->data[0] = d_temp_data;
-    s->float_stride = t_float_stride;
-    s->ref_dwt2out.width[0] = t_ref_dwt2out_width;
-    s->ref_dwt2out.height[0] = t_ref_dwt2out_height;
-    s->dist_dwt2out.width[0] = t_dist_dwt2out_width;
-    s->dist_dwt2out.height[0] = t_dist_dwt2out_height;
-    s->ref_dwt2out_vif.width[0] = t_ref_dwt2out_vif_width;
-    s->ref_dwt2out_vif.height[0] = t_ref_dwt2out_vif_height;
-    s->dist_dwt2out_vif.width[0] = t_dist_dwt2out_vif_width;
-    s->dist_dwt2out_vif.height[0] = t_dist_dwt2out_vif_height;
+    // ref_pic->w[0] = r_temp_w;
+    // ref_pic->h[0] = r_temp_h;
+    // ref_pic->stride[0] = ref_pic->stride[0]*2;
+    // ref_pic->data[0] = r_temp_data;
+    // dist_pic->w[0] = d_temp_w;
+    // dist_pic->h[0] = d_temp_h;
+    // dist_pic->stride[0] = dist_pic->stride[0]*2;
+    // dist_pic->data[0] = d_temp_data;
+    // s->float_stride = t_float_stride;
+    // s->ref_dwt2out.width[0] = t_ref_dwt2out_width;
+    // s->ref_dwt2out.height[0] = t_ref_dwt2out_height;
+    // s->dist_dwt2out.width[0] = t_dist_dwt2out_width;
+    // s->dist_dwt2out.height[0] = t_dist_dwt2out_height;
+    // s->ref_dwt2out_vif.width[0] = t_ref_dwt2out_vif_width;
+    // s->ref_dwt2out_vif.height[0] = t_ref_dwt2out_vif_height;
+    // s->dist_dwt2out_vif.width[0] = t_dist_dwt2out_vif_width;
+    // s->dist_dwt2out_vif.height[0] = t_dist_dwt2out_vif_height;
 
-    free(ref_down_scaled);
-    free(dist_down_scaled);
+    // free(ref_down_scaled);
+    // free(dist_down_scaled);
     return err;
 }
 

@@ -18,14 +18,14 @@
 #include <stddef.h>
 
 typedef struct dwt2buffers {
-    float *bands[4];
+    double *bands[4];
     int width[4];
     int height[4];
 }dwt2buffers;
 
-void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int height);
+void spatial_filter(double *src, double *dst, ptrdiff_t dst_stride, int width, int height);
 
-void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+void funque_dwt2(double *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
-void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
+void normalize_bitdepth(double *src, double *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
 

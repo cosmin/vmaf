@@ -17,5 +17,5 @@
  */
 #include <stddef.h>
 
-void picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
+void picture_copy(double *dst, ptrdiff_t dst_stride, VmafPicture *src,
                   int offset, unsigned bpc);
