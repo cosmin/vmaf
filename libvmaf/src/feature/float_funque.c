@@ -107,8 +107,9 @@ static const VmafOption options[] = {
         .offset = offsetof(FunqueState, vif_levels),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_VIF_LEVELS,
-        .min = 0,
-        .max = 4,
+        //Update this when the support is added
+        .min = 2,
+        .max = 2,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
