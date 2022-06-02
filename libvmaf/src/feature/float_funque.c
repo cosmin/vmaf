@@ -44,6 +44,9 @@ typedef struct FunqueState {
     float *prev_ref_dwt2;
     bool debug;
     
+    VmafPicture res_ref_pic;
+    VmafPicture res_dist_pic;
+
     size_t float_dwt2_stride;
     float *spat_filter;
     dwt2buffers ref_dwt2out;
@@ -224,43 +227,64 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 fex->options, s);
     if (!s->feature_name_dict) goto fail;
 
+    if (s->enable_resize)
+    {
+        w = (w+1)>>1;
+        h = (h+1)>>1;
+    }
+
     s->float_stride = ALIGN_CEIL(w * sizeof(float));
+
+    if(s->enable_resize)
+    {
+        s->res_ref_pic.data[0]  = aligned_malloc(s->float_stride * h, 32); 
+        if (!s->res_ref_pic.data[0]) goto fail;
+        s->res_dist_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
+        if (!s->res_dist_pic.data[0]) goto fail;
+    }
+
     s->ref = aligned_malloc(s->float_stride * h, 32);
     if (!s->ref) goto fail;
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
-    s->float_dwt2_stride = ALIGN_CEIL(w * sizeof(float) / 2);
-    s->prev_ref_dwt2 = aligned_malloc(s->float_stride * h/4, 32);
-    if (!s->prev_ref_dwt2) goto fail;
     s->spat_filter = aligned_malloc(s->float_stride * h, 32);
     if (!s->spat_filter) goto fail;
 
-    s->ref_dwt2out.width = (int) w/2;
-    s->ref_dwt2out.height = (int) h/2;
-    s->dist_dwt2out.width = (int) w/2;
-    s->dist_dwt2out.height = (int) h/2;
+    //dwt output dimensions
+    s->ref_dwt2out.width = (int) (w+1)/2;
+    s->ref_dwt2out.height = (int) (h+1)/2;
+    s->dist_dwt2out.width = (int) (w+1)/2;
+    s->dist_dwt2out.height = (int) (h+1)/2;
+
+    //Second stage dwt output dimensions
+    s->ref_dwt2out_vif.width = (int) (s->ref_dwt2out.width+1)/2;
+    s->ref_dwt2out_vif.height = (int) (s->ref_dwt2out.height+1)/2;
+    s->dist_dwt2out_vif.width = (int) (s->dist_dwt2out.width+1)/2;
+    s->dist_dwt2out_vif.height = (int) (s->dist_dwt2out.height+1)/2;
+
+    s->float_dwt2_stride = ALIGN_CEIL(s->ref_dwt2out.width * sizeof(float));
+    s->prev_ref_dwt2 = aligned_malloc(s->float_dwt2_stride * s->ref_dwt2out.height, 32);
+    if (!s->prev_ref_dwt2) goto fail;
+
+    //Memory allocation for dwt output bands
     for(unsigned i=0; i<4; i++)
     {
-        s->ref_dwt2out.bands[i] = aligned_malloc(s->float_stride * h/4, 32);
+        s->ref_dwt2out.bands[i] = aligned_malloc(s->float_dwt2_stride * s->ref_dwt2out.height, 32);
         if (!s->ref_dwt2out.bands[i]) goto fail;
         
-        s->dist_dwt2out.bands[i] = aligned_malloc(s->float_stride * h/4, 32);
+        s->dist_dwt2out.bands[i] = aligned_malloc(s->float_dwt2_stride * s->dist_dwt2out.height, 32);
         if (!s->dist_dwt2out.bands[i]) goto fail;
 
     }
 
-    s->ref_dwt2out_vif.width = (int) w/4;
-    s->ref_dwt2out_vif.height = (int) h/4;
-    s->dist_dwt2out_vif.width = (int) w/4;
-    s->dist_dwt2out_vif.height = (int) h/4;
-
+    //Memory allocation for stage 2 VIF bands
     for(unsigned i=0; i<4; i++)
     {
-        s->ref_dwt2out_vif.bands[i] = aligned_malloc(s->float_stride * h/16, 32);
+        s->ref_dwt2out_vif.bands[i] = aligned_malloc(s->float_dwt2_stride/2 * s->ref_dwt2out_vif.height, 32);
         if (!s->ref_dwt2out_vif.bands[i]) goto fail;
         
-        s->dist_dwt2out_vif.bands[i] = aligned_malloc(s->float_stride * h/16, 32);
+        s->dist_dwt2out_vif.bands[i] = aligned_malloc(s->float_dwt2_stride/2 * s->dist_dwt2out_vif.height, 32);
         if (!s->dist_dwt2out_vif.bands[i]) goto fail;
     }
 
@@ -275,10 +299,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     return 0;
 
 fail:
+    if (s->res_ref_pic.data[0]) aligned_free(s->res_ref_pic.data[0]);
+    if (s->res_dist_pic.data[0]) aligned_free(s->res_dist_pic.data[0]);
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
-    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
     if (s->spat_filter) aligned_free(s->spat_filter);
+    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
 
     for(unsigned i=0; i<4; i++)
     {
@@ -309,59 +335,47 @@ static int extract(VmafFeatureExtractor *fex,
     (void) ref_pic_90;
     (void) dist_pic_90;
 
-    unsigned char *ref_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(ref_pic->w[0]/2) * (int)(ref_pic->h[0]/2)); 
-    unsigned char *dist_down_scaled =(unsigned char*)malloc(sizeof(unsigned char) * (int)(dist_pic->w[0]/2) * (int)(dist_pic->h[0]/2)); 
+    VmafPicture *res_ref_pic = &s->res_ref_pic;
+    VmafPicture *res_dist_pic = &s->res_dist_pic;
 
-    int r_temp_w = ref_pic->w[0];
-    int r_temp_h = ref_pic->h[0];
-    void *r_temp_data = ref_pic->data[0];
-    int d_temp_w = dist_pic->w[0];
-    int d_temp_h = dist_pic->h[0];
-    void *d_temp_data = dist_pic->data[0];
-    size_t t_float_stride = s->float_stride;
-    int t_ref_dwt2out_width = s->ref_dwt2out.width;
-    int t_ref_dwt2out_height = s->ref_dwt2out.height;
-    int t_dist_dwt2out_width = s->dist_dwt2out.width;
-    int t_dist_dwt2out_height = s->dist_dwt2out.height;
-    int t_ref_dwt2out_vif_width = s->ref_dwt2out_vif.width;
-    int t_ref_dwt2out_vif_height = s->ref_dwt2out_vif.height;
-    int t_dist_dwt2out_vif_width = s->dist_dwt2out_vif.width;
-    int t_dist_dwt2out_vif_height = s->dist_dwt2out_vif.height;
+    if(s->enable_resize)
+    {
+        res_ref_pic->bpc = ref_pic->bpc;
+        res_ref_pic->h[0]   = ref_pic->h[0] / 2;
+        res_ref_pic->w[0]   = ref_pic->w[0] / 2;
+        res_ref_pic->stride[0] = ref_pic->stride[0] / 2;
+        res_ref_pic->pix_fmt = ref_pic->pix_fmt;
+        res_ref_pic->ref = ref_pic->ref;
 
-    resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
-    resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
+        res_dist_pic->bpc = dist_pic->bpc;
+        res_dist_pic->h[0]   = dist_pic->h[0] / 2;
+        res_dist_pic->w[0]   = dist_pic->w[0] / 2;
+        res_dist_pic->stride[0] = dist_pic->stride[0] / 2;
+        res_dist_pic->pix_fmt = dist_pic->pix_fmt;
+        res_dist_pic->ref = dist_pic->ref;
 
-    ref_pic->w[0] = (int)(r_temp_w + 1)/2;
-    ref_pic->h[0] = (int)(r_temp_h + 1)/2;
-    ref_pic->stride[0] = ref_pic->stride[0]/2;
-    ref_pic->data[0] = ref_down_scaled;
-    dist_pic->w[0] = (int)(d_temp_w + 1)/2;
-    dist_pic->h[0] = (int)(d_temp_h + 1)/2;
-    dist_pic->stride[0] = dist_pic->stride[0]/2;
-    dist_pic->data[0] = dist_down_scaled;
-    s->float_stride = t_float_stride/2;
-    s->ref_dwt2out.width = (t_ref_dwt2out_width + 1)/2;
-    s->ref_dwt2out.height = (t_ref_dwt2out_height + 1)/2;
-    s->dist_dwt2out.width = (t_dist_dwt2out_width + 1)/2;
-    s->dist_dwt2out.height = (t_dist_dwt2out_height  + 1)/2;
-    s->ref_dwt2out_vif.width = (t_ref_dwt2out_vif_width + 1)/2;
-    s->ref_dwt2out_vif.height = (t_ref_dwt2out_vif_height + 1)/2;
-    s->dist_dwt2out_vif.width = (t_dist_dwt2out_vif_width + 1)/2;
-    s->dist_dwt2out_vif.height = (t_dist_dwt2out_vif_height + 1)/2;
+        resize(ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        resize(dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+
+    }
+    else{
+        res_ref_pic = ref_pic;
+        res_dist_pic = dist_pic;
+    }
     
-    picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
-    picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
+    picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
+    picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
 
     //TODO: Move to lookup table for optimization
-    int bitdepth_pow2 = (int) pow(2, ref_pic->bpc) - 1;
+    int bitdepth_pow2 = (int) pow(2, res_ref_pic->bpc) - 1;
     //TODO: Create a new picture copy function with normalization?
-    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
-    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
+    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    spatial_filter(s->ref, s->spat_filter, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
-    funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
-    spatial_filter(s->dist, s->spat_filter, s->float_stride, ref_pic->w[0], ref_pic->h[0]);
-    funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, ref_pic->w[0], ref_pic->h[0]);
+    spatial_filter(s->ref, s->spat_filter, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+    funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, res_ref_pic->w[0], res_ref_pic->h[0]);
+    spatial_filter(s->dist, s->spat_filter, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, res_dist_pic->w[0], res_dist_pic->h[0]);
     
     if(index==0)
     {
@@ -390,7 +404,6 @@ static int extract(VmafFeatureExtractor *fex,
 	double adm_score, adm_score_num, adm_score_den;
     double ssim_score;
 
-    // TODO: update to funque VIF
     err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0);
     if (err) return err;
 
@@ -419,79 +432,19 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",
                                 ssim_score, index);
 
-    
-    //add motion score and it's score
-    //add ssim and it's scores
-
-    // if (!s->debug) return err;
-    //Update the below for VIF
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif", score, index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_num", score_num, index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_den", score_den, index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_num_scale0", scores[0], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_den_scale0", scores[1], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_num_scale1", scores[2], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_den_scale1", scores[3], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_num_scale2", scores[4], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_den_scale2", scores[5], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_num_scale3", scores[6], index);
-
-    // err |= vmaf_feature_collector_append_with_dict(feature_collector,
-    //         s->feature_name_dict, "vif_den_scale3", scores[7], index);
-    
-    //add adm and it's scores
-    //add motion score and it's score
-    //add ssim and it's scores
-
-    ref_pic->w[0] = r_temp_w;
-    ref_pic->h[0] = r_temp_h;
-    ref_pic->stride[0] = ref_pic->stride[0]*2;
-    ref_pic->data[0] = r_temp_data;
-    dist_pic->w[0] = d_temp_w;
-    dist_pic->h[0] = d_temp_h;
-    dist_pic->stride[0] = dist_pic->stride[0]*2;
-    dist_pic->data[0] = d_temp_data;
-    s->float_stride = t_float_stride;
-    s->ref_dwt2out.width = t_ref_dwt2out_width;
-    s->ref_dwt2out.height = t_ref_dwt2out_height;
-    s->dist_dwt2out.width = t_dist_dwt2out_width;
-    s->dist_dwt2out.height = t_dist_dwt2out_height;
-    s->ref_dwt2out_vif.width = t_ref_dwt2out_vif_width;
-    s->ref_dwt2out_vif.height = t_ref_dwt2out_vif_height;
-    s->dist_dwt2out_vif.width = t_dist_dwt2out_vif_width;
-    s->dist_dwt2out_vif.height = t_dist_dwt2out_vif_height;
-
-    free(ref_down_scaled);
-    free(dist_down_scaled);
     return err;
 }
 
 static int close(VmafFeatureExtractor *fex)
 {
     FunqueState *s = fex->priv;
+    if (s->res_ref_pic.data[0]) aligned_free(s->res_ref_pic.data[0]);
+    if (s->res_dist_pic.data[0]) aligned_free(s->res_dist_pic.data[0]);
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
-    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
     if (s->spat_filter) aligned_free(s->spat_filter);
+    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
+    
 
     for(unsigned i=0; i<4; i++)
     {
