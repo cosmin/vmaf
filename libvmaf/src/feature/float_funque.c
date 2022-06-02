@@ -51,6 +51,9 @@ typedef struct FunqueState {
 
     dwt2buffers ref_dwt2out_vif;
     dwt2buffers dist_dwt2out_vif;
+    //funque configurable parameters
+    bool enable_resize;
+    int vif_levels;
 
     //VIF extra variables
     double vif_enhn_gain_limit;
@@ -87,6 +90,25 @@ static const VmafOption options[] = {
         .default_val.b = false,
     },
     {
+        .name = "enable_resize",
+        .alias = "rsz",
+        .help = "Enable resize for funque",
+        .offset = offsetof(FunqueState, enable_resize),
+        .type = VMAF_OPT_TYPE_BOOL,
+        .default_val.b = true,
+    },
+    {
+        .name = "vif_levels",
+        .alias = "vifl",
+        .help = "Number of levels in VIF",
+        .offset = offsetof(FunqueState, vif_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_VIF_LEVELS,
+        .min = 0,
+        .max = 4,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+    {
         .name = "vif_enhn_gain_limit",
         .alias = "egl",
         .help = "enhancement gain imposed on vif, must be >= 1.0, "
@@ -109,13 +131,6 @@ static const VmafOption options[] = {
         .min = 0.1,
         .max = 4.0,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
-    },
-        {
-        .name = "debug",
-        .help = "debug mode: enable additional output",
-        .offset = offsetof(FunqueState, debug),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
     },
     {
         .name = "adm_enhn_gain_limit",
@@ -162,14 +177,6 @@ static const VmafOption options[] = {
         .max = 9,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
-
-    {
-        .name = "debug",
-        .help = "debug mode: enable additional output",
-        .offset = offsetof(FunqueState, debug),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
-    },
     {
         .name = "motion_force_zero",
         .alias = "force_0",
@@ -212,6 +219,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     (void)bpc;
 
     FunqueState *s = fex->priv;
+    s->feature_name_dict =
+        vmaf_feature_name_dict_from_provided_features(fex->provided_features,
+                fex->options, s);
+    if (!s->feature_name_dict) goto fail;
+
     s->float_stride = ALIGN_CEIL(w * sizeof(float));
     s->ref = aligned_malloc(s->float_stride * h, 32);
     if (!s->ref) goto fail;
@@ -255,11 +267,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     } else {
         s->max_db = INFINITY;
     }
-
-    s->feature_name_dict =
-        vmaf_feature_name_dict_from_provided_features(fex->provided_features,
-                fex->options, s);
-    if (!s->feature_name_dict) goto fail;
 
     return 0;
 
@@ -412,7 +419,7 @@ static int extract(VmafFeatureExtractor *fex,
     //add motion score and it's score
     //add ssim and it's scores
 
-    if (!s->debug) return err;
+    // if (!s->debug) return err;
     //Update the below for VIF
     // err |= vmaf_feature_collector_append_with_dict(feature_collector,
     //         s->feature_name_dict, "vif", score, index);
