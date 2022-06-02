@@ -155,8 +155,8 @@ void integral_image_adm_sums(float *x, int k, int stride, float *mx, int width, 
 void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2buffers dlm_add)
 {
   float eps = 1e-30;
-  size_t width = ref.width[0];
-  size_t height = ref.height[0];
+  size_t width = ref.width;
+  size_t height = ref.height;
   int i, j, k, index;
 
   float *psi_ref = (float *)calloc(width * height, sizeof(float));

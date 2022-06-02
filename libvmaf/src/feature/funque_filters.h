@@ -19,8 +19,8 @@
 
 typedef struct dwt2buffers {
     float *bands[4];
-    int width[4];
-    int height[4];
+    int width;
+    int height;
 }dwt2buffers;
 
 void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int height);

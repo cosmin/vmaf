@@ -236,28 +236,32 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->spat_filter = aligned_malloc(s->float_stride * h, 32);
     if (!s->spat_filter) goto fail;
 
+    s->ref_dwt2out.width = (int) w/2;
+    s->ref_dwt2out.height = (int) h/2;
+    s->dist_dwt2out.width = (int) w/2;
+    s->dist_dwt2out.height = (int) h/2;
     for(unsigned i=0; i<4; i++)
     {
         s->ref_dwt2out.bands[i] = aligned_malloc(s->float_stride * h/4, 32);
         if (!s->ref_dwt2out.bands[i]) goto fail;
-        s->ref_dwt2out.width[i] = (int) w/2;
-        s->ref_dwt2out.height[i] = (int) h/2;
+        
         s->dist_dwt2out.bands[i] = aligned_malloc(s->float_stride * h/4, 32);
         if (!s->dist_dwt2out.bands[i]) goto fail;
-        s->dist_dwt2out.width[i] = (int) w/2;
-        s->dist_dwt2out.height[i] = (int) h/2;
+
     }
+
+    s->ref_dwt2out_vif.width = (int) w/4;
+    s->ref_dwt2out_vif.height = (int) h/4;
+    s->dist_dwt2out_vif.width = (int) w/4;
+    s->dist_dwt2out_vif.height = (int) h/4;
 
     for(unsigned i=0; i<4; i++)
     {
         s->ref_dwt2out_vif.bands[i] = aligned_malloc(s->float_stride * h/16, 32);
         if (!s->ref_dwt2out_vif.bands[i]) goto fail;
-        s->ref_dwt2out_vif.width[i] = (int) w/4;
-        s->ref_dwt2out_vif.height[i] = (int) h/4;
+        
         s->dist_dwt2out_vif.bands[i] = aligned_malloc(s->float_stride * h/16, 32);
         if (!s->dist_dwt2out_vif.bands[i]) goto fail;
-        s->dist_dwt2out_vif.width[i] = (int) w/4;
-        s->dist_dwt2out_vif.height[i] = (int) h/4;
     }
 
     const unsigned peak = (1 << bpc) - 1;
@@ -315,14 +319,14 @@ static int extract(VmafFeatureExtractor *fex,
     int d_temp_h = dist_pic->h[0];
     void *d_temp_data = dist_pic->data[0];
     size_t t_float_stride = s->float_stride;
-    int t_ref_dwt2out_width = s->ref_dwt2out.width[0];
-    int t_ref_dwt2out_height = s->ref_dwt2out.height[0];
-    int t_dist_dwt2out_width = s->dist_dwt2out.width[0];
-    int t_dist_dwt2out_height = s->dist_dwt2out.height[0];
-    int t_ref_dwt2out_vif_width = s->ref_dwt2out_vif.width[0];
-    int t_ref_dwt2out_vif_height = s->ref_dwt2out_vif.height[0];
-    int t_dist_dwt2out_vif_width = s->dist_dwt2out_vif.width[0];
-    int t_dist_dwt2out_vif_height = s->dist_dwt2out_vif.height[0];
+    int t_ref_dwt2out_width = s->ref_dwt2out.width;
+    int t_ref_dwt2out_height = s->ref_dwt2out.height;
+    int t_dist_dwt2out_width = s->dist_dwt2out.width;
+    int t_dist_dwt2out_height = s->dist_dwt2out.height;
+    int t_ref_dwt2out_vif_width = s->ref_dwt2out_vif.width;
+    int t_ref_dwt2out_vif_height = s->ref_dwt2out_vif.height;
+    int t_dist_dwt2out_vif_width = s->dist_dwt2out_vif.width;
+    int t_dist_dwt2out_vif_height = s->dist_dwt2out_vif.height;
 
     resize(ref_pic->data[0], ref_down_scaled, ref_pic->w[0], ref_pic->h[0], (int)(ref_pic->w[0]/2), (int)(ref_pic->h[0]/2));
     resize(dist_pic->data[0], dist_down_scaled, dist_pic->w[0], dist_pic->h[0], (int)(dist_pic->w[0]/2), (int)(dist_pic->h[0]/2));
@@ -336,14 +340,14 @@ static int extract(VmafFeatureExtractor *fex,
     dist_pic->stride[0] = dist_pic->stride[0]/2;
     dist_pic->data[0] = dist_down_scaled;
     s->float_stride = t_float_stride/2;
-    s->ref_dwt2out.width[0] = (t_ref_dwt2out_width + 1)/2;
-    s->ref_dwt2out.height[0] = (t_ref_dwt2out_height + 1)/2;
-    s->dist_dwt2out.width[0] = (t_dist_dwt2out_width + 1)/2;
-    s->dist_dwt2out.height[0] = (t_dist_dwt2out_height  + 1)/2;
-    s->ref_dwt2out_vif.width[0] = (t_ref_dwt2out_vif_width + 1)/2;
-    s->ref_dwt2out_vif.height[0] = (t_ref_dwt2out_vif_height + 1)/2;
-    s->dist_dwt2out_vif.width[0] = (t_dist_dwt2out_vif_width + 1)/2;
-    s->dist_dwt2out_vif.height[0] = (t_dist_dwt2out_vif_height + 1)/2;
+    s->ref_dwt2out.width = (t_ref_dwt2out_width + 1)/2;
+    s->ref_dwt2out.height = (t_ref_dwt2out_height + 1)/2;
+    s->dist_dwt2out.width = (t_dist_dwt2out_width + 1)/2;
+    s->dist_dwt2out.height = (t_dist_dwt2out_height  + 1)/2;
+    s->ref_dwt2out_vif.width = (t_ref_dwt2out_vif_width + 1)/2;
+    s->ref_dwt2out_vif.height = (t_ref_dwt2out_vif_height + 1)/2;
+    s->dist_dwt2out_vif.width = (t_dist_dwt2out_vif_width + 1)/2;
+    s->dist_dwt2out_vif.height = (t_dist_dwt2out_vif_height + 1)/2;
     
     picture_copy(s->ref, s->float_stride, ref_pic, 0, ref_pic->bpc);
     picture_copy(s->dist, s->float_stride, dist_pic, 0, dist_pic->bpc);
@@ -364,17 +368,17 @@ static int extract(VmafFeatureExtractor *fex,
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(float));
         
         if (err) return err;
     }
     else{
         double motion_score;
         err |= compute_motion(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                                s->ref_dwt2out.width[0], s->ref_dwt2out.height[0], 
+                                s->ref_dwt2out.width, s->ref_dwt2out.height, 
                                 s->float_stride/2, s->float_stride/2, &motion_score);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width[0] * s->ref_dwt2out.height[0] * sizeof(float));
+                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(float));
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
 
@@ -387,13 +391,13 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score;
 
     // TODO: update to funque VIF
-    err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width[0], s->ref_dwt2out.height[0],&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0);
+    err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0);
     if (err) return err;
 
-    funque_dwt2(s->ref_dwt2out.bands[0], &s->ref_dwt2out_vif, s->float_stride/4, s->ref_dwt2out.width[0], s->ref_dwt2out.height[0]);
-    funque_dwt2(s->dist_dwt2out.bands[0], &s->dist_dwt2out_vif, s->float_stride/4, s->dist_dwt2out.width[0], s->dist_dwt2out.height[0]);
+    funque_dwt2(s->ref_dwt2out.bands[0], &s->ref_dwt2out_vif, s->float_stride/4, s->ref_dwt2out.width, s->ref_dwt2out.height);
+    funque_dwt2(s->dist_dwt2out.bands[0], &s->dist_dwt2out_vif, s->float_stride/4, s->dist_dwt2out.width, s->dist_dwt2out.height);
 
-    err = compute_vif_funque(s->ref_dwt2out_vif.bands[0], s->dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width[0], s->ref_dwt2out_vif.height[0], &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0);
+    err = compute_vif_funque(s->ref_dwt2out_vif.bands[0], s->dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0);
     if (err) return err;
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
@@ -404,7 +408,7 @@ static int extract(VmafFeatureExtractor *fex,
             s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
             vif_score_1, index);
 			
-	err = compute_adm_funque(s->ref_dwt2out, s->dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->ref_dwt2out.width[0], s->ref_dwt2out.height[0], 0.2);
+	err = compute_adm_funque(s->ref_dwt2out, s->dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->ref_dwt2out.width, s->ref_dwt2out.height, 0.2);
     if (err) return err;
 	err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
                                 adm_score, index);
@@ -467,14 +471,14 @@ static int extract(VmafFeatureExtractor *fex,
     dist_pic->stride[0] = dist_pic->stride[0]*2;
     dist_pic->data[0] = d_temp_data;
     s->float_stride = t_float_stride;
-    s->ref_dwt2out.width[0] = t_ref_dwt2out_width;
-    s->ref_dwt2out.height[0] = t_ref_dwt2out_height;
-    s->dist_dwt2out.width[0] = t_dist_dwt2out_width;
-    s->dist_dwt2out.height[0] = t_dist_dwt2out_height;
-    s->ref_dwt2out_vif.width[0] = t_ref_dwt2out_vif_width;
-    s->ref_dwt2out_vif.height[0] = t_ref_dwt2out_vif_height;
-    s->dist_dwt2out_vif.width[0] = t_dist_dwt2out_vif_width;
-    s->dist_dwt2out_vif.height[0] = t_dist_dwt2out_vif_height;
+    s->ref_dwt2out.width = t_ref_dwt2out_width;
+    s->ref_dwt2out.height = t_ref_dwt2out_height;
+    s->dist_dwt2out.width = t_dist_dwt2out_width;
+    s->dist_dwt2out.height = t_dist_dwt2out_height;
+    s->ref_dwt2out_vif.width = t_ref_dwt2out_vif_width;
+    s->ref_dwt2out_vif.height = t_ref_dwt2out_vif_height;
+    s->dist_dwt2out_vif.width = t_dist_dwt2out_vif_width;
+    s->dist_dwt2out_vif.height = t_dist_dwt2out_vif_height;
 
     free(ref_down_scaled);
     free(dist_down_scaled);
