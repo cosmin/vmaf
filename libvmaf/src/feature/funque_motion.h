@@ -15,7 +15,5 @@
  *     limitations under the License.
  *
  */
-#include <stddef.h>
 
-void picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
-                  int offset, unsigned bpc);
+int compute_motion_funque(const double *ref, const double *dis, int w, int h, int ref_stride, int dis_stride, double *score);

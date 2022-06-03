@@ -32,8 +32,8 @@
 #include "funque_vif_options.h"
 #include "funque_adm.h"
 #include "funque_adm_options.h"
-#include "motion.h"
-#include "picture_copy.h"
+#include "funque_motion.h"
+#include "funque_picture_copy.h"
 #include "funque_ssim.h"
 #include "resizer.h"
 
@@ -364,8 +364,8 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
     
-    picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
-    picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
+    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
+    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
 
     //TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int) pow(2, res_ref_pic->bpc) - 1;
@@ -389,7 +389,7 @@ static int extract(VmafFeatureExtractor *fex,
     }
     else{
         double motion_score;
-        err |= compute_motion(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
+        err |= compute_motion_funque(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
                                 s->ref_dwt2out.width, s->ref_dwt2out.height, 
                                 s->float_stride/2, s->float_stride/2, &motion_score);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 

@@ -282,7 +282,9 @@ endif
 if funque_float_enabled
     libvmaf_feature_sources += [
         feature_src_dir + 'float_funque.c',
+        feature_src_dir + 'funque_picture_copy.c',
         feature_src_dir + 'funque_filters.c',
+        feature_src_dir + 'funque_motion.c',
         feature_src_dir + 'funque_vif.c',
         feature_src_dir + 'funque_adm.c',
         feature_src_dir + 'funque_ssim.c',

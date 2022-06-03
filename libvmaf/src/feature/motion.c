@@ -41,44 +41,44 @@
 /**
  * Note: img1_stride and img2_stride are in terms of (sizeof(double) bytes)
  */
-double vmaf_image_sad_c(const double *img1, const double *img2, int width, int height, int img1_stride, int img2_stride)
+float vmaf_image_sad_c(const float *img1, const float *img2, int width, int height, int img1_stride, int img2_stride)
 {
-    double accum = (double)0.0;
+    float accum = (float)0.0;
 
     for (int i = 0; i < height; ++i) {
-                double accum_line = (double)0.0;
+                float accum_line = (float)0.0;
         for (int j = 0; j < width; ++j) {
-            double img1px = img1[i * img1_stride + j];
-            double img2px = img2[i * img2_stride + j];
+            float img1px = img1[i * img1_stride + j];
+            float img2px = img2[i * img2_stride + j];
 
             accum_line += fabs(img1px - img2px);
         }
                 accum += accum_line;
     }
 
-    return (double) (accum / (width * height));
+    return (float) (accum / (width * height));
 }
 
 /**
  * Note: ref_stride and dis_stride are in terms of bytes
  */
-int compute_motion(const double *ref, const double *dis, int w, int h, int ref_stride, int dis_stride, double *score)
+int compute_motion(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score)
 {
 
-    if (ref_stride % sizeof(double) != 0)
+    if (ref_stride % sizeof(float) != 0)
     {
-        printf("error: ref_stride %% sizeof(double) != 0, ref_stride = %d, sizeof(double) = %zu.\n", ref_stride, sizeof(double));
+        printf("error: ref_stride %% sizeof(float) != 0, ref_stride = %d, sizeof(float) = %zu.\n", ref_stride, sizeof(float));
         fflush(stdout);
         goto fail;
     }
-    if (dis_stride % sizeof(double) != 0)
+    if (dis_stride % sizeof(float) != 0)
     {
-        printf("error: dis_stride %% sizeof(double) != 0, dis_stride = %d, sizeof(double) = %zu.\n", dis_stride, sizeof(double));
+        printf("error: dis_stride %% sizeof(float) != 0, dis_stride = %d, sizeof(float) = %zu.\n", dis_stride, sizeof(float));
         fflush(stdout);
         goto fail;
     }
-    // stride for vmaf_image_sad_c is in terms of (sizeof(double) bytes)
-    *score = vmaf_image_sad_c(ref, dis, w, h, ref_stride / sizeof(double), dis_stride / sizeof(double));
+    // stride for vmaf_image_sad_c is in terms of (sizeof(float) bytes)
+    *score = vmaf_image_sad_c(ref, dis, w, h, ref_stride / sizeof(float), dis_stride / sizeof(float));
 
     return 0;
 
