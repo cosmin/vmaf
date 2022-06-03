@@ -15,17 +15,27 @@
  *     limitations under the License.
  *
  */
+#ifndef FILTERS_FUNQUE_H_
+#define FILTERS_FUNQUE_H_
 #include <stddef.h>
 
+#include "config.h"
+
+#if FUNQUE_DOUBLE_DTYPE
+typedef double funque_dtype;
+#else
+typedef float funque_dtype;
+#endif
 typedef struct dwt2buffers {
-    double *bands[4];
+    funque_dtype *bands[4];
     int width;
     int height;
 }dwt2buffers;
 
-void spatial_filter(double *src, double *dst, ptrdiff_t dst_stride, int width, int height);
+void spatial_filter(funque_dtype *src, funque_dtype *dst, ptrdiff_t dst_stride, int width, int height);
 
-void funque_dwt2(double *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+void funque_dwt2(funque_dtype *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
-void normalize_bitdepth(double *src, double *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
+void normalize_bitdepth(funque_dtype *src, funque_dtype *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
 
+#endif /* FILTERS_FUNQUE_H_ */

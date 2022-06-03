@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include "funque_filters.h"
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, double K1, double K2)
+int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, funque_dtype K1, funque_dtype K2)
 {
     //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
     int ret = 1;
@@ -33,28 +33,28 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     size_t width = ref->width;
     size_t height = ref->height;
 
-    double C1 = (K1 * max_val) * (K1 * max_val);
-    double C2 = (K2 * max_val) * (K2 * max_val);
+    funque_dtype C1 = (K1 * max_val) * (K1 * max_val);
+    funque_dtype C2 = (K2 * max_val) * (K2 * max_val);
 
-   /* double* mu_x = (double*)calloc(width * height, sizeof(double));
-    double* mu_y = (double*)calloc(width * height, sizeof(double));*/
-    double* var_x = (double*)calloc(width * height, sizeof(double));
-    double* var_y = (double*)calloc(width * height, sizeof(double));
-    double* cov_xy = (double*)calloc(width * height, sizeof(double));
+   /* funque_dtype* mu_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
+    funque_dtype* mu_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));*/
+    funque_dtype* var_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
+    funque_dtype* var_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
+    funque_dtype* cov_xy = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
 
     // memset(var_x, 0, width * height * sizeof(var_x[0]));
     // memset(var_y, 0, width * height * sizeof(var_y[0]));
     // memset(cov_xy, 0, width * height * sizeof(cov_xy[0]));
 
-    //double* l = (double*)malloc(sizeof(double) * width * height);
-    //double* cs = (double*)malloc(sizeof(double) * width * height);
-    double* map = (double*)malloc(sizeof(double) * width * height);
+    //funque_dtype* l = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
+    //funque_dtype* cs = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
+    funque_dtype* map = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
 
     int win_dim = 1 << n_levels;
     int win_size = (1 << (n_levels << 1));
 
-    double mx, my, l, cs;
-    double sum = 0;
+    funque_dtype mx, my, l, cs;
+    funque_dtype sum = 0;
     int index = 0;
     for (int i = 0; i < height; i++)
     {
@@ -84,14 +84,14 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
         }
     }
 
-    double ssim_mean = sum / (height * width);
-    double sd = 0;
+    funque_dtype ssim_mean = sum / (height * width);
+    funque_dtype sd = 0;
     for (int i = 0; i < (height * width); i++)
     {
         sd += pow(map[i] - ssim_mean, 2);
     }
 
-    double ssim_std = sqrt(sd / (height * width));
+    funque_dtype ssim_std = sqrt(sd / (height * width));
 
     /*if (strcmp(pool, "mean"))
         return ssim_mean;

@@ -41,23 +41,24 @@
 
 #include <emmintrin.h>
 
-static double rcp_s(double x)
+static funque_dtype rcp_s(funque_dtype x)
 {
-    double xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
+    funque_dtype xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
     return xi + xi * (1.0f - x * xi);
 }
+
+static inline funque_dtype clip(funque_dtype value, funque_dtype low, funque_dtype high)
+{
+  return value < low ? low : (value > high ? high : value);
+}
+
 #define DIVS(n, d) ((n) * rcp_s(d))
 #endif //ADM_OPT_RECIP_DIVISION
 #else
 #define DIVS(n, d) ((n) / (d))
 #endif // __SSE2__
 
-static inline double clip(double value, double low, double high)
-{
-  return value < low ? low : (value > high ? high : value);
-}
-
-void reflect_pad_adm(const double *src, size_t width, size_t height, int reflect, double *dest)
+void reflect_pad_adm(const funque_dtype *src, size_t width, size_t height, int reflect, funque_dtype *dest)
 {
   size_t out_width = width + 2 * reflect;
   size_t out_height = height + 2 * reflect;
@@ -75,7 +76,7 @@ void reflect_pad_adm(const double *src, size_t width, size_t height, int reflect
     }
 
     // Copy corresponding row values from input image
-    memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(double) * width);
+    memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(funque_dtype) * width);
 
     // Mirror last `reflect` columns
     for (j = 0; j != reflect; j++)
@@ -85,12 +86,12 @@ void reflect_pad_adm(const double *src, size_t width, size_t height, int reflect
   // Mirror first `reflect` and last `reflect` rows
   for (i = 0; i != reflect; i++)
   {
-    memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(double) * out_width);
-    memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(double) * out_width);
+    memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(funque_dtype) * out_width);
+    memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(funque_dtype) * out_width);
   }
 }
 
-void integral_image_adm(const double *src, size_t width, size_t height, double *sum)
+void integral_image_adm(const funque_dtype *src, size_t width, size_t height, funque_dtype *sum)
 {
   int i, j;
   for (i = 0; i < (height + 1); ++i)
@@ -100,7 +101,7 @@ void integral_image_adm(const double *src, size_t width, size_t height, double *
       if (i == 0 || j == 0)
         continue;
 
-      double val = src[(i - 1) * width + (j - 1)];
+      funque_dtype val = src[(i - 1) * width + (j - 1)];
 
       if (i >= 1)
       {
@@ -122,21 +123,21 @@ void integral_image_adm(const double *src, size_t width, size_t height, double *
   }
 }
 
-void integral_image_adm_sums(double *x, int k, int stride, double *mx, int width, int height)
+void integral_image_adm_sums(funque_dtype *x, int k, int stride, funque_dtype *mx, int width, int height)
 {
-  double *x_pad, *int_x;
+  funque_dtype *x_pad, *int_x;
   int i, j;
 
   int x_reflect = (int)((k - stride) / 2);
 
-  x_pad = (double *)malloc(sizeof(double) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+  x_pad = (funque_dtype *)malloc(sizeof(funque_dtype) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
   
   reflect_pad_adm(x, width, height, x_reflect, x_pad);
   
   size_t r_width = width + (2 * x_reflect);
   size_t r_height = height + (2 * x_reflect);
 
-  int_x = (double *)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+  int_x = (funque_dtype *)calloc((r_width + 1) * (r_height + 1), sizeof(funque_dtype));
 
   integral_image_adm(x_pad, r_width, r_height, int_x);
 
@@ -153,27 +154,32 @@ void integral_image_adm_sums(double *x, int k, int stride, double *mx, int width
 
 void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2buffers dlm_add)
 {
-  double eps = 1e-30;
+  funque_dtype eps = 1e-30;
   size_t width = ref.width;
   size_t height = ref.height;
   int i, j, k, index;
 
-  double *psi_ref = (double *)calloc(width * height, sizeof(double));
-  double *psi_dist = (double *)calloc(width * height, sizeof(double));
-  double *psi_diff = (double *)calloc(width * height, sizeof(double));
-  double *var_k;
-  double val;
-  double tmp_val;
+  funque_dtype *psi_ref = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
+  funque_dtype *psi_dist = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
+  funque_dtype *psi_diff = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
+  funque_dtype *var_k;
+  funque_dtype val;
+  funque_dtype tmp_val;
 
   for (i = 0; i < height; i++)
   {
     for (j = 0; j < width; j++)
     {
       index = i * width + j;
+#if FUNQUE_DOUBLE_DTYPE
       psi_ref[index] = atan(ref.bands[2][index] / (ref.bands[1][index] + eps)) + M_PI * ((ref.bands[1][index] <= 0));
       psi_dist[index] = atan(dist.bands[2][index] / (dist.bands[1][index] + eps)) + M_PI * ((dist.bands[1][index] <= 0));
       psi_diff[index] = 180 * fabs(psi_ref[index] - psi_dist[index]) / M_PI;
-
+#else
+      psi_ref[index] = atanf(ref.bands[2][index] / (ref.bands[1][index] + eps)) + M_PI * ((ref.bands[1][index] <= 0)); // ? ref.bands[1][index] : 0);
+      psi_dist[index] = atanf(dist.bands[2][index] / (dist.bands[1][index] + eps)) + M_PI * ((dist.bands[1][index] <= 0)); // ? dist.bands[1][index] : 0);
+      psi_diff[index] = 180 * fabsf(psi_ref[index] - psi_dist[index]) / M_PI;
+#endif
       for (k = 1; k < 4; k++)
       {
         val = clip(dist.bands[k][index] / (ref.bands[k][index] + eps), 0.0, 1.0);
@@ -192,12 +198,12 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
 void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers masked_pyr, size_t width, size_t height)
 {
   int i, k, j, index;
-  double val=0;
-  double *masking_signal, *masking_threshold, *integral_sum;
+  funque_dtype val=0;
+  funque_dtype *masking_signal, *masking_threshold, *integral_sum;
 
-  masking_signal = (double *)calloc(width * height, sizeof(double));
-  masking_threshold = (double *)calloc(width * height, sizeof(double));
-  integral_sum = (double *)calloc(width * height, sizeof(double));
+  masking_signal = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
+  masking_threshold = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
+  integral_sum = (funque_dtype *)calloc(width * height, sizeof(funque_dtype));
 
   for (k = 1; k < 4; k++)
       {
@@ -244,7 +250,7 @@ void dlm_contrast_mask(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers masked_
   dlm_contrast_mask_one_way(pyr_2, pyr_1, masked_pyr_2, width, height);
 }
 
-int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, double border_size)
+int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size)
 {
   // TODO: assert len(pyr_ref) == len(pyr_dist),'Pyramids must be of equal height.'
 
@@ -252,22 +258,22 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
   int i, j, k, index;
   double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
   dwt2buffers dlm_rest, dlm_add, pyr_rest, pyr_add;
-  dlm_rest.bands[0] = (double *)malloc(sizeof(double) * height * width);
-  dlm_rest.bands[1] = (double *)malloc(sizeof(double) * height * width);
-  dlm_rest.bands[2] = (double *)malloc(sizeof(double) * height * width);
-  dlm_rest.bands[3] = (double *)malloc(sizeof(double) * height * width);
-  dlm_add.bands[0] = (double *)malloc(sizeof(double) * height * width);
-  dlm_add.bands[1] = (double *)malloc(sizeof(double) * height * width);
-  dlm_add.bands[2] = (double *)malloc(sizeof(double) * height * width);
-  dlm_add.bands[3] = (double *)malloc(sizeof(double) * height * width);
-  pyr_rest.bands[0] = (double *)malloc(sizeof(double) * height * width);
-  pyr_rest.bands[1] = (double *)malloc(sizeof(double) * height * width);
-  pyr_rest.bands[2] = (double *)malloc(sizeof(double) * height * width);
-  pyr_rest.bands[3] = (double *)malloc(sizeof(double) * height * width);
-  pyr_add.bands[0] = (double *)malloc(sizeof(double) * height * width);
-  pyr_add.bands[1] = (double *)malloc(sizeof(double) * height * width);
-  pyr_add.bands[2] = (double *)malloc(sizeof(double) * height * width);
-  pyr_add.bands[3] = (double *)malloc(sizeof(double) * height * width);
+  dlm_rest.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_rest.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_rest.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_rest.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_add.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_add.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_add.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  dlm_add.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_rest.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_rest.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_rest.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_rest.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_add.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_add.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_add.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
+  pyr_add.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
 
   dlm_decouple(ref, dist, dlm_rest, dlm_add);
 
