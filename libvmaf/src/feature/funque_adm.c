@@ -46,17 +46,16 @@ static double rcp_s(double x)
     double xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
     return xi + xi * (1.0f - x * xi);
 }
-
-static inline double clip(double value, double low, double high)
-{
-  return value < low ? low : (value > high ? high : value);
-}
-
 #define DIVS(n, d) ((n) * rcp_s(d))
 #endif //ADM_OPT_RECIP_DIVISION
 #else
 #define DIVS(n, d) ((n) / (d))
 #endif // __SSE2__
+
+static inline double clip(double value, double low, double high)
+{
+  return value < low ? low : (value > high ? high : value);
+}
 
 void reflect_pad_adm(const double *src, size_t width, size_t height, int reflect, double *dest)
 {
@@ -171,9 +170,9 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
     for (j = 0; j < width; j++)
     {
       index = i * width + j;
-      psi_ref[index] = atanf(ref.bands[2][index] / (ref.bands[1][index] + eps)) + M_PI * ((ref.bands[1][index] <= 0)); // ? ref.bands[1][index] : 0);
-      psi_dist[index] = atanf(dist.bands[2][index] / (dist.bands[1][index] + eps)) + M_PI * ((dist.bands[1][index] <= 0)); // ? dist.bands[1][index] : 0);
-      psi_diff[index] = 180 * fabsf(psi_ref[index] - psi_dist[index]) / M_PI;
+      psi_ref[index] = atan(ref.bands[2][index] / (ref.bands[1][index] + eps)) + M_PI * ((ref.bands[1][index] <= 0));
+      psi_dist[index] = atan(dist.bands[2][index] / (dist.bands[1][index] + eps)) + M_PI * ((dist.bands[1][index] <= 0));
+      psi_diff[index] = 180 * fabs(psi_ref[index] - psi_dist[index]) / M_PI;
 
       for (k = 1; k < 4; k++)
       {
@@ -209,9 +208,7 @@ void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers
 				{
 					index = i * width + j;
 					masking_signal[index] = fabsf(pyr_2.bands[k][index]);
-          // printf("%f,", masking_signal[index]);
 				}
-        // printf("\n");
 			}
 		  integral_image_adm_sums(masking_signal, 3, 1, integral_sum, width, height);
 			for (i = 0; i < height; i++)
@@ -289,10 +286,8 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
       {
         index = i * width + j;
         num_sum += powf(pyr_rest.bands[k][index], 3.0);
-        // printf("%f,", pyr_rest.bands[k][index]);
         den_sum += powf(fabsf(ref.bands[k][index]), 3.0);
       }
-      // printf("\n");
     }
     den_band += powf(den_sum, 1.0 / 3.0);
     num_band += powf(num_sum, 1.0 / 3.0);
@@ -303,6 +298,7 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
   *adm_score_num = num_band + 1e-4;
   *adm_score_den = den_band + 1e-4;
   *adm_score = (*adm_score_num) / (*adm_score_den);
+  
   for(int i=0; i<4; i++)
   {
     free(dlm_rest.bands[i]);
@@ -311,9 +307,7 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
     free(pyr_add.bands[i]);
   }
   
-  
   int ret = 0;
-  
   return ret;
 
 }
