@@ -54,7 +54,7 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     int win_size = (1 << (n_levels << 1));
 
     funque_dtype mx, my, l, cs;
-    funque_dtype sum = 0;
+    double sum = 0;
     int index = 0;
     for (int i = 0; i < height; i++)
     {
