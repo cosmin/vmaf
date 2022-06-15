@@ -244,12 +244,6 @@ void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers
 	  free(integral_sum);
 }
 
-void dlm_contrast_mask(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers masked_pyr_1, dwt2buffers masked_pyr_2, size_t width, size_t height)
-{
-  dlm_contrast_mask_one_way(pyr_1, pyr_2, masked_pyr_1, width, height);
-  dlm_contrast_mask_one_way(pyr_2, pyr_1, masked_pyr_2, width, height);
-}
-
 int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size)
 {
   // TODO: assert len(pyr_ref) == len(pyr_dist),'Pyramids must be of equal height.'
@@ -257,7 +251,7 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
   int n_levels = 1;
   int i, j, k, index;
   double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
-  dwt2buffers dlm_rest, dlm_add, pyr_rest, pyr_add;
+  dwt2buffers dlm_rest, dlm_add, pyr_rest;
   dlm_rest.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
   dlm_rest.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
   dlm_rest.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
@@ -270,14 +264,10 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
   pyr_rest.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
   pyr_rest.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
   pyr_rest.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
-  pyr_add.bands[0] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
-  pyr_add.bands[1] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
-  pyr_add.bands[2] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
-  pyr_add.bands[3] = (funque_dtype *)malloc(sizeof(funque_dtype) * height * width);
 
   dlm_decouple(ref, dist, dlm_rest, dlm_add);
 
-  dlm_contrast_mask(dlm_rest, dlm_add, pyr_rest, pyr_add, width, height);
+  dlm_contrast_mask_one_way(dlm_rest, dlm_add, pyr_rest, width, height);
 
   int border_h = (border_size * height);
   int border_w = (border_size * width);
@@ -310,7 +300,6 @@ int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, dou
     free(dlm_rest.bands[i]);
     free(dlm_add.bands[i]);
     free(pyr_rest.bands[i]);
-    free(pyr_add.bands[i]);
   }
   
   int ret = 0;
