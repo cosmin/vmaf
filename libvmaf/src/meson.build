@@ -2,6 +2,7 @@ vmaf_soversion = vmaf_api_version_major
 
 # Build libvmaf
 feature_src_dir = './feature/'
+funque_feature_dir = './feature/third_party/funque/'
 src_dir = './'
 model_dir = '../../model/'
 
@@ -104,6 +105,8 @@ funque_double_dtype = get_option('funque_double_dtype') == true
 cdata.set10('FUNQUE_DOUBLE_DTYPE', funque_double_dtype)
 funque_float_enabled = get_option('enable_float_funque') == true
 cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
+funque_fixed_enabled = get_option('enable_fixed_funque') == true
+cdata.set10('FUNQUE_FIXED_FEATURES', funque_fixed_enabled)
 
 if built_in_models_enabled
     xxd = find_program('xxd', required: false)
@@ -168,6 +171,7 @@ libvmaf_include = include_directories(
     src_dir,
     feature_src_dir,
     feature_src_dir + 'common',
+    funque_feature_dir,
 )
 
 libvmaf_cpu_static_lib = static_library(
@@ -293,6 +297,20 @@ if funque_float_enabled
         feature_src_dir + 'resizer.c'
     ]
 endif
+
+if funque_fixed_enabled
+    libvmaf_feature_sources += [
+        funque_feature_dir + 'integer_funque.c',
+        funque_feature_dir + 'integer_picture_copy.c',
+        funque_feature_dir + 'integer_filters.c',
+        funque_feature_dir + 'integer_motion.c',
+        funque_feature_dir + 'integer_vif.c',
+        funque_feature_dir + 'integer_adm.c',
+        funque_feature_dir + 'integer_ssim.c',
+        feature_src_dir + 'resizer.c'
+    ]
+endif
+
 libvmaf_feature_static_lib = static_library(
     'libvmaf_feature',
     libvmaf_feature_sources,
