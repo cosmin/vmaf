@@ -37,7 +37,7 @@ typedef int32_t spat_fil_accum_dtype;
 typedef int16_t spat_fil_output_dtype;
 
 #define DWT2_COEFF_UPSHIFT 15
-#define DWT2_INTER_SHIFT   15  //Shifting to make the intermediate have Q16 format
+#define DWT2_INTER_SHIFT   16  //Shifting to make the intermediate have Q16 format
 #define DWT2_OUT_SHIFT     15  //Shifting to make the output have Q16 format
 typedef int16_t dwt2_dtype;
 typedef int32_t dwt2_accum_dtype;
@@ -55,6 +55,8 @@ typedef struct i_dwt2buffers {
     int width;
     int height;
 }i_dwt2buffers;
+
+void float_frame_to_csv(float *ptr_frm, int width, int height, char *filename);
 
 void fix2float(void *fixed_src, funque_dtype *float_dst, int width, int height, int downshift_factor, int fixed_sz);
 

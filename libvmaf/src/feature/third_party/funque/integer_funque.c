@@ -58,6 +58,8 @@ typedef struct FunqueState {
 
     dwt2buffers ref_dwt2out_vif;
     dwt2buffers dist_dwt2out_vif;
+    i_dwt2buffers i_ref_dwt2out_vif;
+    i_dwt2buffers i_dist_dwt2out_vif;
     //funque configurable parameters
     bool enable_resize;
     int vif_levels;
@@ -400,19 +402,23 @@ static int extract(VmafFeatureExtractor *fex,
     spatial_filter_fixed(res_dist_pic->data[0], spat_out_dist, res_dist_pic->w[0], res_dist_pic->h[0]);
     funque_dwt2_fixed(spat_out_dist, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    fix2float(spat_out_ref, f_spat_out_ref, res_ref_pic->w[0], res_ref_pic->h[0], 
-                        (2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT), sizeof(spat_fil_output_dtype));
-    fix2float(spat_out_dist, f_spat_out_dist, res_dist_pic->w[0], res_dist_pic->h[0], 
-                        (2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT), sizeof(spat_fil_output_dtype));
+    for(int i=0; i<4; i++)
+    {
+        fix2float(s->i_ref_dwt2out.bands[i], s->ref_dwt2out.bands[i], s->ref_dwt2out.width, s->ref_dwt2out.height,
+                    (2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT+2*DWT2_COEFF_UPSHIFT-DWT2_INTER_SHIFT-DWT2_OUT_SHIFT),
+                    sizeof(dwt2_dtype));
+        normalize_bitdepth(s->ref_dwt2out.bands[i], s->ref_dwt2out.bands[i], bitdepth_pow2, sizeof(funque_dtype)*s->ref_dwt2out.width,
+                        s->ref_dwt2out.width, s->ref_dwt2out.height);
 
-    normalize_bitdepth(f_spat_out_ref, s->spat_filter, bitdepth_pow2, sizeof(funque_dtype)*res_ref_pic->w[0],
-                        res_ref_pic->w[0], res_ref_pic->h[0]);
+        
+        fix2float(s->i_dist_dwt2out.bands[i], s->dist_dwt2out.bands[i], s->dist_dwt2out.width, s->dist_dwt2out.height,
+                    (2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT+2*DWT2_COEFF_UPSHIFT-DWT2_INTER_SHIFT-DWT2_OUT_SHIFT),
+                    sizeof(dwt2_dtype));
+        normalize_bitdepth(s->dist_dwt2out.bands[i], s->dist_dwt2out.bands[i], bitdepth_pow2, sizeof(funque_dtype)*s->dist_dwt2out.width,
+                        s->dist_dwt2out.width, s->dist_dwt2out.height);
+        
+    }
 
-    funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, res_ref_pic->w[0], res_ref_pic->h[0]);
-    normalize_bitdepth(f_spat_out_dist, s->spat_filter, bitdepth_pow2, sizeof(funque_dtype)*res_dist_pic->w[0],
-                        res_dist_pic->w[0], res_dist_pic->h[0]);
-    funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, res_dist_pic->w[0], res_dist_pic->h[0]);
-    
     if(index==0)
     {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
