@@ -18,6 +18,7 @@
 #ifndef FILTERS_FUNQUE_H_
 #define FILTERS_FUNQUE_H_
 #include <stddef.h>
+#include <stdint.h>
 
 #include "config.h"
 
@@ -26,15 +27,44 @@ typedef double funque_dtype;
 #else
 typedef float funque_dtype;
 #endif
+
+#define SPAT_FILTER_COEFF_SHIFT 16
+#define SPAT_FILTER_INTER_SHIFT  9
+#define SPAT_FILTER_OUT_SHIFT   16
+typedef int16_t spat_fil_coeff_dtype;
+typedef int16_t spat_fil_inter_dtype;
+typedef int32_t spat_fil_accum_dtype;
+typedef int16_t spat_fil_output_dtype;
+
+#define DWT2_COEFF_UPSHIFT 15
+#define DWT2_INTER_SHIFT   15  //Shifting to make the intermediate have Q16 format
+#define DWT2_OUT_SHIFT     15  //Shifting to make the output have Q16 format
+typedef int16_t dwt2_dtype;
+typedef int32_t dwt2_accum_dtype;
+typedef int16_t dwt2_inter_dtype;
+
+
 typedef struct dwt2buffers {
     funque_dtype *bands[4];
     int width;
     int height;
 }dwt2buffers;
 
+typedef struct i_dwt2buffers {
+    dwt2_dtype *bands[4];
+    int width;
+    int height;
+}i_dwt2buffers;
+
+void fix2float(void *fixed_src, funque_dtype *float_dst, int width, int height, int downshift_factor, int fixed_sz);
+
 void spatial_filter(funque_dtype *src, funque_dtype *dst, ptrdiff_t dst_stride, int width, int height);
 
+void spatial_filter_fixed(uint8_t *src, spat_fil_output_dtype *dst, int width, int height);
+
 void funque_dwt2(funque_dtype *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+
+void funque_dwt2_fixed(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
 void normalize_bitdepth(funque_dtype *src, funque_dtype *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
 
