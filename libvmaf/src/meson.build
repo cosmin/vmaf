@@ -2,6 +2,7 @@ vmaf_soversion = vmaf_api_version_major
 
 # Build libvmaf
 feature_src_dir = './feature/'
+funque_feature_dir = './feature/third_party/funque/'
 src_dir = './'
 model_dir = '../../model/'
 
@@ -168,6 +169,7 @@ libvmaf_include = include_directories(
     src_dir,
     feature_src_dir,
     feature_src_dir + 'common',
+    funque_feature_dir,
 )
 
 libvmaf_cpu_static_lib = static_library(
@@ -283,14 +285,14 @@ endif
 
 if funque_float_enabled
     libvmaf_feature_sources += [
-        feature_src_dir + 'float_funque.c',
-        feature_src_dir + 'funque_picture_copy.c',
-        feature_src_dir + 'funque_filters.c',
-        feature_src_dir + 'funque_motion.c',
-        feature_src_dir + 'funque_vif.c',
-        feature_src_dir + 'funque_adm.c',
-        feature_src_dir + 'funque_ssim.c',
-        feature_src_dir + 'resizer.c'
+        funque_feature_dir + 'float_funque.c',
+        funque_feature_dir + 'funque_picture_copy.c',
+        funque_feature_dir + 'funque_filters.c',
+        funque_feature_dir + 'funque_motion.c',
+        funque_feature_dir + 'funque_vif.c',
+        funque_feature_dir + 'funque_adm.c',
+        funque_feature_dir + 'funque_ssim.c',
+        funque_feature_dir + 'resizer.c'
     ]
 endif
 libvmaf_feature_static_lib = static_library(
