@@ -28,7 +28,7 @@
 /**
  * Note: img1_stride and img2_stride are in terms of (sizeof(double) bytes)
  */
-funque_dtype funque_image_sad_c(const funque_dtype *img1, const funque_dtype *img2, int width, int height, int img1_stride, int img2_stride)
+funque_dtype funque_image_mad_c(const funque_dtype *img1, const funque_dtype *img2, int width, int height, int img1_stride, int img2_stride)
 {
     funque_dtype accum = (funque_dtype)0.0;
 
@@ -64,8 +64,8 @@ int compute_motion_funque(const funque_dtype *ref, const funque_dtype *dis, int 
         fflush(stdout);
         goto fail;
     }
-    // stride for funque_image_sad_c is in terms of (sizeof(funque_dtype) bytes)
-    *score = funque_image_sad_c(ref, dis, w, h, ref_stride / sizeof(funque_dtype), dis_stride / sizeof(funque_dtype));
+    // stride for funque_image_mad_c is in terms of (sizeof(funque_dtype) bytes)
+    *score = funque_image_mad_c(ref, dis, w, h, ref_stride / sizeof(funque_dtype), dis_stride / sizeof(funque_dtype));
 
     return 0;
 
