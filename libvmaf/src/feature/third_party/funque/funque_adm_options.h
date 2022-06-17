@@ -51,6 +51,4 @@ enum ADM_CSF_MODE
 /* Default contrast sensitivity function */
 #define DEFAULT_ADM_CSF_MODE (ADM_CSF_MODE_WATSON97)
 
-#define DEFAULT_VIF_LEVELS 2
-
 #endif /* ADM_OPTIONS_H_ */

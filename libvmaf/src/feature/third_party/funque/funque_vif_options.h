@@ -40,4 +40,8 @@
  * standard deviation by 2 and expand the kernel length accordingly. */
 #define DEFAULT_VIF_KERNELSCALE (1.0)
 
+#define DEFAULT_VIF_LEVELS 2
+#define MAX_VIF_LEVELS 4
+#define MIN_VIF_LEVELS 2
+
 #endif /* VIF_OPTIONS_H_ */

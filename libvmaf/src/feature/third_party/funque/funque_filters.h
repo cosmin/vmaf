@@ -31,6 +31,8 @@ void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
+void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int width, int height);
+
 void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride, int width, int height);
 
 #endif /* FILTERS_FUNQUE_H_ */
