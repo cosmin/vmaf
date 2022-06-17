@@ -25,7 +25,7 @@
 #define ADM_BORDER_FACTOR (0.1)
 
 /* Whether to use a trigonometry-free method for comparing angles. */
-#define ADM_OPT_AVOID_ATAN
+//#define ADM_OPT_AVOID_ATAN
 
 /* Whether to save intermediate results to files. */
 /* #define ADM_OPT_DEBUG_DUMP */
@@ -43,7 +43,8 @@
 #define DEFAULT_ADM_REF_DISPLAY_HEIGHT (1080)
 
 /* Contrast sensitivity function */
-enum ADM_CSF_MODE {
+enum ADM_CSF_MODE
+{
     ADM_CSF_MODE_WATSON97 = 0,
 };
 
