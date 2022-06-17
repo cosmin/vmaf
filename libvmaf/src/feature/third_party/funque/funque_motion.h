@@ -16,4 +16,4 @@
  *
  */
 
-int compute_motion_funque(const funque_dtype *ref, const funque_dtype *dis, int w, int h, int ref_stride, int dis_stride, double *score);
+int compute_motion_funque(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score);

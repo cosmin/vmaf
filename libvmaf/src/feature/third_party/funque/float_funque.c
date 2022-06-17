@@ -40,16 +40,16 @@
 
 typedef struct FunqueState {
     size_t float_stride;
-    funque_dtype *ref;
-    funque_dtype *dist;
-    funque_dtype *prev_ref_dwt2;
+    float *ref;
+    float *dist;
+    float *prev_ref_dwt2;
     bool debug;
     
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
     size_t float_dwt2_stride;
-    funque_dtype *spat_filter;
+    float *spat_filter;
     dwt2buffers ref_dwt2out;
     dwt2buffers dist_dwt2out;
 
@@ -235,7 +235,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h+1)>>1;
     }
 
-    s->float_stride = ALIGN_CEIL(w * sizeof(funque_dtype));
+    s->float_stride = ALIGN_CEIL(w * sizeof(float));
 
     if(s->enable_resize)
     {
@@ -265,7 +265,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->dist_dwt2out_vif.width = (int) (s->dist_dwt2out.width+1)/2;
     s->dist_dwt2out_vif.height = (int) (s->dist_dwt2out.height+1)/2;
 
-    s->float_dwt2_stride = ALIGN_CEIL(s->ref_dwt2out.width * sizeof(funque_dtype));
+    s->float_dwt2_stride = ALIGN_CEIL(s->ref_dwt2out.width * sizeof(float));
     s->prev_ref_dwt2 = aligned_malloc(s->float_dwt2_stride * s->ref_dwt2out.height, 32);
     if (!s->prev_ref_dwt2) goto fail;
 
@@ -384,7 +384,7 @@ static int extract(VmafFeatureExtractor *fex,
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(funque_dtype));
+                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(float));
         
         if (err) return err;
     }
@@ -394,7 +394,7 @@ static int extract(VmafFeatureExtractor *fex,
                                 s->ref_dwt2out.width, s->ref_dwt2out.height, 
                                 s->float_stride/2, s->float_stride/2, &motion_score);
         memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(funque_dtype));
+                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(float));
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
 
@@ -428,7 +428,7 @@ static int extract(VmafFeatureExtractor *fex,
 	err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
                                 adm_score, index);
 
-    err = compute_ssim_funque(&s->ref_dwt2out, &s->dist_dwt2out, &ssim_score, 1, (funque_dtype)0.01, (funque_dtype)0.03);
+    err = compute_ssim_funque(&s->ref_dwt2out, &s->dist_dwt2out, &ssim_score, 1, (float)0.01, (float)0.03);
     if (err) return err;
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",

@@ -17,5 +17,5 @@
  */
 #include <stddef.h>
 
-void funque_picture_copy(funque_dtype *dst, ptrdiff_t dst_stride, VmafPicture *src,
+void funque_picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
                   int offset, unsigned bpc);

@@ -22,23 +22,23 @@
 
 #include "funque_filters.h"
 
-void funque_picture_copy_hbd(funque_dtype *dst, ptrdiff_t dst_stride,
+void funque_picture_copy_hbd(float *dst, ptrdiff_t dst_stride,
                       VmafPicture *src, int offset, float scaler)
 {
-    funque_dtype *float_data = dst;
+    float *float_data = dst;
     uint16_t *data = src->data[0];
 
     for (unsigned i = 0; i < src->h[0]; i++) {
         for (unsigned j = 0; j < src->w[0]; j++) {
-            float_data[j] = (funque_dtype) data[j] / scaler + offset;
+            float_data[j] = (float) data[j] / scaler + offset;
         }
-        float_data += dst_stride / sizeof(funque_dtype);
+        float_data += dst_stride / sizeof(float);
         data += src->stride[0] / 2;
     }
     return;
 }
 
-void funque_picture_copy(funque_dtype *dst, ptrdiff_t dst_stride,
+void funque_picture_copy(float *dst, ptrdiff_t dst_stride,
                   VmafPicture *src, int offset, unsigned bpc)
 {
     if (bpc == 10)
@@ -48,14 +48,14 @@ void funque_picture_copy(funque_dtype *dst, ptrdiff_t dst_stride,
     else if (bpc == 16)
         return funque_picture_copy_hbd(dst, dst_stride, src, offset, 256.0f);
 
-    funque_dtype *float_data = dst;
+    float *float_data = dst;
     uint8_t *data = src->data[0];
 
     for (unsigned i = 0; i < src->h[0]; i++) {
         for (unsigned j = 0; j < src->w[0]; j++) {
-            float_data[j] = (funque_dtype) data[j] + offset;
+            float_data[j] = (float) data[j] + offset;
         }
-        float_data += dst_stride / sizeof(funque_dtype);
+        float_data += dst_stride / sizeof(float);
         data += src->stride[0];
     }
 
