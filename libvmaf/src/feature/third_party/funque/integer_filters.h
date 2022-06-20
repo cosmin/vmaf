@@ -43,6 +43,9 @@ typedef int16_t dwt2_dtype;
 typedef int32_t dwt2_accum_dtype;
 typedef int16_t dwt2_inter_dtype;
 
+typedef int32_t motion_interaccum_dtype;
+typedef int64_t motion_accum_dtype;
+
 
 typedef struct dwt2buffers {
     funque_dtype *bands[4];

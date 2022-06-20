@@ -16,4 +16,4 @@
  *
  */
 
-int compute_motion_funque(const funque_dtype *ref, const funque_dtype *dis, int w, int h, int ref_stride, int dis_stride, double *score);
+int integer_compute_motion_funque(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score);
