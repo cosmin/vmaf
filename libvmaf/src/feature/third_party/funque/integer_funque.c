@@ -42,7 +42,7 @@ typedef struct FunqueState {
     size_t float_stride;
     funque_dtype *ref;
     funque_dtype *dist;
-    funque_dtype *prev_ref_dwt2;
+    dwt2_dtype *i_prev_ref_dwt2;
     bool debug;
     
     VmafPicture res_ref_pic;
@@ -281,9 +281,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     s->float_dwt2_stride = ALIGN_CEIL(s->ref_dwt2out.width * sizeof(funque_dtype));
     s->i_dwt2_stride = ALIGN_CEIL(s->i_ref_dwt2out.width * sizeof(dwt2_dtype));
-    s->prev_ref_dwt2 = aligned_malloc(s->float_dwt2_stride * s->ref_dwt2out.height, 32);
-    if (!s->prev_ref_dwt2) goto fail;
-
+    s->i_prev_ref_dwt2 = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
+    if (!s->i_prev_ref_dwt2) goto fail;
     //Memory allocation for dwt output bands
     for(unsigned i=0; i<4; i++)
     {
@@ -334,7 +333,7 @@ fail:
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
     if (s->spat_filter) aligned_free(s->spat_filter);
-    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
+    if (s->i_prev_ref_dwt2) aligned_free(s->i_prev_ref_dwt2);
 
     for(unsigned i=0; i<4; i++)
     {
@@ -438,18 +437,22 @@ static int extract(VmafFeatureExtractor *fex,
     {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
-        memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(funque_dtype));
+        memcpy(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0], 
+                    s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
         
         if (err) return err;
     }
     else{
         double motion_score;
-        err |= compute_motion_funque(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                                s->ref_dwt2out.width, s->ref_dwt2out.height, 
-                                s->float_stride/2, s->float_stride/2, &motion_score);
-        memcpy(s->prev_ref_dwt2, s->ref_dwt2out.bands[0], 
-                    s->ref_dwt2out.width * s->ref_dwt2out.height * sizeof(funque_dtype));
+
+        err |= integer_compute_motion_funque(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0], 
+                                    s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+                                    s->i_dwt2_stride, s->i_dwt2_stride, 
+                                    pow(2, 2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT+2*DWT2_COEFF_UPSHIFT-DWT2_INTER_SHIFT-DWT2_OUT_SHIFT)*bitdepth_pow2,
+                                    &motion_score);
+        memcpy(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0], 
+                    s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
+        
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                 s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
 
@@ -514,8 +517,7 @@ static int close(VmafFeatureExtractor *fex)
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
     if (s->spat_filter) aligned_free(s->spat_filter);
-    if (s->prev_ref_dwt2) aligned_free(s->prev_ref_dwt2);
-    
+    if (s->i_prev_ref_dwt2) aligned_free(s->i_prev_ref_dwt2);
 
     for(unsigned i=0; i<4; i++)
     {
