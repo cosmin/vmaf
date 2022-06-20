@@ -25,6 +25,8 @@
 #include "integer_filters.h"
 #include "common/macros.h"
 
+#define FIXED_POINT 0
+
 //increase storage value to remove calculation to get log value
 uint16_t log_values[65537];
 int64_t shift_k = (int64_t)pow(2,15);
@@ -312,21 +314,17 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     int k_norm = k * k;
 
     funque_dtype* x_pad, * y_pad;
-    dwt2_dtype* x_pad_t, y_pad_t;
 
     int x_reflect = (int)((kh - stride) / 2);
     int y_reflect = (int)((kw - stride) / 2);
 
     x_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
     y_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
-    x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
-    y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
 
     reflect_pad(x, width, height, x_reflect, x_pad);
     reflect_pad(y, width, height, y_reflect, y_pad);
     
-    reflect_pad_int(x_t, width, height, x_reflect, x_pad_t);
-    reflect_pad_int(y_t, width, height, y_reflect, y_pad_t);
+  
 
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
@@ -352,7 +350,23 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
 
     compute_metrics(int_1_x, int_1_y, int_2_x, int_2_y, int_xy, r_width + 1, r_height + 1, kh, kw, k_norm, var_x, var_y, cov_xy);
 
-     int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
+    size_t s_width = (r_width + 1) - kw;
+    size_t s_height = (r_height + 1) - kh;
+
+    double* g = (double*)malloc(sizeof(double) * s_width * s_height);
+    double* sv_sq = (double*)malloc(sizeof(double) * s_width * s_height);
+    
+    double exp = (double)1e-10;
+    int index;
+
+#if FIXED_POINT
+    dwt2_dtype* x_pad_t, y_pad_t;
+    x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+    y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
+    reflect_pad_int(x_t, width, height, x_reflect, x_pad_t);
+    reflect_pad_int(y_t, width, height, y_reflect, y_pad_t);
+
+    int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
     int64_t* var_x_t, * var_y_t, * cov_xy_t;
 
     int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
@@ -373,26 +387,20 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
 
     compute_metrics_int(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
 
-    size_t s_width = (r_width + 1) - kw;
-    size_t s_height = (r_height + 1) - kh;
-
-    double* g = (double*)malloc(sizeof(double) * s_width * s_height);
-    double* sv_sq = (double*)malloc(sizeof(double) * s_width * s_height);
     int64_t* g_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
     int64_t* sv_sq_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
-    double exp = (double)1e-10;
-    int index;
     int64_t pending_shifts = shift_k*shift_k*shift_d*shift_d;
     int64_t exp_t = exp *shift_d*shift_d; // Q32
     int64_t sigma_nsq_t = sigma_nsq * shift_d * shift_d; //Q32
 
-    *score = (double)0;
-    *score_num = (double)0;
-    *score_den = (double)0;
-
     double score_t = (double)0;
     double score_num_t = (double)0;
     double score_den_t = (double)0;
+#endif
+
+    *score = (double)0;
+    *score_num = (double)0;
+    *score_den = (double)0;
 
     for (unsigned int i = 0; i < s_height; i++)
     {
@@ -402,6 +410,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             g[index] = cov_xy[index] / (var_x[index] + exp);
             sv_sq[index] = var_y[index] - g[index] * cov_xy[index];
             
+#if FIXED_POINT
             //Q32 = Q62/Q30
             var_x_t[index] = var_x_t[index] >> 30;
 
@@ -413,6 +422,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
 
             //Q62 = Q62 - Q30*Q32
             sv_sq_t[index] = var_y_t[index] - g_t[index] * cov_xy_t[index];
+#endif
 
             if (var_x[index] < exp)
             {
@@ -436,6 +446,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             if (sv_sq[index] < exp)
                 sv_sq[index] = exp;
 
+#if FIXED_POINT
             if (var_x_t[index] < exp_t)
             {
                 g_t[index] = 0;
@@ -514,6 +525,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             // uint16_t log_in_den_2 = get_best_16bitsfixed_opt_64((uint64_t)sigma_nsq_t, &y2); 
             // score_den_t += (log_values[log_in_den_1] + (-y1 - 30) * 2048) - (log_values[log_in_den_2] + (-y2 - 32) * 2048);
             //--------------------------------------------------------------------------------------------------
+#endif
 
             double num_sum = (double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq);
             // double num_int = (double)num_t/(double)(pow(2, 30));
@@ -522,14 +534,16 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             *score_num += (log((double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)));
             *score_den += (log((double)1 + var_x[index] / sigma_nsq));
 
-           
             // int tmpr = 0;
         }
     }
     double add_exp = 1e-4*s_height*s_width;
     *score += ((*score_num + add_exp) / (*score_den + add_exp));
+
+#if FIXED_POINT
     score_t += ((((double)score_num_t/2048) + add_exp)/(((double)score_den_t/2048)+add_exp));
     // score_t += (score_num_t + add_exp) / (score_den_t + add_exp);
+#endif
 
 
     free(x_pad);
@@ -545,6 +559,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     free(g);
     free(sv_sq);
 
+#if FIXED_POINT
     free(int_1_x_t);
     free(int_1_y_t);
     free(int_2_x_t);
@@ -555,6 +570,8 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     free(cov_xy_t);
     free(g_t);
     free(sv_sq_t);
+#endif
+
     ret = 0;
 
     return ret;
