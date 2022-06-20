@@ -118,6 +118,31 @@ void reflect_pad(const funque_dtype* src, size_t width, size_t height, int refle
     }
 }
 
+void reflect_pad_int(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
+{
+    size_t out_width = width + 2 * reflect;
+    size_t out_height = height + 2 * reflect;
+
+    for (size_t i = reflect; i != (out_height - reflect); i++) {
+
+        for (int j = 0; j != reflect; j++)
+        {
+            dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
+        }
+
+        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(dwt2_dtype*) * width);
+
+        for (int j = 0; j != reflect; j++)
+            dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
+    }
+
+    for (int i = 0; i != reflect; i++) {
+        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(dwt2_dtype*) * out_width);
+        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(dwt2_dtype*) * out_width);
+    }
+}
+
+
 void integral_image_2(const funque_dtype* src1, const funque_dtype* src2, size_t width, size_t height, double* sum)
 {
     for (size_t i = 0; i < (height + 1); ++i)
@@ -180,7 +205,8 @@ void integral_image(const funque_dtype* src, size_t width, size_t height, double
 
 void integral_image_2_int(const funque_dtype* src1, const funque_dtype* src2, size_t width, size_t height, int64_t* sum)
 {
-     int64_t shift = (int64_t)pow(2,31);
+    //  int64_t shift = (int64_t)pow(2,31);
+      int64_t shift = 1;
     int64_t shift_0 = 1;
 
     for (size_t i = 0; i < (height + 1); ++i)
@@ -202,7 +228,8 @@ void integral_image_2_int(const funque_dtype* src1, const funque_dtype* src2, si
 
 void integral_image_int(const funque_dtype* src, size_t width, size_t height, int64_t* sum)
 {
-    int64_t shift = (int64_t)pow(2,31);
+    // int64_t shift = (int64_t)pow(2,31);
+     int64_t shift = 1;
     int64_t shift_0 = 1;
 
     for (size_t i = 0; i < (height + 1); ++i)
@@ -276,7 +303,7 @@ void compute_metrics(const double* int_1_x, const double* int_1_y, const double*
 }
 
 
-int compute_vif_funque(const funque_dtype* x, const funque_dtype* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq)
+int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funque_dtype* x, const funque_dtype* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq)
 {
     int ret = 1;
 
@@ -285,15 +312,22 @@ int compute_vif_funque(const funque_dtype* x, const funque_dtype* y, size_t widt
     int k_norm = k * k;
 
     funque_dtype* x_pad, * y_pad;
+    dwt2_dtype* x_pad_t, y_pad_t;
 
     int x_reflect = (int)((kh - stride) / 2);
     int y_reflect = (int)((kw - stride) / 2);
 
     x_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
     y_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
+    x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+    y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
 
     reflect_pad(x, width, height, x_reflect, x_pad);
     reflect_pad(y, width, height, y_reflect, y_pad);
+    
+    reflect_pad_int(x_t, width, height, x_reflect, x_pad_t);
+    reflect_pad_int(y_t, width, height, y_reflect, y_pad_t);
+
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
 
