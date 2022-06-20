@@ -410,10 +410,10 @@ static int extract(VmafFeatureExtractor *fex,
     funque_dtype *f_spat_out_ref  = aligned_malloc(res_ref_pic->w[0]*sizeof(funque_dtype)*res_ref_pic->h[0], 32);
     funque_dtype *f_spat_out_dist = aligned_malloc(res_dist_pic->w[0]*sizeof(funque_dtype)*res_dist_pic->h[0], 32);
 
-    spatial_filter_fixed(res_ref_pic->data[0], spat_out_ref, res_ref_pic->w[0], res_ref_pic->h[0]);
-    funque_dwt2_fixed(spat_out_ref, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    spatial_filter_fixed(res_dist_pic->data[0], spat_out_dist, res_dist_pic->w[0], res_dist_pic->h[0]);
-    funque_dwt2_fixed(spat_out_dist, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    integer_spatial_filter(res_ref_pic->data[0], spat_out_ref, res_ref_pic->w[0], res_ref_pic->h[0]);
+    integer_funque_dwt2(spat_out_ref, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+    integer_spatial_filter(res_dist_pic->data[0], spat_out_dist, res_dist_pic->w[0], res_dist_pic->h[0]);
+    integer_funque_dwt2(spat_out_dist, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     for(int i=0; i<4; i++)
     {
@@ -462,8 +462,8 @@ static int extract(VmafFeatureExtractor *fex,
     err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0);
     if (err) return err;
 
-    funque_dwt2_fixed(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, s->i_dwt2_stride/2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
-    funque_dwt2_fixed(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, s->i_dwt2_stride/2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
+    integer_funque_dwt2(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, s->i_dwt2_stride/2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
+    integer_funque_dwt2(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, s->i_dwt2_stride/2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
     for(int i=0; i<1; i++)
     {
         fix2float(s->i_ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height,

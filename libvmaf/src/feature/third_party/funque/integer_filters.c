@@ -115,7 +115,7 @@ void float_frame_to_csv(float *ptr_frm, int width, int height, char *filename)
     fclose(fptr);
 }
 
-void funque_dwt2_fixed(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
     // Filter coefficients are upshifted by DWT2_COEFF_UPSHIFT
@@ -291,7 +291,7 @@ void fix2float(void *fixed_src, funque_dtype *float_dst, int width, int height, 
         printf("Unsupported input datatype for fixed to float concersion");
 }
 
-void spatial_filter_fixed(uint8_t *src, spat_fil_output_dtype *dst, int width, int height)
+void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width, int height)
 {
     funque_dtype filter_coeffs[21] = {-0.01373464, -0.01608515, -0.01890698, -0.02215702, -0.02546262, 
                              -0.02742965, -0.02361034, -0.00100996,  0.07137023,  0.22121922,
