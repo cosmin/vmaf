@@ -360,7 +360,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     int index;
 
 #if FIXED_POINT
-    dwt2_dtype* x_pad_t, y_pad_t;
+    dwt2_dtype* x_pad_t, *y_pad_t;
     x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
     y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
     reflect_pad_int(x_t, width, height, x_reflect, x_pad_t);
