@@ -298,6 +298,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->max_db = INFINITY;
     }
 
+
     return 0;
 
 fail:
