@@ -25,7 +25,7 @@
 #include "integer_filters.h"
 #include "common/macros.h"
 
-#define FIXED_POINT 0
+#define FIXED_POINT 1
 #define VIF_KNORM_SHIFT 12
 
 #define GET_VARIABLE_NAME(Variable) (#Variable)
@@ -317,9 +317,10 @@ void dump_data_int(char* file_name, int64_t* data, int width, int height)
 }
 
 //Qn input, Qn output (with overflow, hence stored in Q64)
-void integral_image_2_int(const dwt2_dtype* src1, const dwt2_dtype* src2, size_t width, size_t height, double* tmp_sum, int64_t* sum, int64_t shift_val)
+// void integral_image_2_int(const dwt2_dtype* src1, const dwt2_dtype* src2, size_t width, size_t height, double* tmp_sum, int64_t* sum, int64_t shift_val)
+void integral_image_2_int(const dwt2_dtype* src1, const dwt2_dtype* src2, size_t width, size_t height, int64_t* sum)
 {
-     double st1 = 0, st2 = 0, st3 = 0;
+    //  double st1 = 0, st2 = 0, st3 = 0;
 
     for (size_t i = 0; i < (height + 1); ++i)
     {
@@ -330,22 +331,23 @@ void integral_image_2_int(const dwt2_dtype* src1, const dwt2_dtype* src2, size_t
 
             int64_t val = (((int64_t)src1[(i - 1) * width + (j - 1)] * (int64_t)src2[(i - 1) * width + (j - 1)]));
             val += (int64_t)(sum[(i - 1) * (width + 1) + j]);
-            st1 = (double)val/((double)shift_val*shift_val);
+            // st1 = (double)val/((double)shift_val*shift_val);
             val += (int64_t)(sum[i * (width + 1) + j - 1]) - (int64_t)(sum[(i - 1) * (width + 1) + j - 1]);
-            st2 = (double)val/((double)shift_val*shift_val);
+            // st2 = (double)val/((double)shift_val*shift_val);
             sum[i * (width + 1) + j] = val;
-            st3 = (double)val/((double)shift_val*shift_val);
+            // st3 = (double)val/((double)shift_val*shift_val);
 
-            tmp_sum[i * (width + 1) + j] = (double)val/((double)shift_val*shift_val);
+            // tmp_sum[i * (width + 1) + j] = (double)val/((double)shift_val*shift_val);
 
-            int jtk = 0;
+            // int jtk = 0;
         }
     }
 
 }
 
 //Qn input, Qn output (with overflow, hence stored in Q64)
-void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, double* tmp_sum, int64_t* sum, int64_t shift_val)
+// void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, double* tmp_sum, int64_t* sum, int64_t shift_val)
+void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, int64_t* sum)
 {
     double st1, st2, st3;
     
@@ -359,15 +361,15 @@ void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, doub
             int64_t val = (int64_t)(src[(i - 1) * width + (j - 1)]); //64 to avoid overflow  
 
             val += (int64_t)(sum[(i - 1) * (width + 1) + j]);
-            st1 = (double)val/((double)shift_val);
+            // st1 = (double)val/((double)shift_val);
             val += (int64_t)(sum[i * (width + 1) + j - 1]) - (int64_t)(sum[(i - 1) * (width + 1) + j - 1]);
-            st2 = (double)val/((double)shift_val);
+            // st2 = (double)val/((double)shift_val);
             sum[i * (width + 1) + j] = val;
-            st3 = (double)val/((double)shift_val);
+            // st3 = (double)val/((double)shift_val);
 
-            tmp_sum[i * (width + 1) + j] = (double)val/((double)shift_val);
+            // tmp_sum[i * (width + 1) + j] = (double)val/((double)shift_val);
 
-            int jtk = 0;
+            // int jtk = 0;
 
               
         }
@@ -375,7 +377,8 @@ void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, doub
 }
 
 //Returns Q2n as output when Qn is input
-void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy, int64_t shift_val)
+// void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy, int64_t shift_val)
+void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, double* var_x, double* var_y, double* cov_xy, int64_t shift_val)
 {
     // assert(VIF_KNORM_SHIFT >= 12);
 
@@ -411,9 +414,13 @@ void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const i
             double vdy = ((double)(vy)/(double)(shift_val*shift_val))/kNorm;
             double cdxy = ((double)(cxy)/(double)(shift_val*shift_val))/kNorm;
 
-            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; // Divide by Q2n to get back float
-            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
-            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
+            var_x[i * (width - kw) + j] = vdx < 0 ? 0 : vdx; // Divide by Q2n to get back float
+            var_y[i * (width - kw) + j] = vdy < 0 ? 0 : vdy;
+            cov_xy[i * (width - kw) + j] = (vdx < 0 || vdy < 0) ? 0 : cdxy;
+
+            // var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; // Divide by Q2n to get back float
+            // var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
+            // cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
         }
     }
 }
@@ -550,14 +557,14 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     // dump_data_i_convert("reflect_int_convert.csv", x_pad_t, r_width, r_height, shift_val);
     // dump_data_d("reflect_float.csv", x_pad, r_width, r_height);
 
-    double* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
+    int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
     double* var_x_t, * var_y_t, * cov_xy_t;
 
-    int_1_x_t = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-    int_1_y_t = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-    int_2_x_t = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-    int_2_y_t = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-    int_xy_t = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+    int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
+    int_1_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
+    int_2_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
+    int_2_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
+    int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
     int64_t* t1 = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int64_t* t2 = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
@@ -565,11 +572,17 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     int64_t* t4 = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int64_t* t5 = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
-    integral_image_int(x_pad_t, r_width, r_height, int_1_x_t, t1, shift_val);
-    integral_image_int(y_pad_t, r_width, r_height, int_1_y_t, t2, shift_val);
-    integral_image_2_int(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t, t3, shift_val);
-    integral_image_2_int(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t, t4, shift_val);
-    integral_image_2_int(x_pad_t, y_pad_t, r_width, r_height, int_xy_t, t5, shift_val);
+    // integral_image_int(x_pad_t, r_width, r_height, int_1_x_t, t1, shift_val);
+    // integral_image_int(y_pad_t, r_width, r_height, int_1_y_t, t2, shift_val);
+    // integral_image_2_int(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t, t3, shift_val);
+    // integral_image_2_int(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t, t4, shift_val);
+    // integral_image_2_int(x_pad_t, y_pad_t, r_width, r_height, int_xy_t, t5, shift_val);
+
+    integral_image_int(x_pad_t, r_width, r_height, int_1_x_t);
+    integral_image_int(y_pad_t, r_width, r_height, int_1_y_t);
+    integral_image_2_int(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t);
+    integral_image_2_int(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t);
+    integral_image_2_int(x_pad_t, y_pad_t, r_width, r_height, int_xy_t);
 
     // dump_data("int_1x_float.csv", int_1_x, r_width+1, r_height+1);
     // dump_data_int("int_1x_int.csv", int_1_x_t, r_width+1, r_height+1);
@@ -580,7 +593,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     var_y_t = (double*)malloc(sizeof(double) * (r_width + 1 - kw) * (r_height + 1 - kh));
     cov_xy_t = (double*)malloc(sizeof(double) * (r_width + 1 - kw) * (r_height + 1 - kh));
 
-    compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
+    compute_metrics_int(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t, shift_val);
 
     double* g_t = (double*)malloc(sizeof(double) * s_width * s_height);
     double* sv_sq_t = (double*)malloc(sizeof(double) * s_width * s_height);
