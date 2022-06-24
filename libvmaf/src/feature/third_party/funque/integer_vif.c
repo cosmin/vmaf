@@ -378,7 +378,7 @@ void integral_image_int(const dwt2_dtype* src, size_t width, size_t height, int6
 
 //Returns Q2n as output when Qn is input
 // void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy, int64_t shift_val)
-void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, double* var_x, double* var_y, double* cov_xy, int64_t shift_val)
+void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy, int64_t shift_val)
 {
     // assert(VIF_KNORM_SHIFT >= 12);
 
@@ -408,19 +408,19 @@ void compute_metrics_int(const int64_t* int_1_x, const int64_t* int_1_y, const i
             vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - ((my * my)/kNorm);
             cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - ((mx * my)/kNorm);
 
-            double mdx =  ((double)(mx)/(double)(shift_val))/kNorm;
-            double mdy =  ((double)(my)/(double)(shift_val))/kNorm;
-            double vdx = ((double)(vx)/(double)(shift_val*shift_val))/kNorm;
-            double vdy = ((double)(vy)/(double)(shift_val*shift_val))/kNorm;
-            double cdxy = ((double)(cxy)/(double)(shift_val*shift_val))/kNorm;
+            // double mdx =  ((double)(mx)/(double)(shift_val))/kNorm;
+            // double mdy =  ((double)(my)/(double)(shift_val))/kNorm;
+            // double vdx = ((double)(vx)/(double)(shift_val*shift_val))/kNorm;
+            // double vdy = ((double)(vy)/(double)(shift_val*shift_val))/kNorm;
+            // double cdxy = ((double)(cxy)/(double)(shift_val*shift_val))/kNorm;
 
-            var_x[i * (width - kw) + j] = vdx < 0 ? 0 : vdx; // Divide by Q2n to get back float
-            var_y[i * (width - kw) + j] = vdy < 0 ? 0 : vdy;
-            cov_xy[i * (width - kw) + j] = (vdx < 0 || vdy < 0) ? 0 : cdxy;
+            // var_x[i * (width - kw) + j] = vdx < 0 ? 0 : vdx; // Divide by Q2n to get back float
+            // var_y[i * (width - kw) + j] = vdy < 0 ? 0 : vdy;
+            // cov_xy[i * (width - kw) + j] = (vdx < 0 || vdy < 0) ? 0 : cdxy;
 
-            // var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; // Divide by Q2n to get back float
-            // var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
-            // cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
+            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; // Divide by Q2n to get back float
+            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
+            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
         }
     }
 }
@@ -558,7 +558,7 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     // dump_data_d("reflect_float.csv", x_pad, r_width, r_height);
 
     int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
-    double* var_x_t, * var_y_t, * cov_xy_t;
+    int64_t* var_x_t, * var_y_t, * cov_xy_t;
 
     int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_1_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
@@ -589,16 +589,16 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
     // dump_data("int_2x_float.csv", int_2_x, r_width+1, r_height+1);
     // dump_data("int_2x_int.csv", int_2_x_t, r_width+1, r_height+1);
 
-    var_x_t = (double*)malloc(sizeof(double) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    var_y_t = (double*)malloc(sizeof(double) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    cov_xy_t = (double*)malloc(sizeof(double) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    var_x_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    var_y_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    cov_xy_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
 
     compute_metrics_int(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t, shift_val);
 
-    double* g_t = (double*)malloc(sizeof(double) * s_width * s_height);
-    double* sv_sq_t = (double*)malloc(sizeof(double) * s_width * s_height);
+    int64_t* g_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
+    int64_t* sv_sq_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
     // double pending_shifts = shift_val*shift_val; // Q2n
-    double exp_t = exp; // Q32
+    int64_t exp_t = exp*shift_val*shift_val; // Q32
     double sigma_nsq_t = sigma_nsq ; //Q32
 
     double score_t = (double)0;
@@ -619,8 +619,16 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             sv_sq[index] = var_y[index] - g[index] * cov_xy[index];
             
 #if FIXED_POINT
-            g_t[index] = cov_xy_t[index] / (var_x_t[index] + exp);
-            sv_sq_t[index] = var_y_t[index] - g_t[index] * cov_xy_t[index];
+            // g_t[index] = cov_xy_t[index] / (var_x_t[index] + exp * k_norm);
+            // sv_sq_t[index] = var_y_t[index] - g_t[index] * cov_xy_t[index];
+
+            int64_t g_t_num = cov_xy_t[index]/k_norm;
+            int64_t g_den = (var_x_t[index] + exp_t * k_norm)/k_norm;
+            // -ve,  var_x_t[index] + exp * k_norm) < 0 ||  cov_xy_t[index] < 0
+
+            
+            sv_sq_t[index] = var_y_t[index] - (g_t_num * cov_xy_t[index])/g_den;
+
             // double tmp = (double)var_x_t[index]/(double)(pending_shifts*pending_shifts);
             // //Q32 = Q62/Q30 [~Q27.98]
             // var_x_t[index] = var_x_t[index] >> 30;
@@ -660,21 +668,25 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
 #if FIXED_POINT
             if (var_x_t[index] < exp_t)
             {
-                g_t[index] = 0;
+                // g_t[index] = 0;
+                g_t_num = 0;
                 sv_sq_t[index] = var_y_t[index];
                 var_x_t[index] = 0;
             }
             
             if (var_y_t[index] < exp_t)
             {
-                g_t[index] = 0;
+                // g_t[index] = 0;
+                g_t_num = 0;
                 sv_sq_t[index] = 0;
             }
 
-            if (g_t[index] < 0)
+            // if (g_t[index] < 0)
+            if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
             {
                 sv_sq_t[index] = var_x_t[index];
-                g_t[index] = 0;
+                // g_t[index] = 0;
+                g_t_num = 0;
             }
 
             if (sv_sq_t[index] < exp)
@@ -737,8 +749,17 @@ int compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funqu
             // // score_den_t += (log_values[log_in_den_1] + (-y1 - 30) * 2048) - (log_values[log_in_den_2] + (-y2 - 32) * 2048);
             // //--------------------------------------------------------------------------------------------------
 
-            score_num_t += (log((double)1 + g_t[index] * g_t[index] * var_x_t[index] / (sv_sq_t[index] + sigma_nsq)));
-            score_den_t += (log((double)1 + var_x_t[index] / sigma_nsq));
+            double gd = ((double)g_t_num/((double)shift_val*shift_val))/ ((double)g_den / ((double)shift_val*shift_val));
+            double vard = (double)var_x_t[index]/((double)shift_val*shift_val*k_norm);
+            double svsqd = (double)sv_sq_t[index]/((double)shift_val*shift_val*k_norm);
+
+            score_num_t += (log((double)1 + gd*gd * vard / (svsqd + sigma_nsq)));
+            score_den_t += (log((double)1 + vard / sigma_nsq));
+
+
+// 1+((g*g*var_x)/(svsq+sigmansq)) ==log ((svsq+sigmansq)*g_den*g_den) + (g_num*g_num*var_x)) - log((svsq+sigmansq)*g_den*g_den) )
+            // score_num_t += (log((double)1 + g_t[index] * g_t[index] * var_x_t[index] / (sv_sq_t[index] + sigma_nsq)));
+            // score_den_t += (log((double)1 + var_x_t[index] / sigma_nsq));
 #endif
 
             double num_sum = (double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq);
