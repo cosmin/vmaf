@@ -21,93 +21,6 @@
 #include <stdlib.h>
 #include "integer_filters.h"
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, funque_dtype K1, funque_dtype K2)
-{
-    //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
-    int ret = 1;
-
-    *score = 0;
-
-    int n_levels = 1;
-
-    size_t width = ref->width;
-    size_t height = ref->height;
-
-    funque_dtype C1 = (K1 * max_val) * (K1 * max_val);
-    funque_dtype C2 = (K2 * max_val) * (K2 * max_val);
-
-   /* funque_dtype* mu_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
-    funque_dtype* mu_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));*/
-    funque_dtype* var_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
-    funque_dtype* var_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
-    funque_dtype* cov_xy = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
-
-    // memset(var_x, 0, width * height * sizeof(var_x[0]));
-    // memset(var_y, 0, width * height * sizeof(var_y[0]));
-    // memset(cov_xy, 0, width * height * sizeof(cov_xy[0]));
-
-    //funque_dtype* l = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-    //funque_dtype* cs = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-    funque_dtype* map = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-
-    int win_dim = 1 << n_levels;
-    int win_size = (1 << (n_levels << 1));
-
-    funque_dtype mx, my, l, cs;
-    double sum = 0;
-    int index = 0;
-    for (int i = 0; i < height; i++)
-    {
-        for (int j = 0; j < width; j++)
-        {
-            index = i * width + j;
-            mx = ref->bands[0][index] / win_dim;
-            my = dist->bands[0][index] / win_dim;
-
-            for (int k = 1; k < 4; k++)
-            {
-                var_x[index] += ref->bands[k][index] * ref->bands[k][index];
-                var_y[index] += dist->bands[k][index] * dist->bands[k][index];
-                cov_xy[index] += ref->bands[k][index] * dist->bands[k][index];
-            }
-
-            //TODO: Implemenet generic loop for n_levels > 1
-
-            var_x[index] /= win_size;
-            var_y[index] /= win_size;
-            cov_xy[index] /= win_size;
-
-            l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
-            cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-            map[index] = l * cs;
-            sum += (l * cs);
-        }
-    }
-
-    funque_dtype ssim_mean = sum / (height * width);
-    funque_dtype sd = 0;
-    for (int i = 0; i < (height * width); i++)
-    {
-        sd += pow(map[i] - ssim_mean, 2);
-    }
-
-    funque_dtype ssim_std = sqrt(sd / (height * width));
-
-    /*if (strcmp(pool, "mean"))
-        return ssim_mean;
-    else if (strcmp(pool, "cov"))*/
-    *score = (ssim_std / ssim_mean);
-
-    free(var_x);
-    free(var_y);
-    free(cov_xy);
-    free(map);
-
-    ret = 0;
-
-    return ret;
-}
-
 int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, funque_dtype K1, funque_dtype K2, int pending_div)
 {
     //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
@@ -134,8 +47,7 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
     //but ref^2, dist^2 are shifted right by shift_win_size
     //hence ((pending_div * pending_div) >> shift_win_size) for C2, since it is added to ref^2 & dist^2
     ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * ((pending_div*pending_div)));// >> shift_win_size));
-   /* funque_dtype* mu_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
-    funque_dtype* mu_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));*/
+
     funque_dtype* f_var_x = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
     funque_dtype* f_var_y = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
     funque_dtype* f_cov_xy = (funque_dtype*)calloc(width * height, sizeof(funque_dtype));
@@ -144,24 +56,22 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
     ssim_inter_dtype *var_y  = (ssim_inter_dtype*) calloc(width * height, sizeof(ssim_inter_dtype));
     ssim_inter_dtype *cov_xy = (ssim_inter_dtype*) calloc(width * height, sizeof(ssim_inter_dtype));
 
-    // memset(var_x, 0, width * height * sizeof(var_x[0]));
-    // memset(var_y, 0, width * height * sizeof(var_y[0]));
-    // memset(cov_xy, 0, width * height * sizeof(cov_xy[0]));
-
-    // funque_dtype* f_l = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-    // funque_dtype* f_cs = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-    funque_dtype* map = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
-
+    funque_dtype* f_map = (funque_dtype*)malloc(sizeof(funque_dtype) * width * height);
+    ssim_inter_dtype *map = (ssim_inter_dtype*) malloc(sizeof(ssim_inter_dtype) * width * height);
     
     funque_dtype f_mx, f_my, f_l, f_cs;
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype l_num, l_den, cs_num, cs_den;
     float l, cs;
-    double sum = 0;
+    double d_sum = 0;
+    int64_t accum_map = 0;
+    ssim_accum_dtype accum_map_sq = 0;
+    
     int index = 0;
     for (int i = 0; i < height; i++)
     {
+        uint64_t map_sq_insum = 0;
         for (int j = 0; j < width; j++)
         {
             index = i * width + j;
@@ -197,8 +107,8 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
             //This is because, 2*mx*my takes full 32 bits (mx holds 16bits-> 1sign 15bit for value)
             //After mul, mx*my takes 31bits including sign
             //Hence 2*mx*my takes full 32 bits, for addition with C1 right shifted by 1
-            l_num = cov_xy_band0 + C1;
-            l_den = ((var_x_band0 + var_y_band0)>>1) + C1;
+            l_num = (cov_xy_band0 + C1);
+            l_den = (((var_x_band0 + var_y_band0)>>1) + C1);
 
             // l_num >>= 16;
             // l_den >>= 16;
@@ -219,29 +129,31 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
             // cs = f_cs;
             l= (float)l_num/l_den;
             cs = (float) cs_num/cs_den;
-            map[index] = l * cs;
-            sum += (l * cs);
+            f_map[index] = l * cs;
+            map[index] = (ssim_inter_dtype) (((ssim_accum_dtype)l_num * cs_num) / (((ssim_accum_dtype)l_den * cs_den) >> 15 + 1));
+            accum_map += map[index];
+            map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype) map[index] * map[index])/width);
+            d_sum += (l * cs);
         }
+        accum_map_sq += (ssim_accum_dtype) (map_sq_insum/height);
     }
 
-    funque_dtype ssim_mean = sum / (height * width);
+    funque_dtype ssim_mean = (double)accum_map / (height * width);
     funque_dtype sd = 0;
     for (int i = 0; i < (height * width); i++)
     {
-        sd += pow(map[i] - ssim_mean, 2);
+        sd += pow((double)map[i] - ssim_mean, 2);
     }
 
-    funque_dtype ssim_std = sqrt(sd / (height * width));
+    funque_dtype ssim_std; 
+    ssim_std = sqrt((double) accum_map_sq - (double)ssim_mean*ssim_mean);
 
-    /*if (strcmp(pool, "mean"))
-        return ssim_mean;
-    else if (strcmp(pool, "cov"))*/
     *score = (ssim_std / ssim_mean);
 
     free(var_x);
     free(var_y);
     free(cov_xy);
-    free(map);
+    free(f_map);
 
     ret = 0;
 
