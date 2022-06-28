@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include "integer_filters.h"
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
 int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, funque_dtype K1, funque_dtype K2, int pending_div)
 {
     int ret = 1;
@@ -113,7 +115,7 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
 
 
     double ssim_std; 
-    ssim_std = sqrt((double) accum_map_sq - ssim_mean*ssim_mean);
+    ssim_std = sqrt(MAX(0, ((double) accum_map_sq - ssim_mean*ssim_mean)));
 
     *score = (ssim_std / ssim_mean);
 
