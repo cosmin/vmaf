@@ -28,6 +28,7 @@
 #include "feature_name.h"
 #include "mem.h"
 
+#include "integer_adm_options.h"
 #include "integer_filters.h"
 #include "integer_vif.h"
 #include "funque_vif_options.h"
@@ -498,7 +499,7 @@ static int extract(VmafFeatureExtractor *fex,
             s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
             vif_score_1, index);
 			
-	err = compute_adm_funque(s->ref_dwt2out, s->dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->ref_dwt2out.width, s->ref_dwt2out.height, 0.2);
+	err = compute_integer_adm_funque(s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->ref_dwt2out.width, s->ref_dwt2out.height, 0.2);
     if (err) return err;
 	err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
                                 adm_score, index);
