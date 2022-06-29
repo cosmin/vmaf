@@ -184,8 +184,6 @@ void integer_integral_image_2(const dwt2_dtype* src1, const dwt2_dtype* src2, si
 
 void integer_integral_image(const dwt2_dtype* src, size_t width, size_t height, int64_t* sum)
 {
-    double st1, st2, st3;
-    
     for (size_t i = 0; i < (height + 1); ++i)
     {
         for (size_t j = 0; j < (width + 1); ++j)
@@ -225,7 +223,7 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
     }
 }
 
-int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, const funque_dtype* x, const funque_dtype* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val)
+int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val)
 {
     int ret = 1;
 
