@@ -502,8 +502,8 @@ static int extract(VmafFeatureExtractor *fex,
 	err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
                                 adm_score, index);
 
-    err = compute_ssim_funque(&s->ref_dwt2out, &s->dist_dwt2out, &ssim_score, 1, (funque_dtype)0.01, (funque_dtype)0.03);
-    if (err) return err;
+    err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, (funque_dtype)0.01, (funque_dtype)0.03, 
+                                pow(2, 2*SPAT_FILTER_COEFF_SHIFT-SPAT_FILTER_INTER_SHIFT-SPAT_FILTER_OUT_SHIFT+2*DWT2_COEFF_UPSHIFT-DWT2_INTER_SHIFT-DWT2_OUT_SHIFT)*bitdepth_pow2);
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",
                                 ssim_score, index);
