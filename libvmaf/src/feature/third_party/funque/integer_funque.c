@@ -281,7 +281,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->i_dist_dwt2out_vif.height = (int) (s->i_dist_dwt2out.height+1)/2;
 
     s->float_dwt2_stride = ALIGN_CEIL(s->ref_dwt2out.width * sizeof(funque_dtype));
-    s->i_dwt2_stride = ALIGN_CEIL(s->i_ref_dwt2out.width * sizeof(dwt2_dtype));
+    s->i_dwt2_stride = (s->float_dwt2_stride+1)/2; //ALIGN_CEIL(s->i_ref_dwt2out.width * sizeof(dwt2_dtype));
     s->i_prev_ref_dwt2 = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
     if (!s->i_prev_ref_dwt2) goto fail;
     //Memory allocation for dwt output bands
@@ -471,8 +471,8 @@ static int extract(VmafFeatureExtractor *fex,
     err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,&vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0, shift_val);
     if (err) return err;
 
-    integer_funque_dwt2(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, s->i_dwt2_stride/2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
-    integer_funque_dwt2(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, s->i_dwt2_stride/2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
+    integer_funque_dwt2(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, (s->i_dwt2_stride+1)/2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
+    integer_funque_dwt2(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, (s->i_dwt2_stride+1)/2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
     for(int i=0; i<1; i++)
     {
         fix2float(s->i_ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height,
