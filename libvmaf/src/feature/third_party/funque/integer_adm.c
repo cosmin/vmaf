@@ -310,6 +310,7 @@ int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
   int border_w = (border_size * width);
   int loop_h = height - border_h;
   int loop_w = width - border_w;
+  double row_num[loop_h], row_den[loop_h], accum_num = 0, accum_den = 0;
 
   for (k = 1; k < 4; k++)
   {
@@ -318,34 +319,39 @@ int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
       for (j = border_w; j < loop_w; j++)
       {
         index = i * width + j;
-		
         num_sum += pyr_rest.bands[k][index] * pyr_rest.bands[k][index] * pyr_rest.bands[k][index];
 		//compensation for the division by thirty in the numerator
 		ref_abs = abs((int64_t)i_ref.bands[k][index]) * 30;
         den_sum += ref_abs * ref_abs * ref_abs;
       }
+      row_num[i] = num_sum / 16320;
+      row_den[i] = den_sum / 16320;
+      accum_num += row_num[i];
+      accum_den += row_den[i];
+      num_sum = 0;
+      den_sum = 0;
     }
-    den_band += powf((double)den_sum, 1.0 / 3.0);
-    num_band += powf((double)num_sum, 1.0 / 3.0);
-    num_sum = 0;
-    den_sum = 0;
+
+    den_band += powf((double)(accum_den), 1.0 / 3.0);
+    num_band += powf((double)(accum_num), 1.0 / 3.0);
+    accum_num = 0;
+    accum_den = 0;
   }
 
   *adm_score_num = num_band + 1e-4;
   *adm_score_den = den_band + 1e-4;
   *adm_score = (*adm_score_num) / (*adm_score_den);
-  
+
   for (int i = 0; i < 4; i++)
   {
     free(dlm_rest.bands[i]);
     free(dlm_add.bands[i]);
-	free(i_dlm_rest.bands[i]);
+    free(i_dlm_rest.bands[i]);
     free(i_dlm_add.bands[i]);
     free(pyr_rest.bands[i]);
-	free(ref.bands[i]);
+    free(ref.bands[i]);
   }
 
   int ret = 0;
   return ret;
 }
-
