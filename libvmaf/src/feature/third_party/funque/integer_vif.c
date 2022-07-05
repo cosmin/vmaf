@@ -281,8 +281,10 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     *score_num = (double)0;
     *score_den = (double)0;
 
-    uint64_t score_num_t = 0;
-    uint64_t score_den_t = 0;
+    int64_t score_num_t = 0;
+    int64_t num_power = 0;
+    int64_t score_den_t = 0;
+    int64_t den_power = 0;
 
     for (unsigned int i = 0; i < s_height; i++)
     {
@@ -323,12 +325,14 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             int64_t num_t = n2 + n1;
             int64_t num_den_t = n2;
             int x1, x2;
-
+  
             uint32_t log_in_num_1 = get_best_32bitsfixed_opt_64((uint64_t)num_t, &x1);
             uint32_t log_in_num_2 = get_best_32bitsfixed_opt_64((uint64_t)num_den_t, &x2);
 
-            uint64_t temp_numerator = (log_32(log_in_num_1) + (-x1) *  (1 << 26))- (log_32(log_in_num_2) + (-x2) * (1 << 26));
+            int64_t temp_numerator = (int64_t)log_32(log_in_num_1) - (int64_t)log_32(log_in_num_2);
+            int64_t temp_power_num = -x1 + x2; // 2^28
             score_num_t += temp_numerator;
+            num_power += temp_power_num;
 
             int64_t d1 = sigma_nsq_t + (var_x_t[index]/k_norm);
             int64_t d2 = sigma_nsq_t;
@@ -336,15 +340,20 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
             uint32_t log_in_den_1 = get_best_32bitsfixed_opt_64((uint64_t)d1, &y1);
             uint32_t log_in_den_2 = get_best_32bitsfixed_opt_64((uint64_t)d2, &y2);
-            uint64_t temp_denominator =  (log_32(log_in_den_1) + (-y1) * (1 << 26)) - (log_32(log_in_den_2) +(-y2) * (1 << 26));
+            int64_t temp_denominator =  (int64_t)log_32(log_in_den_1) - (int64_t)log_32(log_in_den_2);
+            int64_t temp_power_den = -y1 + y2;
             score_den_t += temp_denominator;
-
+            den_power += temp_power_den;
         }
     }
+
     double add_exp = 1e-4*s_height*s_width;
 
-    *score_num = ((double)score_num_t)/((double) (1<<26)) + add_exp;
-    *score_den = ((double)score_den_t)/((double)(1<<26)) + add_exp;
+    double power_double_num = (double)num_power;
+    double power_double_den = (double)den_power;
+
+    *score_num = (((double)score_num_t/(double)(1 << 26)) + power_double_num) + add_exp;
+    *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
     *score += *score_num / *score_den;
 
     free(x_pad_t);
