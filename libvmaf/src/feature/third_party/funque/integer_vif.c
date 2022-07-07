@@ -55,6 +55,14 @@ uint32_t log_32(uint32_t input)
             
 }
 
+uint32_t log_24(uint32_t input)
+{
+    
+    uint32_t log_out_1 = (uint32_t)round(log2((double)input) * (1 << 18));
+    return log_out_1;
+            
+}
+
 //divide get_best_16bitsfixed_opt for more improved performance as for input greater than 16 bit
 // FORCE_INLINE inline uint16_t get_best_16bitsfixed_opt_greater(uint32_t temp, int *x)
 // {
@@ -64,6 +72,37 @@ uint32_t log_32(uint32_t input)
 // 	*x = -k;
 // 	return temp;
 // }
+
+FORCE_INLINE inline uint32_t get_best_24bitsfixed_opt_64(uint64_t temp, int *x)
+{
+    int k = __builtin_clzll(temp); // for long
+
+    if (k > 40)  // temp < 2^47
+    {
+        k -= 40;
+        temp = temp << k;
+        *x = k;
+
+    }
+    else if (k < 39)  // temp > 2^48
+    {
+        k = 40 - k;
+        temp = temp >> k;
+        *x = -k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 24)
+        {
+            temp = temp >> 1;
+            *x = -1;
+        }
+    }
+
+    return (uint32_t)temp;
+}
+
 
 /**
  * Works similar to get_best_16bitsfixed_opt function but for 64 bit input
@@ -216,9 +255,9 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
             vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - ((my * my)/kNorm);
             cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - ((mx * my)/kNorm);
 
-            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; 
-            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
-            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
+            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx >> 3; 
+            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy >> 3;
+            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy >> 3;
         }
     }
 }
@@ -275,7 +314,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int64_t* sv_sq_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
 
     int64_t exp_t = 1;//exp*shift_val*shift_val; // using 1 because exp in Q32 format is still 0
-    int64_t sigma_nsq_t = sigma_nsq*shift_val*shift_val ;
+    int64_t sigma_nsq_t = (int64_t)(sigma_nsq*shift_val*shift_val) >> 3 ;
 
     *score = (double)0;
     *score_num = (double)0;
@@ -294,7 +333,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             int64_t g_t_num = cov_xy_t[index]/k_norm;
             int64_t g_den = (var_x_t[index] + exp_t * k_norm)/k_norm;
 
-            sv_sq_t[index] = var_y_t[index] - (g_t_num * cov_xy_t[index])/g_den;
+            sv_sq_t[index] = (var_y_t[index] - (g_t_num * cov_xy_t[index])/g_den)/k_norm;
 
             if (var_x_t[index] < exp_t)
             {
@@ -321,15 +360,18 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             int64_t p1 = (g_t_num * g_t_num)/g_den;
             int64_t p2 = (var_x_t[index]/k_norm);
             int64_t n1 = p1 * p2;
-            int64_t n2 = ((g_den*(sv_sq_t[index]/k_norm)) + g_den*sigma_nsq_t);
+            int64_t n2 = ((g_den*(sv_sq_t[index])) + g_den*sigma_nsq_t);
             int64_t num_t = n2 + n1;
             int64_t num_den_t = n2;
             int x1, x2;
   
-            uint32_t log_in_num_1 = get_best_32bitsfixed_opt_64((uint64_t)num_t, &x1);
-            uint32_t log_in_num_2 = get_best_32bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+            // uint32_t log_in_num_1 = get_best_32bitsfixed_opt_64((uint64_t)num_t, &x1);
+            // uint32_t log_in_num_2 = get_best_32bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+             uint32_t log_in_num_1 = get_best_24bitsfixed_opt_64((uint64_t)num_t, &x1);
+            uint32_t log_in_num_2 = get_best_24bitsfixed_opt_64((uint64_t)num_den_t, &x2);
 
-            int64_t temp_numerator = (int64_t)log_32(log_in_num_1) - (int64_t)log_32(log_in_num_2);
+            // int64_t temp_numerator = (int64_t)log_32(log_in_num_1) - (int64_t)log_32(log_in_num_2);
+             int64_t temp_numerator = (int64_t)log_24(log_in_num_1) - (int64_t)log_24(log_in_num_2);
             int64_t temp_power_num = -x1 + x2; // 2^28
             score_num_t += temp_numerator;
             num_power += temp_power_num;
@@ -338,9 +380,12 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             int64_t d2 = sigma_nsq_t;
             int y1, y2;
 
-            uint32_t log_in_den_1 = get_best_32bitsfixed_opt_64((uint64_t)d1, &y1);
-            uint32_t log_in_den_2 = get_best_32bitsfixed_opt_64((uint64_t)d2, &y2);
-            int64_t temp_denominator =  (int64_t)log_32(log_in_den_1) - (int64_t)log_32(log_in_den_2);
+            // uint32_t log_in_den_1 = get_best_32bitsfixed_opt_64((uint64_t)d1, &y1);
+            // uint32_t log_in_den_2 = get_best_32bitsfixed_opt_64((uint64_t)d2, &y2);
+            uint32_t log_in_den_1 = get_best_24bitsfixed_opt_64((uint64_t)d1, &y1);
+            uint32_t log_in_den_2 = get_best_24bitsfixed_opt_64((uint64_t)d2, &y2);
+            // int64_t temp_denominator =  (int64_t)log_32(log_in_den_1) - (int64_t)log_32(log_in_den_2);
+             int64_t temp_denominator =  (int64_t)log_24(log_in_den_1) - (int64_t)log_24(log_in_den_2);
             int64_t temp_power_den = -y1 + y2;
             score_den_t += temp_denominator;
             den_power += temp_power_den;
@@ -352,8 +397,10 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     double power_double_num = (double)num_power;
     double power_double_den = (double)den_power;
 
-    *score_num = (((double)score_num_t/(double)(1 << 26)) + power_double_num) + add_exp;
-    *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
+    // *score_num = (((double)score_num_t/(double)(1 << 26)) + power_double_num) + add_exp;
+    // *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
+    *score_num = (((double)score_num_t/(double)(1 << 18)) + power_double_num) + add_exp;
+    *score_den = (((double)score_den_t/(double)(1<<18)) + power_double_den) + add_exp;
     *score += *score_num / *score_den;
 
     free(x_pad_t);
