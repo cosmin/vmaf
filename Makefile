@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 VENV=.venv
 .PHONY: all install clean distclean deps
 
@@ -10,6 +11,10 @@ all: deps
 install: deps
 	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release && \
 	$(VENV)/bin/ninja -vC libvmaf/build install
+
+float-funque:
+	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release -Denable_float=true -Denable_float_funque=true && \
+	$(VENV)/bin/ninja -vC libvmaf/build
 
 clean:
 	rm -rf libvmaf/build
