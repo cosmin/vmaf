@@ -24,24 +24,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-
-#include "offset.h"
-#include "motion_options.h"
-#include "mem.h"
-#include "common/convolution.h"
-#include "common/convolution_internal.h"
-#include "motion_tools.h"
-
-#define convolution_f32_c convolution_f32_c_s
-#define FILTER_5           FILTER_5_s
-#define offset_image       offset_image_s
-
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
+#include "funque_filters.h"
 /**
  * Note: img1_stride and img2_stride are in terms of (sizeof(double) bytes)
  */
-float vmaf_image_sad_c(const float *img1, const float *img2, int width, int height, int img1_stride, int img2_stride)
+float funque_image_mad_c(const float *img1, const float *img2, int width, int height, int img1_stride, int img2_stride)
 {
     float accum = (float)0.0;
 
@@ -62,7 +49,7 @@ float vmaf_image_sad_c(const float *img1, const float *img2, int width, int heig
 /**
  * Note: ref_stride and dis_stride are in terms of bytes
  */
-int compute_motion(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score)
+int compute_motion_funque(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score)
 {
 
     if (ref_stride % sizeof(float) != 0)
@@ -77,8 +64,8 @@ int compute_motion(const float *ref, const float *dis, int w, int h, int ref_str
         fflush(stdout);
         goto fail;
     }
-    // stride for vmaf_image_sad_c is in terms of (sizeof(float) bytes)
-    *score = vmaf_image_sad_c(ref, dis, w, h, ref_stride / sizeof(float), dis_stride / sizeof(float));
+    // stride for funque_image_mad_c is in terms of (sizeof(float) bytes)
+    *score = funque_image_mad_c(ref, dis, w, h, ref_stride / sizeof(float), dis_stride / sizeof(float));
 
     return 0;
 
