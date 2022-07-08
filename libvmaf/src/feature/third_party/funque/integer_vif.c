@@ -27,25 +27,26 @@
 
 #define FLOATING_POINT 0
 #define GET_VARIABLE_NAME(Variable) (#Variable)
+#define VIF_COMPUTE_METRIC_R_SHIFT 6
 
 //increase storage value to remove calculation to get log value
 // uint32_t log_values[65537];
-// uint32_t log_values[2147483648 * 2];
+uint32_t log_18[262144];
 
-//just change the store offset to reduce multiple calculation when getting log value
-// void log_generate()
-// {
-//     uint64_t i;
-//     uint64_t start = (unsigned int)pow(2, 31);
-//     uint64_t end = (unsigned int)pow(2, 32);
-//     uint64_t diff = end - start;
-// 	for (i = start; i < end; i++)
-//     // for (i = 32767; i < 65536; i++)
-//     {
-//         // log_values[i] = (uint16_t)round(log2f((float)i) * 2048);
-// 		log_values[i] = (uint32_t)round(log2((double)i) * (1 << 26));
-//     }
-// }
+// just change the store offset to reduce multiple calculation when getting log value
+void log_generate()
+{
+    uint64_t i;
+    uint64_t start = (unsigned int)pow(2, 17);
+    uint64_t end = (unsigned int)pow(2, 18);
+    uint64_t diff = end - start;
+	for (i = start; i < end; i++)
+    // for (i = 32767; i < 65536; i++)
+    {
+        // log_values[i] = (uint16_t)round(log2f((float)i) * 2048);
+		log_18[i] = (uint32_t)round(log2((double)i) * (1 << 26));
+    }
+}
 
 uint32_t log_32(uint32_t input)
 {
@@ -63,6 +64,13 @@ uint32_t log_24(uint32_t input)
             
 }
 
+// uint32_t log_18(uint32_t input)
+// {
+    
+//     uint32_t log_out_1 = (uint32_t)round(log2((double)input) * (1 << 26));
+//     return log_out_1;
+// }
+
 //divide get_best_16bitsfixed_opt for more improved performance as for input greater than 16 bit
 // FORCE_INLINE inline uint16_t get_best_16bitsfixed_opt_greater(uint32_t temp, int *x)
 // {
@@ -72,6 +80,66 @@ uint32_t log_24(uint32_t input)
 // 	*x = -k;
 // 	return temp;
 // }
+
+FORCE_INLINE inline uint32_t get_best_17bitsfixed_opt_64(uint64_t temp, int *x)
+{
+    int k = __builtin_clzll(temp); // for long
+
+    if (k > 47)  // temp < 2^47
+    {
+        k -= 47;
+        temp = temp << k;
+        *x = k;
+
+    }
+    else if (k < 46)  // temp > 2^48
+    {
+        k = 47 - k;
+        temp = temp >> k;
+        *x = -k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 17)
+        {
+            temp = temp >> 1;
+            *x = -1;
+        }
+    }
+
+    return (uint32_t)temp;
+}
+
+FORCE_INLINE inline uint32_t get_best_18bitsfixed_opt_64(uint64_t temp, int *x)
+{
+    int k = __builtin_clzll(temp); // for long
+
+    if (k > 46)  // temp < 2^47
+    {
+        k -= 46;
+        temp = temp << k;
+        *x = k;
+
+    }
+    else if (k < 45)  // temp > 2^48
+    {
+        k = 46 - k;
+        temp = temp >> k;
+        *x = -k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 18)
+        {
+            temp = temp >> 1;
+            *x = -1;
+        }
+    }
+
+    return (uint32_t)temp;
+}
 
 FORCE_INLINE inline uint32_t get_best_24bitsfixed_opt_64(uint64_t temp, int *x)
 {
@@ -94,6 +162,37 @@ FORCE_INLINE inline uint32_t get_best_24bitsfixed_opt_64(uint64_t temp, int *x)
     {
         *x = 0;
         if (temp >> 24)
+        {
+            temp = temp >> 1;
+            *x = -1;
+        }
+    }
+
+    return (uint32_t)temp;
+}
+
+
+FORCE_INLINE inline uint32_t get_best_20bitsfixed_opt_64(uint64_t temp, int *x)
+{
+    int k = __builtin_clzll(temp); // for long
+
+    if (k > 44)  // temp < 2^47
+    {
+        k -= 44;
+        temp = temp << k;
+        *x = k;
+
+    }
+    else if (k < 43)  // temp > 2^48
+    {
+        k = 44 - k;
+        temp = temp >> k;
+        *x = -k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 20)
         {
             temp = temp >> 1;
             *x = -1;
@@ -255,9 +354,12 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
             vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - ((my * my)/kNorm);
             cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - ((mx * my)/kNorm);
 
-            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx >> 3; 
-            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy >> 3;
-            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy >> 3;
+            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx >> VIF_COMPUTE_METRIC_R_SHIFT; 
+            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy >> VIF_COMPUTE_METRIC_R_SHIFT;
+            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy >> VIF_COMPUTE_METRIC_R_SHIFT;
+            //  var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx; 
+            // var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy;
+            // cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy;
         }
     }
 }
@@ -314,7 +416,8 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int64_t* sv_sq_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
 
     int64_t exp_t = 1;//exp*shift_val*shift_val; // using 1 because exp in Q32 format is still 0
-    int64_t sigma_nsq_t = (int64_t)(sigma_nsq*shift_val*shift_val) >> 3 ;
+    int64_t sigma_nsq_t = (int64_t)(sigma_nsq*shift_val*shift_val) >> VIF_COMPUTE_METRIC_R_SHIFT ;
+    // int64_t sigma_nsq_t = (int64_t)(sigma_nsq*shift_val*shift_val) ;
 
     *score = (double)0;
     *score_num = (double)0;
@@ -367,11 +470,11 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
   
             // uint32_t log_in_num_1 = get_best_32bitsfixed_opt_64((uint64_t)num_t, &x1);
             // uint32_t log_in_num_2 = get_best_32bitsfixed_opt_64((uint64_t)num_den_t, &x2);
-             uint32_t log_in_num_1 = get_best_24bitsfixed_opt_64((uint64_t)num_t, &x1);
-            uint32_t log_in_num_2 = get_best_24bitsfixed_opt_64((uint64_t)num_den_t, &x2);
-
-            // int64_t temp_numerator = (int64_t)log_32(log_in_num_1) - (int64_t)log_32(log_in_num_2);
-             int64_t temp_numerator = (int64_t)log_24(log_in_num_1) - (int64_t)log_24(log_in_num_2);
+            //  int64_t temp_numerator = (int64_t)log_32(log_in_num_1) - (int64_t)log_32(log_in_num_2);
+             uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+            uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+            //  int64_t temp_numerator = (int64_t)log_18(log_in_num_1) - (int64_t)log_18(log_in_num_2);
+            int64_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
             int64_t temp_power_num = -x1 + x2; // 2^28
             score_num_t += temp_numerator;
             num_power += temp_power_num;
@@ -382,10 +485,11 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
             // uint32_t log_in_den_1 = get_best_32bitsfixed_opt_64((uint64_t)d1, &y1);
             // uint32_t log_in_den_2 = get_best_32bitsfixed_opt_64((uint64_t)d2, &y2);
-            uint32_t log_in_den_1 = get_best_24bitsfixed_opt_64((uint64_t)d1, &y1);
-            uint32_t log_in_den_2 = get_best_24bitsfixed_opt_64((uint64_t)d2, &y2);
             // int64_t temp_denominator =  (int64_t)log_32(log_in_den_1) - (int64_t)log_32(log_in_den_2);
-             int64_t temp_denominator =  (int64_t)log_24(log_in_den_1) - (int64_t)log_24(log_in_den_2);
+            uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+            uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+            //  int64_t temp_denominator =  (int64_t)log_18(log_in_den_1) - (int64_t)log_18(log_in_den_2);
+            int64_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
             int64_t temp_power_den = -y1 + y2;
             score_den_t += temp_denominator;
             den_power += temp_power_den;
@@ -399,8 +503,8 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
     // *score_num = (((double)score_num_t/(double)(1 << 26)) + power_double_num) + add_exp;
     // *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
-    *score_num = (((double)score_num_t/(double)(1 << 18)) + power_double_num) + add_exp;
-    *score_den = (((double)score_den_t/(double)(1<<18)) + power_double_den) + add_exp;
+    *score_num = (((double)score_num_t/(double)(1 << 26)) + power_double_num) + add_exp;
+    *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
     *score += *score_num / *score_den;
 
     free(x_pad_t);
