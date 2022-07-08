@@ -30,8 +30,7 @@
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(float);
-    float filter_coeff_lo[2] = {0.707106781,  0.707106781};
-    float filter_coeff_hi[2] = {0.707106781, -0.707106781};
+    float filter_coeff = 1/sqrtf(2);
 
     float *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(float)), MAX_ALIGN);
     float *tmphi = aligned_malloc(ALIGN_CEIL(width * sizeof(float)), MAX_ALIGN);
@@ -40,7 +39,7 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int wi
     float *band_h = dwt2_dst->bands[1];
     float *band_v = dwt2_dst->bands[2];
     float *band_d = dwt2_dst->bands[3];
-    float accum;
+
     int16_t row_idx0, row_idx1, col_idx0, col_idx1;
     for (unsigned i=0; i < (height+1)/2; ++i)
     {
@@ -51,15 +50,8 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int wi
 
         /* Vertical pass. */
         for(unsigned j=0; j<width; ++j){
-            accum = 0;
-            accum += filter_coeff_lo[0] * src[(row_idx0)*width+j];
-            accum += filter_coeff_lo[1] * src[(row_idx1)*width+j];
-            tmplo[j] = accum;
-
-            accum = 0;
-            accum += filter_coeff_hi[0] * src[(row_idx0)*width+j];
-            accum += filter_coeff_hi[1] * src[(row_idx1)*width+j];
-            tmphi[j] = accum;
+            tmplo[j] = filter_coeff * (src[(row_idx0)*width+j] + src[(row_idx1)*width+j]);
+            tmphi[j] = filter_coeff * (src[(row_idx0)*width+j] - src[(row_idx1)*width+j]);
         }
 
         /* Horizontal pass (lo and hi). */
@@ -69,25 +61,10 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int wi
             col_idx1 = 2*j+1;
             col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
 
-            accum = 0;
-            accum += filter_coeff_lo[0] * tmplo[col_idx0];
-            accum += filter_coeff_lo[1] * tmplo[col_idx1];
-            band_a[i*dst_px_stride+j] = accum;
-
-            accum = 0;
-            accum += filter_coeff_lo[0] * tmphi[col_idx0];
-            accum += filter_coeff_lo[1] * tmphi[col_idx1];
-            band_h[i*dst_px_stride+j] = accum;
-
-            accum = 0;
-            accum += filter_coeff_hi[0] * tmplo[col_idx0];
-            accum += filter_coeff_hi[1] * tmplo[col_idx1];
-            band_v[i*dst_px_stride+j] = accum;
-
-            accum = 0;
-            accum += filter_coeff_hi[0] * tmphi[col_idx0];
-            accum += filter_coeff_hi[1] * tmphi[col_idx1];
-            band_d[i*dst_px_stride+j] = accum;
+            band_a[i*dst_px_stride+j] = filter_coeff * (tmplo[col_idx0] + tmplo[col_idx1]);
+            band_h[i*dst_px_stride+j] = filter_coeff * (tmphi[col_idx0] + tmphi[col_idx1]);
+            band_v[i*dst_px_stride+j] = filter_coeff * (tmplo[col_idx0] - tmplo[col_idx1]);
+            band_d[i*dst_px_stride+j] = filter_coeff * (tmphi[col_idx0] - tmphi[col_idx1]);
         }
     }
     aligned_free(tmplo);
@@ -99,11 +76,10 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int wi
 void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(float);
-    float filter_coeff_lo[2] = {0.707106781,  0.707106781};
+    float filter_coeff = 1/sqrtf(2);
 
     float *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(float)), MAX_ALIGN);
 
-    float accum;
     int16_t row_idx0, row_idx1, col_idx0, col_idx1;
     for (unsigned i=0; i < (height+1)/2; ++i)
     {
@@ -114,11 +90,8 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
 
         /* Vertical pass. */
         for(unsigned j=0; j<width; ++j){
-            accum = 0;
-            accum += filter_coeff_lo[0] * src[(row_idx0)*width+j];
-            accum += filter_coeff_lo[1] * src[(row_idx1)*width+j];
-            tmplo[j] = accum;
 
+            tmplo[j] = filter_coeff * (src[(row_idx0)*width+j] + src[(row_idx1)*width+j]);
         }
 
         /* Horizontal pass (lo and hi). */
@@ -128,10 +101,7 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
             col_idx1 = 2*j+1;
             col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
 
-            accum = 0;
-            accum += filter_coeff_lo[0] * tmplo[col_idx0];
-            accum += filter_coeff_lo[1] * tmplo[col_idx1];
-            band_a[i*dst_px_stride+j] = accum;
+            band_a[i*dst_px_stride+j] = filter_coeff * (tmplo[col_idx0] + tmplo[col_idx1]);
         }
     }
     aligned_free(tmplo);
@@ -141,11 +111,29 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
 void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int height)
 {
     //Copied the coefficients from python coefficients
-    float filter_coeffs[21] = {-0.01373464, -0.01608515, -0.01890698, -0.02215702, -0.02546262, 
-                             -0.02742965, -0.02361034, -0.00100996,  0.07137023,  0.22121922,
-                             0.3279824 ,  0.22121922,  0.07137023, -0.00100996, -0.02361034,
-                             -0.02742965, -0.02546262, -0.02215702, -0.01890698, -0.01608515,
-                             -0.01373464};
+        float filter_coeffs[21] = {
+        -0.01373463642215844680849 ,
+        -0.01608514932055564797264 ,
+        -0.01890698454168517061991 ,
+        -0.02215701978091480159327 ,
+        -0.02546262290256656735110 ,
+        -0.02742964751138579973522 ,
+        -0.02361034173470941133210 ,
+        -0.00100995586322411641696 ,
+         0.07137023192756482281585 ,
+         0.22121922236871877087694 ,
+         0.32798240221262831006754 ,
+         0.22121922236871877087694 ,
+         0.07137023192756482281585 ,
+        -0.00100995586322411641696 ,
+        -0.02361034173470941133210 ,
+        -0.02742964751138579973522 ,
+        -0.02546262290256656735110 ,
+        -0.02215701978091480159327 ,
+        -0.01890698454168517061991 ,
+        -0.01608514932055564797264 ,
+        -0.01373463642215844680849
+    };
     
     int src_px_stride = width;
     int dst_px_stride = width;
@@ -177,7 +165,7 @@ void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int
 
         /* Horizontal pass. */
         for (j = 0; j < width; ++j) {
-            float accum = 0;
+            double accum = 0;
 
             for (fj = 0; fj < fwidth; ++fj) {
                 fcoeff = filter_coeffs[fj];
@@ -187,7 +175,7 @@ void spatial_filter(float *src, float *dst, ptrdiff_t dst_stride, int width, int
 
                 imgcoeff = tmp[jj];
 
-                accum += fcoeff * imgcoeff;
+                accum += (double) fcoeff * imgcoeff;
             }
 
             dst[i * dst_px_stride + j] = accum;
