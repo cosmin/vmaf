@@ -2,6 +2,7 @@ vmaf_soversion = vmaf_api_version_major
 
 # Build libvmaf
 feature_src_dir = './feature/'
+funque_feature_dir = './feature/third_party/funque/'
 src_dir = './'
 model_dir = '../../model/'
 cuda_dir = './cuda/'
@@ -121,6 +122,8 @@ json_model_c_sources = []
 built_in_models_enabled = get_option('built_in_models') == true
 float_enabled = get_option('enable_float') == true
 cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
+funque_float_enabled = get_option('enable_float_funque') == true
+cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
 
 if built_in_models_enabled
     xxd = find_program('xxd', required: false)
@@ -202,6 +205,7 @@ libvmaf_include = include_directories(
     src_dir,
     feature_src_dir,
     feature_src_dir + 'common',
+    funque_feature_dir,
 )
 
 libvmaf_cpu_static_lib = static_library(
@@ -434,6 +438,19 @@ if is_cuda_enabled
         feature_src_dir + 'cuda/integer_adm_cuda.c',
         feature_src_dir + 'cuda/integer_vif_cuda.c',
         feature_src_dir + 'cuda/integer_motion_cuda.c',
+    ]
+endif
+
+if funque_float_enabled
+    libvmaf_feature_sources += [
+        funque_feature_dir + 'float_funque.c',
+        funque_feature_dir + 'funque_picture_copy.c',
+        funque_feature_dir + 'funque_filters.c',
+        funque_feature_dir + 'funque_motion.c',
+        funque_feature_dir + 'funque_vif.c',
+        funque_feature_dir + 'funque_adm.c',
+        funque_feature_dir + 'funque_ssim.c',
+        funque_feature_dir + 'resizer.c'
     ]
 endif
 
