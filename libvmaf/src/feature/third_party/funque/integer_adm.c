@@ -323,8 +323,8 @@ int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
         // den_sum += (int64_t)ref_abs * ref_abs * ref_abs;
         den_sum += ((den_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
       }
-      row_num = num_sum / shift_val;
-      row_den = den_sum / shift_val;
+      row_num = (double)num_sum ;
+      row_den = (double)den_sum ;
       accum_num += row_num;
       accum_den += row_den;
       num_sum = 0;
