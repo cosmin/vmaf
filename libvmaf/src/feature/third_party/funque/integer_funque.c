@@ -70,6 +70,7 @@ typedef struct FunqueState
     // VIF extra variables
     double vif_enhn_gain_limit;
     double vif_kernelscale;
+    uint32_t log_18[262144];
 
     // ADM extra variables
     double adm_enhn_gain_limit;
@@ -341,7 +342,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     {
         s->max_db = INFINITY;
     }
-    log_generate();
+    log_generate(s->log_18);
 
     return 0;
 
@@ -500,7 +501,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     int16_t shift_val2 = pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 4 * DWT2_COEFF_UPSHIFT - 2 * DWT2_INTER_SHIFT - 2 * DWT2_OUT_SHIFT) * bitdepth_pow2;
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height, &vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0, shift_val);
+    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height, &vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0, shift_val, s->log_18);
     if (err)
         return err;
 
@@ -521,7 +522,7 @@ static int extract(VmafFeatureExtractor *fex,
                            s->dist_dwt2out_vif.width, s->dist_dwt2out_vif.height);
     }
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out_vif.bands[0], s->i_dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0, shift_val2);
+    err = integer_compute_vif_funque(s->i_ref_dwt2out_vif.bands[0], s->i_dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0, shift_val2, s->log_18);
     if (err)
         return err;
 
