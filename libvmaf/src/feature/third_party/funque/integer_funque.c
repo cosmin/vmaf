@@ -41,8 +41,6 @@
 typedef struct FunqueState
 {
     size_t float_stride;
-    funque_dtype *ref;
-    funque_dtype *dist;
     dwt2_dtype *i_prev_ref_dwt2;
     bool debug;
 
@@ -51,7 +49,7 @@ typedef struct FunqueState
 
     size_t float_dwt2_stride;
     size_t i_dwt2_stride;
-    funque_dtype *spat_filter;
+    spat_fil_output_dtype *spat_filter;
     dwt2buffers ref_dwt2out;
     dwt2buffers dist_dwt2out;
     i_dwt2buffers i_ref_dwt2out;
@@ -255,14 +253,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             goto fail;
     }
 
-    s->ref = aligned_malloc(s->float_stride * h, 32);
-    if (!s->ref)
-        goto fail;
-    s->dist = aligned_malloc(s->float_stride * h, 32);
-    if (!s->dist)
-        goto fail;
-
-    s->spat_filter = aligned_malloc(s->float_stride * h, 32);
+    s->spat_filter = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_output_dtype)) * h, 32);
     if (!s->spat_filter)
         goto fail;
 
@@ -350,10 +341,6 @@ fail:
         aligned_free(s->res_ref_pic.data[0]);
     if (s->res_dist_pic.data[0])
         aligned_free(s->res_dist_pic.data[0]);
-    if (s->ref)
-        aligned_free(s->ref);
-    if (s->dist)
-        aligned_free(s->dist);
     if (s->spat_filter)
         aligned_free(s->spat_filter);
     if (s->i_prev_ref_dwt2)
@@ -428,39 +415,13 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
-    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
-
     // TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
-    // TODO: Create a new picture copy function with normalization?
-    //  normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    //  normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    spat_fil_output_dtype *spat_out_ref = aligned_malloc(res_ref_pic->w[0] * sizeof(spat_fil_output_dtype) * res_ref_pic->h[0], 32);
-    spat_fil_output_dtype *spat_out_dist = aligned_malloc(res_dist_pic->w[0] * sizeof(spat_fil_output_dtype) * res_dist_pic->h[0], 32);
-    funque_dtype *f_spat_out_ref = aligned_malloc(res_ref_pic->w[0] * sizeof(funque_dtype) * res_ref_pic->h[0], 32);
-    funque_dtype *f_spat_out_dist = aligned_malloc(res_dist_pic->w[0] * sizeof(funque_dtype) * res_dist_pic->h[0], 32);
-
-    integer_spatial_filter(res_ref_pic->data[0], spat_out_ref, res_ref_pic->w[0], res_ref_pic->h[0]);
-    integer_funque_dwt2(spat_out_ref, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    integer_spatial_filter(res_dist_pic->data[0], spat_out_dist, res_dist_pic->w[0], res_dist_pic->h[0]);
-    integer_funque_dwt2(spat_out_dist, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
-
-    for (int i = 0; i < 4; i++)
-    {
-        fix2float(s->i_ref_dwt2out.bands[i], s->ref_dwt2out.bands[i], s->ref_dwt2out.width, s->ref_dwt2out.height,
-                  (2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT),
-                  sizeof(dwt2_dtype));
-        normalize_bitdepth(s->ref_dwt2out.bands[i], s->ref_dwt2out.bands[i], bitdepth_pow2, sizeof(funque_dtype) * s->ref_dwt2out.width,
-                           s->ref_dwt2out.width, s->ref_dwt2out.height);
-
-        fix2float(s->i_dist_dwt2out.bands[i], s->dist_dwt2out.bands[i], s->dist_dwt2out.width, s->dist_dwt2out.height,
-                  (2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT),
-                  sizeof(dwt2_dtype));
-        normalize_bitdepth(s->dist_dwt2out.bands[i], s->dist_dwt2out.bands[i], bitdepth_pow2, sizeof(funque_dtype) * s->dist_dwt2out.width,
-                           s->dist_dwt2out.width, s->dist_dwt2out.height);
-    }
+    integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+    integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+    integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+    integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     if (index == 0)
     {
@@ -506,20 +467,6 @@ static int extract(VmafFeatureExtractor *fex,
 
     integer_funque_dwt2(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, (s->i_dwt2_stride + 1) / 2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
     integer_funque_dwt2(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, (s->i_dwt2_stride + 1) / 2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
-    for (int i = 0; i < 1; i++)
-    {
-        fix2float(s->i_ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height,
-                  (2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT),
-                  sizeof(dwt2_dtype));
-        normalize_bitdepth(s->ref_dwt2out_vif.bands[i], s->ref_dwt2out_vif.bands[i], bitdepth_pow2, sizeof(funque_dtype) * s->ref_dwt2out_vif.width,
-                           s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height);
-
-        fix2float(s->i_dist_dwt2out_vif.bands[i], s->dist_dwt2out_vif.bands[i], s->dist_dwt2out_vif.width, s->dist_dwt2out_vif.height,
-                  (2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT),
-                  sizeof(dwt2_dtype));
-        normalize_bitdepth(s->dist_dwt2out_vif.bands[i], s->dist_dwt2out_vif.bands[i], bitdepth_pow2, sizeof(funque_dtype) * s->dist_dwt2out_vif.width,
-                           s->dist_dwt2out_vif.width, s->dist_dwt2out_vif.height);
-    }
 
     err = integer_compute_vif_funque(s->i_ref_dwt2out_vif.bands[0], s->i_dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0, shift_val2, s->log_18);
     if (err)
@@ -555,10 +502,6 @@ static int close(VmafFeatureExtractor *fex)
         aligned_free(s->res_ref_pic.data[0]);
     if (s->res_dist_pic.data[0])
         aligned_free(s->res_dist_pic.data[0]);
-    if (s->ref)
-        aligned_free(s->ref);
-    if (s->dist)
-        aligned_free(s->dist);
     if (s->spat_filter)
         aligned_free(s->spat_filter);
     if (s->i_prev_ref_dwt2)
