@@ -305,7 +305,7 @@ if funque_fixed_enabled
         funque_feature_dir + 'integer_vif.c',
         funque_feature_dir + 'integer_adm.c',
         funque_feature_dir + 'integer_ssim.c',
-        feature_src_dir + 'resizer.c'
+        funque_feature_dir + 'resizer.c'
     ]
 endif
 
