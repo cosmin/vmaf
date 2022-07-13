@@ -461,14 +461,14 @@ static int extract(VmafFeatureExtractor *fex,
 
     int16_t shift_val2 = pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 4 * DWT2_COEFF_UPSHIFT - 2 * DWT2_INTER_SHIFT - 2 * DWT2_OUT_SHIFT) * bitdepth_pow2;
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height, &vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0, shift_val, s->log_18);
+    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height, &vif_score_0, &vif_score_num_0, &vif_score_den_0, 9, 1, (double)5.0, shift_val);
     if (err)
         return err;
 
     integer_funque_dwt2(s->i_ref_dwt2out.bands[0], &s->i_ref_dwt2out_vif, (s->i_dwt2_stride + 1) / 2, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
     integer_funque_dwt2(s->i_dist_dwt2out.bands[0], &s->i_dist_dwt2out_vif, (s->i_dwt2_stride + 1) / 2, s->i_dist_dwt2out.width, s->i_dist_dwt2out.height);
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out_vif.bands[0], s->i_dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0, shift_val2, s->log_18);
+    err = integer_compute_vif_funque(s->i_ref_dwt2out_vif.bands[0], s->i_dist_dwt2out_vif.bands[0], s->ref_dwt2out_vif.width, s->ref_dwt2out_vif.height, &vif_score_1, &vif_score_num_1, &vif_score_den_1, 9, 1, (double)5.0, shift_val2);
     if (err)
         return err;
 
