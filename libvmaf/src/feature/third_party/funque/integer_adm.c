@@ -29,37 +29,18 @@
 #include "adm_tools.h"
 #include "integer_filters.h"
 #include "integer_adm.h"
+
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795028841971693993751
 #endif
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-
-#ifdef __SSE2__
-#ifdef ADM_OPT_RECIP_DIVISION
-
-#include <emmintrin.h>
-
 #define ADM_CUBE_SHIFT 8
-#define ADM_CUBE_SHIFT_ROUND 128
-
-static funque_dtype rcp_s(funque_dtype x)
-{
-    funque_dtype xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
-    return xi + xi * (1.0f - x * xi);
-}
+#define ADM_CUBE_SHIFT_ROUND (1 << (ADM_CUBE_SHIFT - 1))
 
 static inline funque_dtype clip(funque_dtype value, funque_dtype low, funque_dtype high)
 {
   return value < low ? low : (value > high ? high : value);
 }
-
-#define DIVS(n, d) ((n) * rcp_s(d))
-#endif //ADM_OPT_RECIP_DIVISION
-#else
-#define DIVS(n, d) ((n) / (d))
-#endif // __SSE2__
 
 void integer_reflect_pad_adm(const uint16_t *src, size_t width, size_t height, int reflect, uint16_t *dest)
 {
@@ -87,7 +68,6 @@ void integer_reflect_pad_adm(const uint16_t *src, size_t width, size_t height, i
   }
 }
 
-// Qn input, Qn output (with overflow, hence stored in Q64)
 void integer_integral_image_adm(const uint16_t *src, size_t width, size_t height, int64_t *sum)
 {
   double st1, st2, st3;
@@ -187,61 +167,44 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, i_dwt2buffers pyr_2,
 
 void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, i_dwt2buffers i_dlm_add)
 {
-#ifdef ADM_OPT_AVOID_ATAN
   const float cos_1deg_sq = cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0);
-#endif
-  float eps = 1e-30;
   size_t width = ref.width;
   size_t height = ref.height;
   int i, j, k, index;
 
-  float val;
-  int64_t tmp_val;
+  int16_t tmp_val;
   int angle_flag;
 
-#ifdef ADM_OPT_AVOID_ATAN
-  int64_t *ot_dp = (int64_t *)calloc(width * height, sizeof(int64_t));
-  int64_t *o_mag_sq = (int64_t *)calloc(width * height, sizeof(int64_t));
-  int64_t *t_mag_sq = (int64_t *)calloc(width * height, sizeof(int64_t));
-#else
-  float *psi_ref = (float *)calloc(width * height, sizeof(float));
-  float *psi_dist = (float *)calloc(width * height, sizeof(float));
-  float *psi_diff = (float *)calloc(width * height, sizeof(float));
-#endif
+  int32_t *ot_dp = (int32_t *)calloc(width * height, sizeof(int32_t));
+  int32_t *o_mag_sq = (int32_t *)calloc(width * height, sizeof(int32_t));
+  int32_t *t_mag_sq = (int32_t *)calloc(width * height, sizeof(int32_t));
 
   for (i = 0; i < height; i++)
   {
     for (j = 0; j < width; j++)
     {
       index = i * width + j;
-#ifdef ADM_OPT_AVOID_ATAN
-      ot_dp[index] = ((int64_t)ref.bands[1][index] * dist.bands[1][index]) + ((int64_t)ref.bands[2][index] * dist.bands[2][index]);
-      o_mag_sq[index] = ((int64_t)ref.bands[1][index] * ref.bands[1][index]) + ((int64_t)ref.bands[2][index] * ref.bands[2][index]);
-      t_mag_sq[index] = ((int64_t)dist.bands[1][index] * dist.bands[1][index]) + ((int64_t)dist.bands[2][index] * dist.bands[2][index]);
+      ot_dp[index] = ((int32_t)ref.bands[1][index] * dist.bands[1][index]) + ((int32_t)ref.bands[2][index] * dist.bands[2][index]);
+      o_mag_sq[index] = ((int32_t)ref.bands[1][index] * ref.bands[1][index]) + ((int32_t)ref.bands[2][index] * ref.bands[2][index]);
+      t_mag_sq[index] = ((int32_t)dist.bands[1][index] * dist.bands[1][index]) + ((int32_t)dist.bands[2][index] * dist.bands[2][index]);
 
       /** angle_flag is calculated in floating-point by converting fixed-point variables back to floating-point  */
       angle_flag = (((float)ot_dp[index] / 4096.0) >= 0.0f) &&
                    (((float)ot_dp[index] / 4096.0) * ((float)ot_dp[index] / 4096.0) >=
                     cos_1deg_sq * ((float)o_mag_sq[index] / 4096.0) * ((float)t_mag_sq[index] / 4096.0));
-#else
-      psi_ref[index] = atanf(ref.bands[2][index] / (ref.bands[1][index] + eps)) + M_PI * ((ref.bands[1][index] < 0));
-      psi_dist[index] = atanf(dist.bands[2][index] / (dist.bands[1][index] + eps)) + M_PI * ((dist.bands[1][index] < 0));
-      psi_diff[index] = 180 * fabsf(psi_ref[index] - psi_dist[index]) / M_PI;
-      angle_flag = psi_diff[index] < 1;
 
-#endif
       for (k = 1; k < 4; k++)
       {
         /**
          * Division dist/ref is carried using lookup table and converted to multiplication
          */
-        int64_t tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((int64_t)div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
-        int64_t kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
+        int32_t tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((int64_t)div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
+        int16_t kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
         /**
          * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
          * 15 to make result Q16
          */
-        tmp_val = ((kh * ref.bands[k][index]) + 16384) >> 15;
+        tmp_val = (((int32_t)kh * ref.bands[k][index]) + 16384) >> 15;
 
         i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
         i_dlm_add.bands[k][index] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]); // to avoid abs in cotrast_mask function
@@ -249,57 +212,37 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
     }
   }
 
-#ifdef ADM_OPT_AVOID_ATAN
   free(ot_dp);
   free(o_mag_sq);
   free(t_mag_sq);
-#else
-  free(psi_ref);
-  free(psi_dist);
-  free(psi_diff);
-#endif
 }
 
-int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size, int16_t shift_val)
+int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size, int16_t shift_val)
 {
-  // TODO: assert len(pyr_ref) == len(pyr_dist),'Pyramids must be of equal height.'
   div_lookup_generator();
-  int n_levels = 1;
+  
   int i, j, k, index;
   int64_t num_sum = 0, den_sum = 0;
   int32_t ref_abs;
   int64_t num_cube = 0, den_cube = 0;
   double num_band = 0, den_band = 0;
-  dwt2buffers dlm_rest, dlm_add, pyr_rest, ref;
-  i_dwt2buffers i_dlm_rest, i_dlm_add;
-  i_dlm_rest.bands[0] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_rest.bands[1] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_rest.bands[2] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_rest.bands[3] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_add.bands[0] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_add.bands[1] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_add.bands[2] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  i_dlm_add.bands[3] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  dlm_rest.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[0] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  pyr_rest.bands[1] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  pyr_rest.bands[2] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  pyr_rest.bands[3] = (int32_t *)malloc(sizeof(int32_t) * height * width);
-  ref.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  ref.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  ref.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  ref.bands[3] = (float *)malloc(sizeof(float) * height * width);
+  i_dwt2buffers i_dlm_rest, i_dlm_add, i_pyr_rest;
+  i_dlm_rest.bands[0] = (int16_t *)malloc(sizeof(int16_t) * height * width);
+  i_dlm_rest.bands[1] = (int16_t *)malloc(sizeof(int16_t) * height * width);
+  i_dlm_rest.bands[2] = (int16_t *)malloc(sizeof(int16_t) * height * width);
+  i_dlm_rest.bands[3] = (int16_t *)malloc(sizeof(int16_t) * height * width);
+  i_dlm_add.bands[0] = (uint16_t *)malloc(sizeof(uint16_t) * height * width);
+  i_dlm_add.bands[1] = (uint16_t *)malloc(sizeof(uint16_t) * height * width);
+  i_dlm_add.bands[2] = (uint16_t *)malloc(sizeof(uint16_t) * height * width);
+  i_dlm_add.bands[3] = (uint16_t *)malloc(sizeof(uint16_t) * height * width);
+  i_pyr_rest.bands[0] = (int32_t *)malloc(sizeof(int32_t) * height * width);
+  i_pyr_rest.bands[1] = (int32_t *)malloc(sizeof(int32_t) * height * width);
+  i_pyr_rest.bands[2] = (int32_t *)malloc(sizeof(int32_t) * height * width);
+  i_pyr_rest.bands[3] = (int32_t *)malloc(sizeof(int32_t) * height * width);
 
   integer_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add);
 
-  integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, pyr_rest, width, height);
+  integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, i_pyr_rest, width, height);
 
   int border_h = (border_size * height);
   int border_w = (border_size * width);
@@ -314,13 +257,11 @@ int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
       for (j = border_w; j < loop_w; j++)
       {
         index = i * width + j;
-        // num_sum += (int64_t)pyr_rest.bands[k][index] * pyr_rest.bands[k][index] * pyr_rest.bands[k][index];
-        num_cube = (int64_t)pyr_rest.bands[k][index] * pyr_rest.bands[k][index] * pyr_rest.bands[k][index];
+        num_cube = (int64_t)i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index];
         num_sum += ((num_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-        //    compensation for the division by thirty in the numerator
+        // compensation for the division by thirty in the numerator
         ref_abs = abs((int64_t)i_ref.bands[k][index]) * 30;
         den_cube = (int64_t)ref_abs * ref_abs * ref_abs;
-        // den_sum += (int64_t)ref_abs * ref_abs * ref_abs;
         den_sum += ((den_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
       }
       row_num = (double)num_sum ;
@@ -343,12 +284,9 @@ int compute_integer_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
 
   for (int i = 0; i < 4; i++)
   {
-    free(dlm_rest.bands[i]);
-    free(dlm_add.bands[i]);
     free(i_dlm_rest.bands[i]);
     free(i_dlm_add.bands[i]);
-    free(pyr_rest.bands[i]);
-    free(ref.bands[i]);
+    free(i_pyr_rest.bands[i]);
   }
 
   int ret = 0;
