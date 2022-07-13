@@ -15,7 +15,5 @@
  *     limitations under the License.
  *
  */
-#include <stddef.h>
 
-void funque_picture_copy(funque_dtype *dst, ptrdiff_t dst_stride, VmafPicture *src,
-                  int offset, unsigned bpc);
+int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2);

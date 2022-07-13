@@ -101,8 +101,6 @@ json_model_c_sources = []
 built_in_models_enabled = get_option('built_in_models') == true
 float_enabled = get_option('enable_float') == true
 cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
-funque_double_dtype = get_option('funque_double_dtype') == true
-cdata.set10('FUNQUE_DOUBLE_DTYPE', funque_double_dtype)
 funque_float_enabled = get_option('enable_float_funque') == true
 cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
 funque_fixed_enabled = get_option('enable_fixed_funque') == true
@@ -287,14 +285,14 @@ endif
 
 if funque_float_enabled
     libvmaf_feature_sources += [
-        feature_src_dir + 'float_funque.c',
-        feature_src_dir + 'funque_picture_copy.c',
-        feature_src_dir + 'funque_filters.c',
-        feature_src_dir + 'funque_motion.c',
-        feature_src_dir + 'funque_vif.c',
-        feature_src_dir + 'funque_adm.c',
-        feature_src_dir + 'funque_ssim.c',
-        feature_src_dir + 'resizer.c'
+        funque_feature_dir + 'float_funque.c',
+        funque_feature_dir + 'funque_picture_copy.c',
+        funque_feature_dir + 'funque_filters.c',
+        funque_feature_dir + 'funque_motion.c',
+        funque_feature_dir + 'funque_vif.c',
+        funque_feature_dir + 'funque_adm.c',
+        funque_feature_dir + 'funque_ssim.c',
+        funque_feature_dir + 'resizer.c'
     ]
 endif
 

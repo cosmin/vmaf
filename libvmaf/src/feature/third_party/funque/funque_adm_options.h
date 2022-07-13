@@ -43,13 +43,12 @@
 #define DEFAULT_ADM_REF_DISPLAY_HEIGHT (1080)
 
 /* Contrast sensitivity function */
-enum ADM_CSF_MODE {
+enum ADM_CSF_MODE
+{
     ADM_CSF_MODE_WATSON97 = 0,
 };
 
 /* Default contrast sensitivity function */
 #define DEFAULT_ADM_CSF_MODE (ADM_CSF_MODE_WATSON97)
-
-#define DEFAULT_VIF_LEVELS 2
 
 #endif /* ADM_OPTIONS_H_ */

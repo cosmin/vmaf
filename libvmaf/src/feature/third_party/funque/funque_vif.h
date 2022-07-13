@@ -15,5 +15,5 @@
  *     limitations under the License.
  *
  */
-				
-int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size);
+
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq);

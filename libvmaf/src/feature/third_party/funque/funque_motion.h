@@ -16,4 +16,4 @@
  *
  */
 
-int compute_vif_funque(const funque_dtype* x, const funque_dtype* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq);
+int compute_motion_funque(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score);

@@ -37,8 +37,3 @@ option('enable_fixed_funque',
     type: 'boolean',
     value: false,
     description: 'Compile floating-point funque feature extractors into the library')
-
-option('funque_double_dtype',
-    type: 'boolean',
-    value: false,
-    description: 'Compile funque features in double and extract into the library')

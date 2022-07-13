@@ -24,7 +24,7 @@
 
 #include "funque_filters.h"
 
-void reflect_pad(const funque_dtype* src, size_t width, size_t height, int reflect, funque_dtype* dest)
+void reflect_pad(const float* src, size_t width, size_t height, int reflect, float* dest)
 {
     size_t out_width = width + 2 * reflect;
     size_t out_height = height + 2 * reflect;
@@ -36,19 +36,19 @@ void reflect_pad(const funque_dtype* src, size_t width, size_t height, int refle
             dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
         }
 
-        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(funque_dtype) * width);
+        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(float) * width);
 
         for (int j = 0; j != reflect; j++)
             dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
     }
 
     for (int i = 0; i != reflect; i++) {
-        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(funque_dtype) * out_width);
-        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(funque_dtype) * out_width);
+        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(float) * out_width);
+        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(float) * out_width);
     }
 }
 
-void integral_image_2(const funque_dtype* src1, const funque_dtype* src2, size_t width, size_t height, double* sum)
+void integral_image_2(const float* src1, const float* src2, size_t width, size_t height, double* sum)
 {
     for (size_t i = 0; i < (height + 1); ++i)
     {
@@ -78,7 +78,7 @@ void integral_image_2(const funque_dtype* src1, const funque_dtype* src2, size_t
     }
 }
 
-void integral_image(const funque_dtype* src, size_t width, size_t height, double* sum)
+void integral_image(const float* src, size_t width, size_t height, double* sum)
 {
     for (size_t i = 0; i < (height + 1); ++i)
     {
@@ -131,7 +131,7 @@ void compute_metrics(const double* int_1_x, const double* int_1_y, const double*
     }
 }
 
-int compute_vif_funque(const funque_dtype* x, const funque_dtype* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq)
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq)
 {
     int ret = 1;
 
@@ -139,13 +139,13 @@ int compute_vif_funque(const funque_dtype* x, const funque_dtype* y, size_t widt
     int kw = k;
     int k_norm = k * k;
 
-    funque_dtype* x_pad, * y_pad;
+    float* x_pad, * y_pad;
 
     int x_reflect = (int)((kh - stride) / 2);
     int y_reflect = (int)((kw - stride) / 2);
 
-    x_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
-    y_pad = (funque_dtype*)malloc(sizeof(funque_dtype) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
+    x_pad = (float*)malloc(sizeof(float) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+    y_pad = (float*)malloc(sizeof(float) * (width + (2 * y_reflect)) * (height + (2 * y_reflect)));
 
     reflect_pad(x, width, height, x_reflect, x_pad);
     reflect_pad(y, width, height, y_reflect, y_pad);
