@@ -28,7 +28,6 @@
 #include "feature_name.h"
 #include "mem.h"
 
-#include "integer_adm_options.h"
 #include "integer_filters.h"
 #include "integer_vif.h"
 #include "funque_vif_options.h"

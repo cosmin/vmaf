@@ -25,7 +25,6 @@
 #endif
 
 #include "mem.h"
-#include "integer_adm_options.h"
 #include "adm_tools.h"
 #include "integer_filters.h"
 #include "integer_adm.h"
@@ -121,7 +120,7 @@ void integer_integral_image_adm_sums(uint16_t *x, int k, int stride, int64_t *mx
   free(int_x);
 }
 
-void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, i_dwt2buffers pyr_2, dwt2buffers masked_pyr, size_t width, size_t height)
+void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, i_dwt2buffers pyr_2, i_dwt2buffers masked_pyr, size_t width, size_t height)
 {
   int i, k, j, index;
   int64_t val = 0;
