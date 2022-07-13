@@ -289,7 +289,7 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
   *adm_score_den = den_band + 1e-4;
   *adm_score = (*adm_score_num) / (*adm_score_den);
 
-  for (int i = 0; i < 4; i++)
+  for (int i = 1; i < 4; i++)
   {
     free(i_dlm_rest.bands[i]);
     free(i_dlm_add.bands[i]);
