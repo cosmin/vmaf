@@ -387,7 +387,7 @@ static int extract(VmafFeatureExtractor *fex,
     if (index == 0)
     {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_motion_score", 0., index);
+                                                       s->feature_name_dict, "FUNQUE_integer_feature_motion_score", 0., index);
         memcpy(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
                s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
 
@@ -407,7 +407,7 @@ static int extract(VmafFeatureExtractor *fex,
                s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
 
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_motion_score", motion_score, index);
+                                                       s->feature_name_dict, "FUNQUE_integer_feature_motion_score", motion_score, index);
 
         if (err)
             return err;
@@ -434,23 +434,23 @@ static int extract(VmafFeatureExtractor *fex,
         return err;
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_feature_vif_scale0_score",
+                                                   s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
                                                    vif_score_0, index);
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
+                                                   s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
                                                    vif_score_1, index);
 
     err = integer_compute_adm_funque(s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, shift_val, s->adm_div_lookup);
     if (err)
         return err;
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_adm2_score",
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
 
     err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, (funque_dtype)0.01, (funque_dtype)0.03,
                                       pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2);
 
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_float_ssim",
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
 
     return err;
@@ -484,22 +484,17 @@ static int close(VmafFeatureExtractor *fex)
 }
 
 static const char *provided_features[] = {
-    "FUNQUE_feature_vif_scale0_score", "FUNQUE_feature_vif_scale1_score",
-    "FUNQUE_feature_vif_scale2_score", "FUNQUE_feature_vif_scale3_score",
-    "FUNQUE_vif", "FUNQUE_vif_num", "FUNQUE_vif_den", "FUNQUE_vif_num_scale0", "FUNQUE_vif_den_scale0",
-    "FUNQUE_vif_num_scale1", "FUNQUE_vif_den_scale1", "FUNQUE_vif_num_scale2", "FUNQUE_vif_den_scale2",
-    "FUNQUE_vif_num_scale3", "FUNQUE_vif_den_scale3",
+    "FUNQUE_integer_feature_vif_scale0_score", "FUNQUE_integer_feature_vif_scale1_score",
+    "FUNQUE_integer_feature_vif_scale2_score", "FUNQUE_integer_feature_vif_scale3_score",
 
-    "FUNQUE_feature_adm2_score", "FUNQUE_feature_adm_scale0_score",
-    "FUNQUE_feature_adm_scale1_score", "FUNQUE_feature_adm_scale2_score",
-    "FUNQUE_feature_adm_scale3_score", "FUNQUE_adm_num", "FUNQUE_adm_den", "FUNQUE_adm_scale0",
-    "FUNQUE_adm_num_scale0", "FUNQUE_adm_den_scale0", "FUNQUE_adm_num_scale1", "FUNQUE_adm_den_scale1",
-    "FUNQUE_adm_num_scale2", "FUNQUE_adm_den_scale2", "FUNQUE_adm_num_scale3", "FUNQUE_adm_den_scale3",
+    "FUNQUE_integer_feature_adm2_score", "FUNQUE_integer_feature_adm_scale0_score",
+    "FUNQUE_integer_feature_adm_scale1_score", "FUNQUE_integer_feature_adm_scale2_score",
+    "FUNQUE_integer_feature_adm_scale3_score",
 
-    "FUNQUE_feature_motion_score", "FUNQUE_feature_motion2_score",
-    "FUNQUE_feature_motion2_score",
+    "FUNQUE_integer_feature_motion_score", "FUNQUE_integer_feature_motion2_score",
+    "FUNQUE_integer_feature_motion2_score",
 
-    "FUNQUE_float_ssim",
+    "FUNQUE_integer_feature_ssim",
 
     NULL};
 
