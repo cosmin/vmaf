@@ -57,4 +57,6 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
+void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
+
 #endif /* FILTERS_FUNQUE_H_ */
