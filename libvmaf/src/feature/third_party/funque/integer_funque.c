@@ -46,7 +46,6 @@ typedef struct FunqueState
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
-    size_t float_dwt2_stride;
     size_t i_dwt2_stride;
     spat_fil_output_dtype *spat_filter;
     i_dwt2buffers i_ref_dwt2out;
@@ -72,8 +71,6 @@ typedef struct FunqueState
 	int32_t adm_div_lookup[65537];
 
     // motion score extra variables
-    float *tmp;
-    float *blur[3];
     unsigned index;
     double score;
     bool motion_force_zero;
@@ -265,8 +262,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->i_dist_dwt2out_vif.width = (int)(s->i_dist_dwt2out.width + 1) / 2;
     s->i_dist_dwt2out_vif.height = (int)(s->i_dist_dwt2out.height + 1) / 2;
 
-    s->float_dwt2_stride = ALIGN_CEIL(s->i_ref_dwt2out.width * sizeof(funque_dtype));
-    s->i_dwt2_stride = (s->float_dwt2_stride + 1) / 2; // ALIGN_CEIL(s->i_ref_dwt2out.width * sizeof(dwt2_dtype));
+    s->i_dwt2_stride = (s->float_stride + 3) / 4;
     s->i_prev_ref_dwt2 = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
     if (!s->i_prev_ref_dwt2)
         goto fail;
