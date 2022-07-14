@@ -299,7 +299,6 @@ endif
 if funque_fixed_enabled
     libvmaf_feature_sources += [
         funque_feature_dir + 'integer_funque.c',
-        funque_feature_dir + 'integer_picture_copy.c',
         funque_feature_dir + 'integer_filters.c',
         funque_feature_dir + 'integer_motion.c',
         funque_feature_dir + 'integer_vif.c',

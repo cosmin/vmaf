@@ -34,7 +34,6 @@
 #include "integer_adm.h"
 #include "funque_adm_options.h"
 #include "integer_motion.h"
-#include "integer_picture_copy.h"
 #include "integer_ssim.h"
 #include "resizer.h"
 
