@@ -26,8 +26,8 @@
 
 #include "mem.h"
 #include "adm_tools.h"
-#include "integer_filters.h"
-#include "integer_adm.h"
+#include "integer_funque_filters.h"
+#include "integer_funque_adm.h"
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795028841971693993751

@@ -22,7 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "integer_filters.h"
+#include "integer_funque_filters.h"
+#include "integer_funque_vif.h"
 #include "common/macros.h"
 
 #define VIF_COMPUTE_METRIC_R_SHIFT 6

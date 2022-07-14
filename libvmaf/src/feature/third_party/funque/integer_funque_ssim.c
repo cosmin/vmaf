@@ -18,7 +18,8 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include "integer_filters.h"
+#include "integer_funque_filters.h"
+#include "integer_funque_ssim.h"
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 

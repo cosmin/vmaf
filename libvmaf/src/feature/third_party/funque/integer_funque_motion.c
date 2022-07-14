@@ -24,7 +24,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
-#include "integer_filters.h"
+#include "integer_funque_filters.h"
+#include "integer_funque_motion.h"
 
 /**
  * Note: img1_stride and img2_stride are in terms of (sizeof(double) bytes)

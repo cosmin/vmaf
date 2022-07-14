@@ -299,11 +299,11 @@ endif
 if funque_fixed_enabled
     libvmaf_feature_sources += [
         funque_feature_dir + 'integer_funque.c',
-        funque_feature_dir + 'integer_filters.c',
-        funque_feature_dir + 'integer_motion.c',
-        funque_feature_dir + 'integer_vif.c',
-        funque_feature_dir + 'integer_adm.c',
-        funque_feature_dir + 'integer_ssim.c',
+        funque_feature_dir + 'integer_funque_filters.c',
+        funque_feature_dir + 'integer_funque_motion.c',
+        funque_feature_dir + 'integer_funque_vif.c',
+        funque_feature_dir + 'integer_funque_adm.c',
+        funque_feature_dir + 'integer_funque_ssim.c',
         funque_feature_dir + 'resizer.c'
     ]
 endif

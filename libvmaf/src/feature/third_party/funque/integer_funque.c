@@ -28,13 +28,13 @@
 #include "feature_name.h"
 #include "mem.h"
 
-#include "integer_filters.h"
-#include "integer_vif.h"
+#include "integer_funque_filters.h"
+#include "integer_funque_vif.h"
 #include "funque_vif_options.h"
-#include "integer_adm.h"
+#include "integer_funque_adm.h"
 #include "funque_adm_options.h"
-#include "integer_motion.h"
-#include "integer_ssim.h"
+#include "integer_funque_motion.h"
+#include "integer_funque_ssim.h"
 #include "resizer.h"
 
 typedef struct IntFunqueState
