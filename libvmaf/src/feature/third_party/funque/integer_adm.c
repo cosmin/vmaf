@@ -45,6 +45,19 @@ typedef struct u_adm_buffers {
     int height;
 }u_adm_buffers;
 
+
+static const int32_t div_Q_factor = 1073741824; // 2^30
+
+void div_lookup_generator(int32_t* adm_div_lookup)
+{
+    for (int i = 1; i <= 32768; ++i)
+    {
+        int32_t recip = (int32_t)(div_Q_factor / i);
+        adm_div_lookup[32768 + i] = recip;
+        adm_div_lookup[32768 - i] = 0 - recip;
+    }
+}
+
 static inline funque_dtype clip(funque_dtype value, funque_dtype low, funque_dtype high)
 {
   return value < low ? low : (value > high ? high : value);
@@ -96,7 +109,7 @@ void integer_integral_image_adm(const adm_u16_dtype *src, size_t width, size_t h
   }
 }
 
-void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i64_dtype *mx, adm_i64_dtype *masking_threshold_int, int width, int height)
+void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i32_dtype *mx, adm_i32_dtype *masking_threshold_int, int width, int height)
 {
   dwt2_dtype *x_pad;
   adm_i64_dtype *int_x;
@@ -121,7 +134,7 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i6
     {
       index = i * width + j;
       mx[index] = (int_x[i * (width + 3) + j] - int_x[i * (width + 3) + j + k] - int_x[(i + k) * (width + 3) + j] + int_x[(i + k) * (width + 3) + j + k]);
-      masking_threshold_int[index] = (adm_i64_dtype)x[index] + mx[index];
+      masking_threshold_int[index] = (adm_i32_dtype)x[index] + mx[index];
     }
   }
 
@@ -132,14 +145,14 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i6
 void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
 {
   int i, k, j, index;
-  adm_i64_dtype val = 0;
+  adm_i32_dtype val = 0;
   adm_i32_dtype pyr_abs;
-  adm_i64_dtype *masking_threshold, *masking_threshold_int;
-  adm_i64_dtype *integral_sum;
+  adm_i32_dtype *masking_threshold, *masking_threshold_int;
+  adm_i32_dtype *integral_sum;
 
-  masking_threshold_int = (adm_i64_dtype *)calloc(width * height, sizeof(adm_i64_dtype));
-  masking_threshold = (adm_i64_dtype *)calloc(width * height, sizeof(adm_i64_dtype));
-  integral_sum = (adm_i64_dtype *)calloc(width * height, sizeof(adm_i64_dtype));
+  masking_threshold_int = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  masking_threshold = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  integral_sum = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
 
   for (k = 1; k < 4; k++)
   {
@@ -164,7 +177,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
         // compensation for the division by 30 of masking_threshold
         pyr_abs = abs((adm_i32_dtype)pyr_1.bands[k][index]) * 30;
         val = pyr_abs - masking_threshold[index];
-        masked_pyr.bands[k][index] = (adm_i64_dtype)clip(val, 0.0, val);
+        masked_pyr.bands[k][index] = (adm_i32_dtype)clip(val, 0.0, val);
       }
     }
   }
@@ -173,7 +186,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   free(integral_sum);
 }
 
-void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add)
+void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add, int32_t *adm_div_lookup)
 {
   const float cos_1deg_sq = cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0);
   size_t width = ref.width;
@@ -206,7 +219,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
         /**
          * Division dist/ref is carried using lookup table and converted to multiplication
          */
-        adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
+        adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)adm_div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
         adm_u16_dtype kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
         /**
          * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
@@ -225,10 +238,9 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
   free(t_mag_sq);
 }
 
-int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size, int16_t shift_val)
+int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size, int16_t shift_val, int32_t *adm_div_lookup)
 {
-  div_lookup_generator();
-  
+
   int i, j, k, index;
   adm_i64_dtype num_sum = 0, den_sum = 0;
   adm_i32_dtype ref_abs;
@@ -247,7 +259,7 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
   i_pyr_rest.bands[2] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
   i_pyr_rest.bands[3] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
 
-  integer_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add);
+  integer_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup);
 
   integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, i_pyr_rest, width, height);
 
