@@ -53,12 +53,6 @@ typedef int64_t ssim_accum_dtype;
 #define SSIM_INTER_L_SHIFT 1 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
 #define SSIM_INTER_CS_SHIFT 1 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
 
-typedef struct dwt2buffers {
-    funque_dtype *bands[4];
-    int width;
-    int height;
-}dwt2buffers;
-
 typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
     int width;
