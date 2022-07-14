@@ -30,8 +30,7 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
     // Filter coefficients are upshifted by DWT2_COEFF_UPSHIFT
-    dwt2_dtype filter_coeff_lo[2] = {23170,  23170};
-    dwt2_dtype filter_coeff_hi[2] = {23170, -23170};
+    const dwt2_dtype filter_coeff = 23170;
 
     dwt2_dtype *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(dwt2_dtype)), MAX_ALIGN);
     dwt2_dtype *tmphi = aligned_malloc(ALIGN_CEIL(width * sizeof(dwt2_dtype)), MAX_ALIGN);
@@ -52,14 +51,10 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 
         /* Vertical pass. */
         for(unsigned j=0; j<width; ++j){
-            accum = 0;
-            accum += filter_coeff_lo[0] * src[(row_idx0)*width+j];
-            accum += filter_coeff_lo[1] * src[(row_idx1)*width+j];
+            accum = (dwt2_accum_dtype)filter_coeff * (src[(row_idx0)*width+j] + src[(row_idx1)*width+j]);
             tmplo[j] = (dwt2_dtype) (accum >> DWT2_INTER_SHIFT);
 
-            accum = 0;
-            accum += filter_coeff_hi[0] * src[(row_idx0)*width+j];
-            accum += filter_coeff_hi[1] * src[(row_idx1)*width+j];
+            accum = (dwt2_accum_dtype)filter_coeff * (src[(row_idx0)*width+j] - src[(row_idx1)*width+j]);
             tmphi[j] = (dwt2_dtype) (accum >> DWT2_INTER_SHIFT);
         }
 
@@ -70,24 +65,16 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
             col_idx1 = 2*j+1;
             col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
 
-            accum = 0;
-            accum += filter_coeff_lo[0] * tmplo[col_idx0];
-            accum += filter_coeff_lo[1] * tmplo[col_idx1];
+            accum = (dwt2_accum_dtype)filter_coeff * (tmplo[col_idx0] + tmplo[col_idx1]);
             band_a[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
 
-            accum = 0;
-            accum += filter_coeff_lo[0] * tmphi[col_idx0];
-            accum += filter_coeff_lo[1] * tmphi[col_idx1];
+            accum = (dwt2_accum_dtype)filter_coeff * (tmphi[col_idx0] + tmphi[col_idx1]);
             band_h[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
 
-            accum = 0;
-            accum += filter_coeff_hi[0] * tmplo[col_idx0];
-            accum += filter_coeff_hi[1] * tmplo[col_idx1];
+            accum = (dwt2_accum_dtype) filter_coeff * (tmplo[col_idx0] - tmplo[col_idx1]);
             band_v[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
 
-            accum = 0;
-            accum += filter_coeff_hi[0] * tmphi[col_idx0];
-            accum += filter_coeff_hi[1] * tmphi[col_idx1];
+            accum = (dwt2_accum_dtype) filter_coeff * (tmphi[col_idx0] - tmphi[col_idx1]);
             band_d[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
         }
     }
@@ -97,28 +84,11 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 
 void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width, int height)
 {
-    funque_dtype filter_coeffs[21] = {-0.01373464, -0.01608515, -0.01890698, -0.02215702, -0.02546262, 
-                             -0.02742965, -0.02361034, -0.00100996,  0.07137023,  0.22121922,
-                             0.3279824 ,  0.22121922,  0.07137023, -0.00100996, -0.02361034,
-                             -0.02742965, -0.02546262, -0.02215702, -0.01890698, -0.01608515,
-                             -0.01373464};
-    // //Copied the coefficients from python coefficients
-    // spat_fil_coeff_dtype filter_coeffs[21] = {-450, -527, -620, -726, -834, -899, -774, -33,
-    //                                            2339, 7249, 10747, 7249, 2339, -33, -774, -899,
-    //                                           -834, -726, -620, -527, -450};
 
-    //This for loop has to be removed and use constant values for coefficients
-    //This loop is just for experimental purpose
-    // The floating-point coefficients are upshifted for fixed point implementation by SPAT_FILTER_COEFF_SHIFT
-    static spat_fil_coeff_dtype i_filter_coeffs[21], cnt=0;
-    if(cnt == 0)
-    {
-        for(int i=0; i<21; i++)
-        {
-            i_filter_coeffs[i] = round(filter_coeffs[i]*pow(2, SPAT_FILTER_COEFF_SHIFT));
-        }
-        cnt++;
-    }
+    const spat_fil_coeff_dtype i_filter_coeffs[21] = {
+        -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
+        14498, 4677, -66, -1547, -1798, -1669, -1452, -1239, -1054, -900
+    };
 
     int src_px_stride = width;
     int dst_px_stride = width;
@@ -134,13 +104,9 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
         for (j = 0; j < width; ++j) {
             spat_fil_accum_dtype accum = 0;
 
-            for (fi = 0; fi < fwidth; ++fi) {
-                // fcoeff = filter_coeffs[fi];
-                
+            for (fi = 0; fi < fwidth; ++fi) {                
                 ii = i - fwidth / 2 + fi;
                 ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
-
-                // imgcoeff = src[ii * src_px_stride + j];
 
                 accum += i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
@@ -153,12 +119,8 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
             spat_fil_accum_dtype accum = 0;
 
             for (fj = 0; fj < fwidth; ++fj) {
-                // fcoeff = filter_coeffs[fj];
-
                 jj = j - fwidth / 2 + fj;
                 jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
-
-                // imgcoeff = tmp[jj];
 
                 accum += i_filter_coeffs[fj] * tmp[jj];
             }
