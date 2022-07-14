@@ -174,7 +174,7 @@ void integer_integral_image(const dwt2_dtype* src, size_t width, size_t height, 
 
 void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy)
 {
-    int64_t mx, my; 
+    int32_t mx, my; 
     int64_t vx, vy, cxy;
 
     for (size_t i = 0; i < (height - kh); i++)
@@ -185,13 +185,13 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
             my = int_1_y[i * width + j] - int_1_y[i * width + j + kw] - int_1_y[(i + kh) * width + j] + int_1_y[(i + kh) * width + j + kw];
 
             // (1/knorm) pending on all these (vx, vy ,cxy) - do this in next function
-            vx = (int_2_x[i * width + j] - int_2_x[i * width + j + kw] - int_2_x[(i + kh) * width + j] + int_2_x[(i + kh) * width + j + kw]) - ((mx*mx)/kNorm); 
-            vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - ((my * my)/kNorm);
-            cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - ((mx * my)/kNorm);
+            vx = (int_2_x[i * width + j] - int_2_x[i * width + j + kw] - int_2_x[(i + kh) * width + j] + int_2_x[(i + kh) * width + j + kw]) - (((int64_t)mx*(int64_t)mx)/kNorm); 
+            vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - (((int64_t)my * (int64_t)my)/kNorm);
+            cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - (((int64_t)mx *(int64_t) my)/kNorm);
 
-            var_x[i * (width - kw) + j] = vx < 0 ? 0 : vx >> VIF_COMPUTE_METRIC_R_SHIFT; 
-            var_y[i * (width - kw) + j] = vy < 0 ? 0 : vy >> VIF_COMPUTE_METRIC_R_SHIFT;
-            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : cxy >> VIF_COMPUTE_METRIC_R_SHIFT;
+            var_x[i * (width - kw) + j] = vx < 0 ? 0 : (int64_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+            var_y[i * (width - kw) + j] = vy < 0 ? 0 : (int64_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : (int64_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
         }
     }
 }
