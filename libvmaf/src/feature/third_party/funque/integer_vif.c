@@ -28,10 +28,10 @@
 #define VIF_COMPUTE_METRIC_R_SHIFT 6
 
 //increase storage value to remove calculation to get log value
-uint32_t log_18[262144];
+// uint32_t log_18[262144];
 
 // just change the store offset to reduce multiple calculation when getting log value
-void log_generate()
+void funque_log_generate(uint32_t* log_18)
 {
     uint64_t i;
     uint64_t start = (unsigned int)pow(2, 17);
@@ -192,11 +192,12 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
             var_x[i * (width - kw) + j] = vx < 0 ? 0 : (int64_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
             var_y[i * (width - kw) + j] = vy < 0 ? 0 : (int64_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
             cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : (int64_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+
         }
     }
 }
 
-int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val)
+int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val, uint32_t* log_18)
 {
     int ret = 1;
 
@@ -265,7 +266,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             int32_t g_t_num = cov_xy_t[index]/k_norm;
             uint32_t g_den = (var_x_t[index] + exp_t * k_norm)/k_norm;
 
-            sv_sq_t[index] = (var_y_t[index] - ((uint32_t)g_t_num * cov_xy_t[index])/g_den)/k_norm;
+            sv_sq_t[index] = (var_y_t[index] - (g_t_num * cov_xy_t[index])/g_den)/k_norm;
 
             if (var_x_t[index] < exp_t)
             {
