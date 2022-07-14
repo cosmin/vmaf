@@ -172,7 +172,7 @@ void integer_integral_image(const dwt2_dtype* src, size_t width, size_t height, 
     }
 }
 
-void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int64_t* var_x, int64_t* var_y, int64_t* cov_xy)
+void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
 {
     int32_t mx, my; 
     int64_t vx, vy, cxy;
@@ -189,9 +189,9 @@ void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, con
             vy = (int_2_y[i * width + j] - int_2_y[i * width + j + kw] - int_2_y[(i + kh) * width + j] + int_2_y[(i + kh) * width + j + kw]) - (((int64_t)my * (int64_t)my)/kNorm);
             cxy = (int_xy[i * width + j] - int_xy[i * width + j + kw] - int_xy[(i + kh) * width + j] + int_xy[(i + kh) * width + j + kw]) - (((int64_t)mx *(int64_t) my)/kNorm);
 
-            var_x[i * (width - kw) + j] = vx < 0 ? 0 : (int64_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
-            var_y[i * (width - kw) + j] = vy < 0 ? 0 : (int64_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
-            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : (int64_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            var_x[i * (width - kw) + j] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+            var_y[i * (width - kw) + j] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            cov_xy[i * (width - kw) + j] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
 
         }
     }
@@ -223,7 +223,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     integer_reflect_pad(y_t, width, height, y_reflect, y_pad_t);
 
     int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
-    int64_t* var_x_t, * var_y_t, * cov_xy_t;
+    int32_t* var_x_t, * var_y_t, * cov_xy_t;
 
     int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_1_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
@@ -237,9 +237,9 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     integer_integral_image_2(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t); 
     integer_integral_image_2(x_pad_t, y_pad_t, r_width, r_height, int_xy_t); 
 
-    var_x_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    var_y_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    cov_xy_t = (int64_t*)malloc(sizeof(int64_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    var_x_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    var_y_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    cov_xy_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
 
     integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
 
@@ -264,9 +264,9 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
         {
             index = i * s_width + j;
             int32_t g_t_num = cov_xy_t[index]/k_norm;
-            uint32_t g_den = (var_x_t[index] + exp_t * k_norm)/k_norm;
+            int32_t g_den = ((var_x_t[index] + exp_t * k_norm)/k_norm);
 
-            sv_sq_t[index] = (var_y_t[index] - (g_t_num * cov_xy_t[index])/g_den)/k_norm;
+            sv_sq_t[index] = (var_y_t[index] - ((int64_t)g_t_num * cov_xy_t[index])/g_den)/k_norm;
 
             if (var_x_t[index] < exp_t)
             {
