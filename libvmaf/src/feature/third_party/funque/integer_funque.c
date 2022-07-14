@@ -37,7 +37,7 @@
 #include "integer_ssim.h"
 #include "resizer.h"
 
-typedef struct FunqueState
+typedef struct IntFunqueState
 {
     size_t float_stride;
     dwt2_dtype *i_prev_ref_dwt2;
@@ -82,13 +82,13 @@ typedef struct FunqueState
     double max_db;
 
     VmafDictionary *feature_name_dict;
-} FunqueState;
+} IntFunqueState;
 
 static const VmafOption options[] = {
     {
         .name = "debug",
         .help = "debug mode: enable additional output",
-        .offset = offsetof(FunqueState, debug),
+        .offset = offsetof(IntFunqueState, debug),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = false,
     },
@@ -96,7 +96,7 @@ static const VmafOption options[] = {
         .name = "enable_resize",
         .alias = "rsz",
         .help = "Enable resize for funque",
-        .offset = offsetof(FunqueState, enable_resize),
+        .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = true,
     },
@@ -104,7 +104,7 @@ static const VmafOption options[] = {
         .name = "vif_levels",
         .alias = "vifl",
         .help = "Number of levels in VIF",
-        .offset = offsetof(FunqueState, vif_levels),
+        .offset = offsetof(IntFunqueState, vif_levels),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_VIF_LEVELS,
         // Update this when the support is added
@@ -117,7 +117,7 @@ static const VmafOption options[] = {
         .alias = "egl",
         .help = "enhancement gain imposed on vif, must be >= 1.0, "
                 "where 1.0 means the gain is completely disabled",
-        .offset = offsetof(FunqueState, vif_enhn_gain_limit),
+        .offset = offsetof(IntFunqueState, vif_enhn_gain_limit),
         .type = VMAF_OPT_TYPE_DOUBLE,
         .default_val.d = DEFAULT_VIF_ENHN_GAIN_LIMIT,
         .min = 1.0,
@@ -129,7 +129,7 @@ static const VmafOption options[] = {
         .help = "scaling factor for the gaussian kernel (2.0 means "
                 "multiplying the standard deviation by 2 and enlarge "
                 "the kernel size accordingly",
-        .offset = offsetof(FunqueState, vif_kernelscale),
+        .offset = offsetof(IntFunqueState, vif_kernelscale),
         .type = VMAF_OPT_TYPE_DOUBLE,
         .default_val.d = DEFAULT_VIF_KERNELSCALE,
         .min = 0.1,
@@ -141,7 +141,7 @@ static const VmafOption options[] = {
         .alias = "egl",
         .help = "enhancement gain imposed on adm, must be >= 1.0, "
                 "where 1.0 means the gain is completely disabled",
-        .offset = offsetof(FunqueState, adm_enhn_gain_limit),
+        .offset = offsetof(IntFunqueState, adm_enhn_gain_limit),
         .type = VMAF_OPT_TYPE_DOUBLE,
         .default_val.d = DEFAULT_ADM_ENHN_GAIN_LIMIT,
         .min = 1.0,
@@ -152,7 +152,7 @@ static const VmafOption options[] = {
         .name = "adm_norm_view_dist",
         .alias = "nvd",
         .help = "normalized viewing distance = viewing distance / ref display's physical height",
-        .offset = offsetof(FunqueState, adm_norm_view_dist),
+        .offset = offsetof(IntFunqueState, adm_norm_view_dist),
         .type = VMAF_OPT_TYPE_DOUBLE,
         .default_val.d = DEFAULT_ADM_NORM_VIEW_DIST,
         .min = 0.75,
@@ -163,7 +163,7 @@ static const VmafOption options[] = {
         .name = "adm_ref_display_height",
         .alias = "rdf",
         .help = "reference display height in pixels",
-        .offset = offsetof(FunqueState, adm_ref_display_height),
+        .offset = offsetof(IntFunqueState, adm_ref_display_height),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_ADM_REF_DISPLAY_HEIGHT,
         .min = 1,
@@ -174,7 +174,7 @@ static const VmafOption options[] = {
         .name = "adm_csf_mode",
         .alias = "csf",
         .help = "contrast sensitivity function",
-        .offset = offsetof(FunqueState, adm_csf_mode),
+        .offset = offsetof(IntFunqueState, adm_csf_mode),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_ADM_CSF_MODE,
         .min = 0,
@@ -185,7 +185,7 @@ static const VmafOption options[] = {
         .name = "motion_force_zero",
         .alias = "force_0",
         .help = "forcing motion score to zero",
-        .offset = offsetof(FunqueState, motion_force_zero),
+        .offset = offsetof(IntFunqueState, motion_force_zero),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
@@ -194,21 +194,21 @@ static const VmafOption options[] = {
     {
         .name = "enable_lcs",
         .help = "enable luminance, contrast and structure intermediate output",
-        .offset = offsetof(FunqueState, enable_lcs),
+        .offset = offsetof(IntFunqueState, enable_lcs),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = false,
     },
     {
         .name = "enable_db",
         .help = "write SSIM values as dB",
-        .offset = offsetof(FunqueState, enable_db),
+        .offset = offsetof(IntFunqueState, enable_db),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = false,
     },
     {
         .name = "clip_db",
         .help = "clip dB scores",
-        .offset = offsetof(FunqueState, clip_db),
+        .offset = offsetof(IntFunqueState, clip_db),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = false,
     },
@@ -221,7 +221,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     (void)pix_fmt;
     (void)bpc;
 
-    FunqueState *s = fex->priv;
+    IntFunqueState *s = fex->priv;
     s->feature_name_dict =
         vmaf_feature_name_dict_from_provided_features(fex->provided_features,
                                                       fex->options, s);
@@ -234,7 +234,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h + 1) >> 1;
     }
 
-    s->float_stride = ALIGN_CEIL(w * sizeof(funque_dtype));
+    s->float_stride = ALIGN_CEIL(w * sizeof(float));
 
     if (s->enable_resize)
     {
@@ -342,7 +342,7 @@ static int extract(VmafFeatureExtractor *fex,
                    VmafPicture *dist_pic, VmafPicture *dist_pic_90,
                    unsigned index, VmafFeatureCollector *feature_collector)
 {
-    FunqueState *s = fex->priv;
+    IntFunqueState *s = fex->priv;
     int err = 0;
 
     (void)ref_pic_90;
@@ -447,7 +447,7 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
 
-    err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, (funque_dtype)0.01, (funque_dtype)0.03,
+    err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
                                       pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2);
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
@@ -458,7 +458,7 @@ static int extract(VmafFeatureExtractor *fex,
 
 static int close(VmafFeatureExtractor *fex)
 {
-    FunqueState *s = fex->priv;
+    IntFunqueState *s = fex->priv;
     if (s->res_ref_pic.data[0])
         aligned_free(s->res_ref_pic.data[0]);
     if (s->res_dist_pic.data[0])
@@ -498,12 +498,12 @@ static const char *provided_features[] = {
 
     NULL};
 
-VmafFeatureExtractor vmaf_fex_fixed_funque = {
+VmafFeatureExtractor vmaf_fex_integer_funque = {
     .name = "integer_funque",
     .init = init,
     .extract = extract,
     .options = options,
     .close = close,
-    .priv_size = sizeof(FunqueState),
+    .priv_size = sizeof(IntFunqueState),
     .provided_features = provided_features,
 };

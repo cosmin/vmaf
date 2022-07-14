@@ -22,7 +22,7 @@
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
-int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, funque_dtype K1, funque_dtype K2, int pending_div)
+int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div)
 {
     int ret = 1;
 

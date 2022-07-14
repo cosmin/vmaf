@@ -47,8 +47,8 @@ extern VmafFeatureExtractor vmaf_fex_null;
 #if FUNQUE_FLOAT_FEATURES
 extern VmafFeatureExtractor vmaf_fex_float_funque;
 #endif
-#if FUNQUE_FIXED_FEATURES
-extern VmafFeatureExtractor vmaf_fex_fixed_funque;
+#if FUNQUE_INTEGER_FEATURES
+extern VmafFeatureExtractor vmaf_fex_integer_funque;
 #endif
 
 static VmafFeatureExtractor *feature_extractor_list[] = {
@@ -73,8 +73,8 @@ static VmafFeatureExtractor *feature_extractor_list[] = {
 #if FUNQUE_FLOAT_FEATURES
     &vmaf_fex_float_funque,
 #endif
-#if FUNQUE_FIXED_FEATURES
-    &vmaf_fex_fixed_funque,
+#if FUNQUE_INTEGER_FEATURES
+    &vmaf_fex_integer_funque,
 #endif
     NULL
 };

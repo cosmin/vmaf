@@ -104,7 +104,7 @@ cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
 funque_float_enabled = get_option('enable_float_funque') == true
 cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
 funque_fixed_enabled = get_option('enable_fixed_funque') == true
-cdata.set10('FUNQUE_FIXED_FEATURES', funque_fixed_enabled)
+cdata.set10('FUNQUE_INTEGER_FEATURES', funque_fixed_enabled)
 
 if built_in_models_enabled
     xxd = find_program('xxd', required: false)

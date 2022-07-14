@@ -58,7 +58,7 @@ void div_lookup_generator(int32_t* adm_div_lookup)
     }
 }
 
-static inline funque_dtype clip(funque_dtype value, funque_dtype low, funque_dtype high)
+static inline int clip(int value, int low, int high)
 {
   return value < low ? low : (value > high ? high : value);
 }
@@ -238,7 +238,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
   free(t_mag_sq);
 }
 
-int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, funque_dtype border_size, int16_t shift_val, int32_t *adm_div_lookup)
+int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int16_t shift_val, int32_t *adm_div_lookup)
 {
 
   int i, j, k, index;

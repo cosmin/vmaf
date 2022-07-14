@@ -22,12 +22,6 @@
 
 #include "config.h"
 
-#if FUNQUE_DOUBLE_DTYPE
-typedef double funque_dtype;
-#else
-typedef float funque_dtype;
-#endif
-
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_OUT_SHIFT   16
