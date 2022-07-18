@@ -124,7 +124,7 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i3
   size_t r_width = width + (2 * x_reflect);
   size_t r_height = height + (2 * x_reflect);
 
-  int_x = (adm_i64_dtype *)calloc((r_width + 1) * (r_height + 1), sizeof(adm_i64_dtype));
+  int_x = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1), sizeof(adm_i64_dtype));
 
   integer_integral_image_adm(x_pad, r_width, r_height, int_x);
 
@@ -150,9 +150,9 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   adm_i32_dtype *masking_threshold, *masking_threshold_int;
   adm_i32_dtype *integral_sum;
 
-  masking_threshold_int = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  masking_threshold_int = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
   masking_threshold = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
-  integral_sum = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  integral_sum = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
 
   for (k = 1; k < 4; k++)
   {
@@ -196,9 +196,9 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
   adm_i16_dtype tmp_val;
   int angle_flag;
 
-  adm_i32_dtype *ot_dp = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
-  adm_i32_dtype *o_mag_sq = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
-  adm_i32_dtype *t_mag_sq = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  adm_i32_dtype *ot_dp = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
+  adm_i32_dtype *o_mag_sq = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
+  adm_i32_dtype *t_mag_sq = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
 
   for (i = 0; i < height; i++)
   {
