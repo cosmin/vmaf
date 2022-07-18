@@ -196,23 +196,19 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
   adm_i16_dtype tmp_val;
   int angle_flag;
 
-  adm_i32_dtype *ot_dp = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
-  adm_i32_dtype *o_mag_sq = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
-  adm_i32_dtype *t_mag_sq = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
+  adm_i32_dtype ot_dp , o_mag_sq, t_mag_sq;
 
   for (i = 0; i < height; i++)
   {
     for (j = 0; j < width; j++)
     {
       index = i * width + j;
-      ot_dp[index] = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
-      o_mag_sq[index] = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
-      t_mag_sq[index] = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
+      ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
+      o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
+      t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
 
       /** angle_flag is calculated in floating-point by converting fixed-point variables back to floating-point  */
-      angle_flag = (((float)ot_dp[index] / 4096.0) >= 0.0f) &&
-                   (((float)ot_dp[index] / 4096.0) * ((float)ot_dp[index] / 4096.0) >=
-                    cos_1deg_sq * ((float)o_mag_sq[index] / 4096.0) * ((float)t_mag_sq[index] / 4096.0));
+      angle_flag = (((float)ot_dp / 4096.0) >= 0.0f) && ((float)ot_dp / 4096.0) * ((float)ot_dp / 4096.0) >= cos_1deg_sq * ((float)o_mag_sq / 4096.0) * ((float)t_mag_sq / 4096.0));
 
       for (k = 1; k < 4; k++)
       {
