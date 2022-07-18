@@ -151,10 +151,20 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   adm_i32_dtype *integral_sum;
 
   masking_threshold_int = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
-  masking_threshold = (adm_i32_dtype *)calloc(width * height, sizeof(adm_i32_dtype));
+  masking_threshold = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
   integral_sum = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
 
-  for (k = 1; k < 4; k++)
+  integer_integral_image_adm_sums(pyr_2.bands[1], 3, 1, integral_sum, masking_threshold_int, width, height);
+  for (i = 0; i < height; i++)
+  {
+    for (j = 0; j < width; j++)
+    {
+      index = i * width + j;
+      masking_threshold[index] = masking_threshold_int[index];
+    }
+  }
+  
+  for (k = 2; k < 4; k++)
   {
     integer_integral_image_adm_sums(pyr_2.bands[k], 3, 1, integral_sum, masking_threshold_int, width, height);
     for (i = 0; i < height; i++)
@@ -196,7 +206,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
   adm_i16_dtype tmp_val;
   int angle_flag;
 
-  adm_i32_dtype ot_dp , o_mag_sq, t_mag_sq;
+  adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
 
   for (i = 0; i < height; i++)
   {
