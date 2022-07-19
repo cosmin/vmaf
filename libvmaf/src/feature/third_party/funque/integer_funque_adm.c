@@ -24,14 +24,11 @@
 #include "config.h"
 #endif
 
+#include "integer_funque_adm.h"
 #include "mem.h"
 #include "adm_tools.h"
 #include "integer_funque_filters.h"
-#include "integer_funque_adm.h"
 
-#ifndef M_PI
-#define M_PI 3.1415926535897932384626433832795028841971693993751
-#endif
 
 typedef struct i_adm_buffers {
     adm_i32_dtype *bands[4];
@@ -91,7 +88,6 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
 
 void integer_integral_image_adm(const adm_u16_dtype *src, size_t width, size_t height, adm_i64_dtype *sum)
 {
-  double st1, st2, st3;
 
   for (size_t i = 0; i < (height + 1); ++i)
   {
@@ -124,7 +120,7 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i3
   size_t r_width = width + (2 * x_reflect);
   size_t r_height = height + (2 * x_reflect);
 
-  int_x = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1), sizeof(adm_i64_dtype));
+  int_x = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
 
   integer_integral_image_adm(x_pad, r_width, r_height, int_x);
 
@@ -150,9 +146,9 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   adm_i32_dtype *masking_threshold, *masking_threshold_int;
   adm_i32_dtype *integral_sum;
 
-  masking_threshold_int = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
-  masking_threshold = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
-  integral_sum = (adm_i32_dtype *)malloc(width * height, sizeof(adm_i32_dtype));
+  masking_threshold_int = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
+  masking_threshold = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
+  integral_sum = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
 
   integer_integral_image_adm_sums(pyr_2.bands[1], 3, 1, integral_sum, masking_threshold_int, width, height);
   for (i = 0; i < height; i++)
@@ -198,7 +194,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
 
 void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add, int32_t *adm_div_lookup)
 {
-  const float cos_1deg_sq = cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0);
+  const float cos_1deg_sq = COS_1DEG_SQ;
   size_t width = ref.width;
   size_t height = ref.height;
   int i, j, k, index;
@@ -218,7 +214,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
       t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
 
       /** angle_flag is calculated in floating-point by converting fixed-point variables back to floating-point  */
-      angle_flag = (((float)ot_dp / 4096.0) >= 0.0f) && ((float)ot_dp / 4096.0) * ((float)ot_dp / 4096.0) >= cos_1deg_sq * ((float)o_mag_sq / 4096.0) * ((float)t_mag_sq / 4096.0));
+      angle_flag = (((float)ot_dp / 4096.0) >= 0.0f) && (((float)ot_dp / 4096.0) * ((float)ot_dp / 4096.0) >= COS_1DEG_SQ * ((float)o_mag_sq / 4096.0) * ((float)t_mag_sq / 4096.0));
 
       for (k = 1; k < 4; k++)
       {
@@ -234,7 +230,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i
         tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
 
         i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
-        i_dlm_add.bands[k][index] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]); // to avoid abs in cotrast_mask function
+        i_dlm_add.bands[k][index] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]); // to avoid abs in integer_dlm_contrast_mask_one_way function
       }
     }
   }

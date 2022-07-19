@@ -24,6 +24,8 @@
 #include <string.h>
 #include <math.h>
 
+#include "integer_funque_filters.h"
+
 typedef int16_t adm_i16_dtype;
 typedef int32_t adm_i32_dtype;
 typedef uint16_t adm_u16_dtype;
@@ -39,6 +41,10 @@ typedef int64_t adm_i64_dtype;
 #define ADM_OPT_RECIP_DIVISION
 
 #define SHIFT_ADM_DECOUPLE_FINAL 16
+
+#define M_PI 3.1415926535897932384626433832795028841971693993751
+#define COS_1DEG_SQ cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0)
+
 
 int integer_compute_adm_funque(i_dwt2buffers ref, i_dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int16_t shift_val, int32_t* adm_div_lookup);
 
