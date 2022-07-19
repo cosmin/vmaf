@@ -105,7 +105,7 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
             //right shift by SSIM_SHIFT_DIV for denominator to avoid precision loss
             //adding 1 to avoid divide by 0
             //This shift cancels when ssim_std / ssim_mean ratio is taken
-            map = (ssim_inter_dtype) (((ssim_accum_dtype)l_num * cs_num) / (((ssim_accum_dtype)l_den * cs_den) >> SSIM_SHIFT_DIV + 1));
+            map = (ssim_inter_dtype) (((ssim_accum_dtype)l_num * cs_num) / ((((ssim_accum_dtype)l_den * cs_den) >> SSIM_SHIFT_DIV) + 1));
             accum_map += map;
             map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype) map * map)/width);
         }

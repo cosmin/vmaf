@@ -26,98 +26,187 @@
 #include "offset.h"
 #include "integer_funque_filters.h"
 
+void int16_frame_to_csv(int16_t *ptr_frm, int width, int height, char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
+    fprintf(fptr, ",");
+    for(int idx_w=0; idx_w<width; idx_w++)
+    {
+        fprintf(fptr, "%d,", idx_w);
+    }
+    fprintf(fptr, "\n");
+
+    for(int idx_h=0; idx_h<height; idx_h++)
+    {
+        fprintf(fptr, "%d,", idx_h);
+        for(int idx_w=0; idx_w<width; idx_w++)
+        {
+            fprintf(fptr, "%d,", ptr_frm[idx_h*width+idx_w]);
+        }
+        fprintf(fptr, "\n");
+    }
+    fclose(fptr);
+}
+
 void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
     // Filter coefficients are upshifted by DWT2_COEFF_UPSHIFT
-    const dwt2_dtype filter_coeff = 23170;
-
-    dwt2_dtype *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(dwt2_dtype)), MAX_ALIGN);
-    dwt2_dtype *tmphi = aligned_malloc(ALIGN_CEIL(width * sizeof(dwt2_dtype)), MAX_ALIGN);
+    const int64_t filter_coeff_sq = 23170 * 23170; // square is used in the final stage
 
     dwt2_dtype *band_a = dwt2_dst->bands[0];
     dwt2_dtype *band_h = dwt2_dst->bands[1];
     dwt2_dtype *band_v = dwt2_dst->bands[2];
     dwt2_dtype *band_d = dwt2_dst->bands[3];
-    dwt2_accum_dtype accum;
     int16_t row_idx0, row_idx1, col_idx0, col_idx1;
-
-    for (unsigned i=0; i < (height+1)/2; ++i)
+	int row0_offset, row1_offset;
+    int64_t accum;
+	int width_div_2 = width >> 1; // without rounding (last value is handle outside)
+	int last_col = width & 1;
+    unsigned i, j;
+    for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
-        // row_idx0 = row_idx0 < height ? row_idx0 : height;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
+		row0_offset = (row_idx0)*width;
+		row1_offset = (row_idx1)*width;
+        
+        for(j=0; j< width_div_2; ++j)
+		{
+			
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+			
+			// a & b 2 values in adjacent rows at the same coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			// c & d are adjacent values to a & b in teh same row
+			spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+			spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+			//c + d	& c - d
+			int src_c_p_d = src_c + src_d;
+			int src_c_m_d = src_c - src_d;
+			
+			//F* F (a + b + c + d) - band A
+			accum = filter_coeff_sq * (src_a_p_b + src_c_p_d);
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
+			
+			//F* F (a - b + c - d) - band H
+            accum = filter_coeff_sq * (src_a_m_b + src_c_m_d);
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
+			
+			//F* F (a + b - c + d) - band V
+            accum = filter_coeff_sq * (src_a_p_b - src_c_p_d);
+            band_v[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
 
-        /* Vertical pass. */
-        for(unsigned j=0; j<width; ++j){
-            accum = (dwt2_accum_dtype)filter_coeff * (src[(row_idx0)*width+j] + src[(row_idx1)*width+j]);
-            tmplo[j] = (dwt2_dtype) (accum >> DWT2_INTER_SHIFT);
-
-            accum = (dwt2_accum_dtype)filter_coeff * (src[(row_idx0)*width+j] - src[(row_idx1)*width+j]);
-            tmphi[j] = (dwt2_dtype) (accum >> DWT2_INTER_SHIFT);
+			//F* F (a - b - c - d) - band D
+            accum = filter_coeff_sq * (src_a_m_b - src_c_m_d);
+            band_d[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);		
         }
 
-        /* Horizontal pass (lo and hi). */
-        for(unsigned j=0; j<(width+1)/2; ++j)
+        if(last_col)
         {
-            col_idx0 = 2*j;
-            col_idx1 = 2*j+1;
-            col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
+			col_idx0 = width_div_2 << 1;
+			j = width_div_2;
+			
+			// a & b 2 values in adjacent rows at the last coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+            //F* F (a + b + a + b) - band A
+			accum = filter_coeff_sq * (src_a_p_b << 1);
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
+			
+			//F* F (a - b + a - b) - band H
+            accum = filter_coeff_sq * (src_a_m_b << 1);
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
+			
+			//F* F (a + b - (a + b)) - band V            
+            band_v[i*dst_px_stride+j] = 0;
 
-            accum = (dwt2_accum_dtype)filter_coeff * (tmplo[col_idx0] + tmplo[col_idx1]);
-            band_a[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
-
-            accum = (dwt2_accum_dtype)filter_coeff * (tmphi[col_idx0] + tmphi[col_idx1]);
-            band_h[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
-
-            accum = (dwt2_accum_dtype) filter_coeff * (tmplo[col_idx0] - tmplo[col_idx1]);
-            band_v[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
-
-            accum = (dwt2_accum_dtype) filter_coeff * (tmphi[col_idx0] - tmphi[col_idx1]);
-            band_d[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
+			//F* F (a - b - (a -b)) - band D           
+            band_d[i*dst_px_stride+j] = 0;
         }
     }
-    aligned_free(tmplo);
-    aligned_free(tmphi);
 }
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
     // Filter coefficients are upshifted by DWT2_COEFF_UPSHIFT
-    const dwt2_dtype filter_coeff = 23170;
+    const int64_t filter_coeff_sq = 23170 * 23170; // square is used in the final stage
 
-    dwt2_dtype *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(dwt2_dtype)), MAX_ALIGN);
-
-    dwt2_accum_dtype accum;
     int16_t row_idx0, row_idx1, col_idx0, col_idx1;
-
-    for (unsigned i=0; i < (height+1)/2; ++i)
+	int row0_offset, row1_offset;
+    int64_t accum;
+	int width_div_2 = width >> 1; // without rounding (last value is handle outside)
+	int last_col = width & 1;
+    unsigned i, j;
+    
+    for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
-        // row_idx0 = row_idx0 < height ? row_idx0 : height;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-
-        /* Vertical pass. */
-        for(unsigned j=0; j<width; ++j){
-            accum = (dwt2_accum_dtype)filter_coeff * (src[(row_idx0)*width+j] + src[(row_idx1)*width+j]);
-            tmplo[j] = (dwt2_dtype) (accum >> DWT2_INTER_SHIFT);
+		row0_offset = (row_idx0)*width;
+		row1_offset = (row_idx1)*width;
+        
+        for(j=0; j< width_div_2; ++j)
+		{
+			
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+			
+			// a & b 2 values in adjacent rows at the same coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			// c & d are adjacent values to a & b in teh same row
+			spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+			spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+			//c + d	& c - d
+			int src_c_p_d = src_c + src_d;
+			int src_c_m_d = src_c - src_d;
+			
+			//F* F (a + b + c + d) - band A
+			accum = filter_coeff_sq * (src_a_p_b + src_c_p_d);
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);	
         }
 
-        /* Horizontal pass (lo and hi). */
-        for(unsigned j=0; j<(width+1)/2; ++j)
+        if(last_col)
         {
-            col_idx0 = 2*j;
-            col_idx1 = 2*j+1;
-            col_idx1 = col_idx1 < width ? col_idx1 : 2*j;
-
-            accum = (dwt2_accum_dtype)filter_coeff * (tmplo[col_idx0] + tmplo[col_idx1]);
-            band_a[i*dst_px_stride+j] = (dwt2_dtype) (accum >> DWT2_OUT_SHIFT);
+			col_idx0 = width_div_2 << 1;
+			j = width_div_2;
+			
+			// a & b 2 values in adjacent rows at the last coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+            //F* F (a + b + a + b) - band A
+			accum = filter_coeff_sq * (src_a_p_b << 1);
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((accum + DWT2_OUT_RND)>> DWT2_OUT_SHIFT);
         }
     }
-    aligned_free(tmplo);
 }
 
 /**
