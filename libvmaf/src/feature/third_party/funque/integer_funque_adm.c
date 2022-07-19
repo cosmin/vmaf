@@ -281,9 +281,9 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
         num_cube = (adm_i64_dtype)i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index];
         num_sum += ((num_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
         // compensation for the division by thirty in the numerator
-        ref_abs = abs((adm_i64_dtype)i_ref.bands[k][index]) * 30;
+        ref_abs = abs((adm_i64_dtype)i_ref.bands[k][index]);
         den_cube = (adm_i64_dtype)ref_abs * ref_abs * ref_abs;
-        den_sum += ((den_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
+        den_sum += den_cube;
       }
       row_num = (double)num_sum ;
       row_den = (double)den_sum ;
@@ -292,15 +292,16 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
       num_sum = 0;
       den_sum = 0;
     }
-
+    accum_den = accum_den / ADM_CUBE_DIV;
     den_band += powf((double)(accum_den), 1.0 / 3.0);
     num_band += powf((double)(accum_num), 1.0 / 3.0);
     accum_num = 0;
     accum_den = 0;
   }
-
+  
   *adm_score_num = num_band + 1e-4;
-  *adm_score_den = den_band + 1e-4;
+  // compensation for the division by thirty in the numerator
+  *adm_score_den = (den_band * 30) + 1e-4;
   *adm_score = (*adm_score_num) / (*adm_score_den);
 
   for (int i = 1; i < 4; i++)
