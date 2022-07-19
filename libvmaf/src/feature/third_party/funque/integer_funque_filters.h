@@ -30,10 +30,9 @@ typedef int16_t spat_fil_inter_dtype;
 typedef int32_t spat_fil_accum_dtype;
 typedef int16_t spat_fil_output_dtype;
 
-#define DWT2_COEFF_UPSHIFT 15
+#define DWT2_COEFF_UPSHIFT 0
 #define DWT2_INTER_SHIFT   0  //Shifting to make the intermediate have Q16 format
-#define DWT2_OUT_SHIFT     31  //Shifting to make the output have Q16 format
-#define DWT2_OUT_RND        0
+#define DWT2_OUT_SHIFT     1  //Shifting to make the output have Q16 format
 typedef int16_t dwt2_dtype;
 typedef int32_t dwt2_accum_dtype;
 typedef int16_t dwt2_inter_dtype;
