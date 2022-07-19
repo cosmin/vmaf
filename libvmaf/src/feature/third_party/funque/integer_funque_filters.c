@@ -134,36 +134,201 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
     spat_fil_inter_dtype *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(spat_fil_inter_dtype)), MAX_ALIGN);
     spat_fil_inter_dtype imgcoeff;
 
-    int i, j, fi, fj, ii, jj;
+    int i, j, fi, fj, ii, jj, jj1, jj2, ii1, ii2;
+    spat_fil_coeff_dtype *coeff_ptr;
     int fwidth = 21;
-    for (i = 0; i < height; ++i) {
+    for (i = 0; i < 10; i++){
 
         /* Vertical pass. */
-        for (j = 0; j < width; ++j) {
+        for (j = 0; j < width; j++){
+
             spat_fil_accum_dtype accum = 0;
 
-            for (fi = 0; fi < fwidth; ++fi) {                
-                ii = i - fwidth / 2 + fi;
-                ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
+            //Mirroring using for loop itself
+            for (fi = 0; fi <= (fwidth/2 - i - 1); fi++){
 
-                accum += i_filter_coeffs[fi] * src[ii * src_px_stride + j];
+                ii = fwidth/2 - i - fi - 1;
+                accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
-
+            for ( ; fi < fwidth; fi++)
+            {
+                ii = i - fwidth/2 + fi;
+                accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
+            }
             tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
         }
 
         /* Horizontal pass. */
-        for (j = 0; j < width; ++j) {
+        for (j = 0; j < 10; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj <= (fwidth/2 - j - 1); fj++){
+
+                jj = fwidth/2 - j - fj - 1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < (width - 10); j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < 10; fj++){
+
+                jj1 = j - fwidth/2 + fj;
+                jj2 = j + fwidth/2 - fj;
+                accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); //Since filter coefficients are symmetric
+            }
+            accum += (spat_fil_inter_dtype) i_filter_coeffs[10] * tmp[j];
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < width; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < (fwidth/2 + (width - j)); fj++){
+
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = (width<<1) - j + fwidth/2 -fj -1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+
+        }
+    }
+    for ( ; i < (height - 10); i++){
+
+        /* Vertical pass. */
+        for (j = 0; j < width; j++){
+
             spat_fil_accum_dtype accum = 0;
 
-            for (fj = 0; fj < fwidth; ++fj) {
-                jj = j - fwidth / 2 + fj;
-                jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
-
-                accum += i_filter_coeffs[fj] * tmp[jj];
+            //Mirroring using for loop itself
+            for (fi = 0; fi < (fwidth/2); fi++){
+                ii1 = i - fwidth/2 + fi;
+                ii2 = i + fwidth/2 - fi;
+                accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src[ii1 * src_px_stride + j] + src[ii2 * src_px_stride + j]);
             }
+            accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[i * src_px_stride + j];
+            tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
+        }
 
+        /* Horizontal pass. */
+        for (j = 0; j < 10; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj <= (fwidth/2 - j - 1); fj++){
+
+                jj = fwidth/2 - j - fj - 1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
             dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < (width - 10); j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < 10; fj++){
+
+                jj1 = j - fwidth/2 + fj;
+                jj2 = j + fwidth/2 - fj;
+                accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); //Since filter coefficients are symmetric
+            }
+            accum += (spat_fil_inter_dtype) i_filter_coeffs[10] * tmp[j];
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < width; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < (fwidth/2 + (width - j)); fj++){
+
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = (width<<1) - j + fwidth/2 -fj -1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+
+        }
+    }
+    for (; i < height; i++){
+
+        /* Vertical pass. */
+        for (j = 0; j < width; j++){
+
+            spat_fil_accum_dtype accum = 0;
+
+            //Mirroring using for loop itself
+            for (fi = 0; fi < (fwidth/2 + (height - i)); fi++){
+
+                ii = i - fwidth/2 + fi;
+                accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
+            }
+            for ( ; fi < fwidth; fi++)
+            {
+                ii = 2 * height - i + fwidth/2 - fi - 1;
+                accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
+            }
+            tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
+        }
+
+        /* Horizontal pass. */
+        for (j = 0; j < 10; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj <= (fwidth/2 - j - 1); fj++){
+
+                jj = fwidth/2 - j - fj - 1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < (width - 10); j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < 10; fj++){
+
+                jj1 = j - fwidth/2 + fj;
+                jj2 = j + fwidth/2 - fj;
+                accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); //Since filter coefficients are symmetric
+            }
+            accum += (spat_fil_inter_dtype) i_filter_coeffs[10] * tmp[j];
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        }
+        for ( ; j < width; j++)
+        {
+            spat_fil_accum_dtype accum = 0;
+            for (fj = 0; fj < (fwidth/2 + (width - j)); fj++){
+
+                jj = j - fwidth/2 + fj;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            for ( ; fj < fwidth; fj++)
+            {
+                jj = (width<<1) - j + fwidth/2 -fj -1;
+                accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+            }
+            dst[i * dst_px_stride + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+
         }
     }
 
