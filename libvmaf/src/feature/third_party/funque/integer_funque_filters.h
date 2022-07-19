@@ -24,7 +24,9 @@
 
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
+#define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))
 #define SPAT_FILTER_OUT_SHIFT   16
+#define SPAT_FILTER_OUT_RND (1 << (SPAT_FILTER_OUT_SHIFT - 1))
 typedef int16_t spat_fil_coeff_dtype;
 typedef int16_t spat_fil_inter_dtype;
 typedef int32_t spat_fil_accum_dtype;

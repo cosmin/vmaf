@@ -234,7 +234,7 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
 {
     int j, fj, jj, jj1, jj2;
 
-    for (j = 0; j < 10; j++)
+    for (j = 0; j < half_fw; j++)
     {
         int pro_j_end  = half_fw - j - 1;
         int diff_j_hfw = j - half_fw;
@@ -250,21 +250,21 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
-    for ( ; j < (width - 10); j++)
+    for ( ; j < (width - half_fw); j++)
     {
         int f_l_j = j - half_fw;
         int f_r_j = j + half_fw;
         spat_fil_accum_dtype accum = 0;
-        for (fj = 0; fj < 10; fj++){
+        for (fj = 0; fj < half_fw; fj++){
 
             jj1 = f_l_j + fj;
             jj2 = f_r_j - fj;
             accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); //Since filter coefficients are symmetric
         }
-        accum += (spat_fil_inter_dtype) i_filter_coeffs[10] * tmp[j];
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        accum += (spat_fil_inter_dtype) i_filter_coeffs[half_fw] * tmp[j];
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
     for ( ; j < width; j++)
     {
@@ -282,7 +282,7 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
             jj = epi_mirr_j - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) (accum >> SPAT_FILTER_OUT_SHIFT);
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
 
     }
 
@@ -327,7 +327,7 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
                 ii = diff_i_halffw + fi;
                 accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
-            tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
+            tmp[j] = (spat_fil_inter_dtype) ((accum + SPAT_FILTER_INTER_RND) >> SPAT_FILTER_INTER_SHIFT);
         }
 
         /* Horizontal pass. */
@@ -349,7 +349,7 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
                 accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src[ii1 * src_px_stride + j] + src[ii2 * src_px_stride + j]);
             }
             accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[i * src_px_stride + j];
-            tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
+            tmp[j] = (spat_fil_inter_dtype) ((accum + SPAT_FILTER_INTER_RND) >> SPAT_FILTER_INTER_SHIFT);
         }
 
         /* Horizontal pass. */
@@ -377,7 +377,7 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
                 ii = epi_mir_i - fi;
                 accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
-            tmp[j] = (spat_fil_inter_dtype) (accum >> SPAT_FILTER_INTER_SHIFT);
+            tmp[j] = (spat_fil_inter_dtype) ((accum + SPAT_FILTER_INTER_RND) >> SPAT_FILTER_INTER_SHIFT);
         }
 
         /* Horizontal pass. */
