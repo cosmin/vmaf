@@ -86,56 +86,62 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
   }
 }
 
-void integer_integral_image_adm(const adm_u16_dtype *src, size_t width, size_t height, adm_i64_dtype *sum)
-{
-
-  for (size_t i = 0; i < (height + 1); ++i)
-  {
-    for (size_t j = 0; j < (width + 1); ++j)
-    {
-      if (i == 0 || j == 0)
-        continue;
-
-      adm_i64_dtype val = (adm_i64_dtype)(src[(i - 1) * width + (j - 1)]); // 64 to avoid overflow
-
-      val += (adm_i64_dtype)(sum[(i - 1) * (width + 1) + j]);
-      val += (adm_i64_dtype)(sum[i * (width + 1) + j - 1]) - (adm_i64_dtype)(sum[(i - 1) * (width + 1) + j - 1]);
-      sum[i * (width + 1) + j] = val;
-    }
-  }
-}
-
-void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i32_dtype *mx, adm_i32_dtype *masking_threshold_int, int width, int height)
+void integer_integral_image_adm_sums(adm_u16_dtype *x, int k, int stride, adm_i32_dtype *masking_threshold_int, int width, int height)
 {
   dwt2_dtype *x_pad;
-  adm_i64_dtype *int_x;
+  adm_i64_dtype *sum;
+  adm_i32_dtype *temp_sum;
   int i, j, index;
 
   int x_reflect = (int)((k - stride) / 2);
 
   x_pad = (adm_u16_dtype *)malloc(sizeof(adm_u16_dtype) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
-
+  
   integer_reflect_pad_adm(x, width, height, x_reflect, x_pad);
 
   size_t r_width = width + (2 * x_reflect);
   size_t r_height = height + (2 * x_reflect);
+  size_t int_stride = r_width + 1;
+  
+  temp_sum = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(adm_i32_dtype));
+  sum = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
 
-  int_x = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
-
-  integer_integral_image_adm(x_pad, r_width, r_height, int_x);
-
+    for (size_t i = 1; i < (height + 1); i++)
+    {
+        for(size_t j = 1; j < (k + 1); j++)
+        {
+            temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * width + (j - 1)];
+        }
+        for(size_t j= k + 1; j< int_stride; j++)
+        {
+            temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * width + (j - 1)] - x_pad[(i - 1) * width + j - k - 1];
+        }
+    }
+    for (size_t j = 1; j < int_stride; j++)
+    {
+        for (size_t i = 1; i < (k + 1); i++)
+        {
+            sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j];
+        }
+        for (size_t i= (k + 1); i< (height + 1); i++)
+        {
+            sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j] - temp_sum[(i - k) * int_stride + j];
+        }
+    }
+    
+	
   for (i = 0; i < height; i++)
   {
     for (j = 0; j < width; j++)
     {
-      index = i * width + j;
-      mx[index] = (int_x[i * (width + 3) + j] - int_x[i * (width + 3) + j + k] - int_x[(i + k) * (width + 3) + j] + int_x[(i + k) * (width + 3) + j + k]);
-      masking_threshold_int[index] = (adm_i32_dtype)x[index] + mx[index];
+	  index = i * width + j;
+      masking_threshold_int[index] = (adm_i32_dtype)x[index] + sum[(i + k) * int_stride + j + k]; //x+mx
     }
   }
 
+  free(temp_sum);
+  free(sum);
   free(x_pad);
-  free(int_x);
 }
 
 void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
@@ -144,13 +150,11 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   adm_i32_dtype val = 0;
   adm_i32_dtype pyr_abs;
   adm_i32_dtype *masking_threshold, *masking_threshold_int;
-  adm_i32_dtype *integral_sum;
 
   masking_threshold_int = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
   masking_threshold = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
-  integral_sum = (adm_i32_dtype *)malloc(width * height * sizeof(adm_i32_dtype));
 
-  integer_integral_image_adm_sums(pyr_2.bands[1], 3, 1, integral_sum, masking_threshold_int, width, height);
+  integer_integral_image_adm_sums(pyr_2.bands[1], 3, 1, masking_threshold_int, width, height);
   for (i = 0; i < height; i++)
   {
     for (j = 0; j < width; j++)
@@ -162,7 +166,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   
   for (k = 2; k < 4; k++)
   {
-    integer_integral_image_adm_sums(pyr_2.bands[k], 3, 1, integral_sum, masking_threshold_int, width, height);
+    integer_integral_image_adm_sums(pyr_2.bands[k], 3, 1, masking_threshold_int, width, height);
     for (i = 0; i < height; i++)
     {
       for (j = 0; j < width; j++)
@@ -189,7 +193,6 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
   }
   free(masking_threshold);
   free(masking_threshold_int);
-  free(integral_sum);
 }
 
 void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add, int32_t *adm_div_lookup)
