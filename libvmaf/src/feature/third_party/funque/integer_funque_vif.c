@@ -179,11 +179,15 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 						     int64_t* int_1_x, int64_t* int_1_y,
 							 int64_t* int_2_x, int64_t* int_2_y,
 							 int64_t* int_x_y,
-							 int kw, int kh)
+							 int kw, int kh, int kNorm,
+                             int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
 {
 	int width_p1  = (width + 1);
 	int height_p1 = (height + 1);
 	
+    int32_t mx, my; 
+    int64_t vx, vy, cxy;
+
     int64_t *interim_2_x = (int64_t*)malloc(width_p1 * height_p1 * sizeof(int64_t));
 	int32_t *interim_1_x = (int32_t*)malloc(width_p1 * height_p1 * sizeof(int32_t));
 	
@@ -204,12 +208,14 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 	memset(int_2_y,0,width_p1 * sizeof(int64_t));
 	
 	memset(int_x_y,0,width_p1 * sizeof(int64_t));
-
-    for (size_t i=1; i<height_p1; i++)
+    size_t i;
+    int row_offset, pre_kh_kw_offset;
+    for (i=1; i<kh+1; i++)
     {
-		int row_offset = i*width_p1;
+		row_offset = i*width_p1;
 		int src_offset = (i - 1) * width;		
-		
+		int pre_row_offset = (i-1) * width_p1;
+
 		interim_2_x[row_offset] = 0; // 1st coloumn is set to 0	
 		interim_1_x[row_offset] = 0; // 1st coloumn is set to 0	
 		
@@ -271,28 +277,101 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
 			
         }
-    }
-    for (size_t j=1; j<width_p1; j++)
-    {
-		for (size_t i=1; i<kh+1; i++)
+        for (size_t j=1; j<width_p1; j++)
         {
-			int row_offset = i*width_p1;
-			int pre_row_offset = (i-1) * width_p1;
-			
             int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[pre_row_offset + j];
-			int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j];
-			
-			int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[pre_row_offset + j];
-			int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j];
-			
-			int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j];
+            int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j];
+            
+            int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[pre_row_offset + j];
+            int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j];
+            
+            int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j]; 
         }
-        for (size_t i=kh+1; i<height_p1; i++)
+    }
+    pre_kh_kw_offset = (i-1-kh) * (width_p1-kw);
+    for (size_t j = kw; j < width_p1; j++)
+    {
+        mx = int_1_x[row_offset + j];
+        my = int_1_y[row_offset + j];
+
+        vx = int_2_x[row_offset + j] - (((int64_t)mx*mx)/kNorm);
+        vy = int_2_y[row_offset + j] - (((int64_t)my*my)/kNorm);
+        cxy = int_x_y[row_offset + j] - (((int64_t)mx*my)/kNorm);
+
+        var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+        var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+        cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+    }
+
+    for ( ; i<height_p1; i++)
+    {
+		row_offset = i*width_p1;
+		int src_offset = (i - 1) * width;		
+		int pre_row_offset = (i-1) * width_p1;
+        int pre_kh_offset = (i-kh) * width_p1;
+        pre_kh_kw_offset = (i-kh) * (width_p1-kw);
+		interim_2_x[row_offset] = 0; // 1st coloumn is set to 0	
+		interim_1_x[row_offset] = 0; // 1st coloumn is set to 0	
+		
+		interim_2_y[row_offset] = 0; // 1st coloumn is set to 0	
+		interim_1_y[row_offset] = 0; // 1st coloumn is set to 0	
+		
+		interim_x_y[row_offset] = 0; // 1st coloumn is set to 0	
+		
+        for(size_t j=1; j<kw+1; j++)
         {
-			int row_offset = i*width_p1;
-			int pre_row_offset = (i-1) * width_p1;
-			int pre_kh_offset = (i-kh) * width_p1;
+			int j_minus1 = j - 1;
 			
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];			
+			
+            int32_t src_sq_val_x = (int32_t) src_x_val * src_x_val;
+			int32_t src_sq_val_y = (int32_t) src_y_val * src_y_val;
+			int32_t src_val_xy   = (int32_t) src_x_val * src_y_val;
+			
+			src_x_sq [j_minus1] = src_sq_val_x; // store the square in temp row buffer
+			src_y_sq [j_minus1] = src_sq_val_y; // store the square in temp row buffer			
+			src_x_y[j_minus1]   = src_val_xy; // store the x*y in temp row buffer
+			
+            interim_2_x[row_offset + j] = interim_2_x[row_offset + j_minus1] + src_sq_val_x;			
+			interim_1_x[row_offset + j] = interim_1_x[row_offset + j_minus1] + src_x_val;
+			
+			interim_2_y[row_offset + j] = interim_2_y[row_offset + j_minus1] + src_sq_val_y;			
+			interim_1_y[row_offset + j] = interim_1_y[row_offset + j_minus1] + src_y_val;
+			
+			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + src_val_xy;
+        }
+        for(size_t j=kw+1; j<width_p1; j++)
+        {
+            int j_minus1 = j - 1;
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];			
+			
+            int32_t src_sq_val_x = (int32_t) src_x_val * src_x_val;
+			int32_t src_sq_val_y = (int32_t) src_y_val * src_y_val;
+			int32_t src_val_xy   = (int32_t) src_x_val * src_y_val;
+			
+			src_x_sq [j_minus1] = src_sq_val_x; // store the square in temp row buffer
+			src_y_sq [j_minus1] = src_sq_val_y; // store the square in temp row buffer			
+			src_x_y[j_minus1]   = src_val_xy; // store the x*y in temp row buffer
+			
+            interim_2_x[row_offset + j] = interim_2_x[row_offset + j_minus1] + 
+			                              src_sq_val_x - src_x_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+			
+			interim_1_x[row_offset + j] = interim_1_x[row_offset + j_minus1] + 
+			                              src_x_val - src_x[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
+									   
+		    interim_2_y[row_offset + j] = interim_2_y[row_offset + j_minus1] + 
+										  src_sq_val_y - src_y_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+			
+			interim_1_y[row_offset + j] = interim_1_y[row_offset + j_minus1] + 
+			                              src_y_val - src_y[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
+									   
+			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + 
+										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+        }
+        for (size_t j=1; j<kw; j++)
+        {
             int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
 			int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j] - interim_1_x[pre_kh_offset + j];
 			
@@ -301,7 +380,61 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			
 			int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
         }
-    }	
+        for (size_t j=kw; j < width_p1; j++)
+        {
+            int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
+			int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j] - interim_1_x[pre_kh_offset + j];
+			
+			int_2_y[row_offset + j] = interim_2_y[row_offset+j] + int_2_y[pre_row_offset + j] - interim_2_y[pre_kh_offset + j];
+			int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j] - interim_1_y[pre_kh_offset + j];
+			
+			int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
+        
+        
+            mx = int_1_x[row_offset + j];
+            my = int_1_y[row_offset + j];
+
+            vx = int_2_x[row_offset + j] - (((int64_t)mx*mx)/kNorm);
+            vy = int_2_y[row_offset + j] - (((int64_t)my*my)/kNorm);
+            cxy = int_x_y[row_offset + j] - (((int64_t)mx*my)/kNorm);
+
+            var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+            var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+
+        }
+    }
+
+    // for (size_t j=1; j<width_p1; j++)
+    // {
+		// for (size_t i=1; i<kh+1; i++)
+        // {
+		// 	int row_offset = i*width_p1;
+		// 	int pre_row_offset = (i-1) * width_p1;
+			
+        //     int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[pre_row_offset + j];
+		// 	int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j];
+			
+		// 	int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[pre_row_offset + j];
+		// 	int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j];
+			
+		// 	int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j];
+        // }
+        // for (size_t i=kh+1; i<height_p1; i++)
+        // {
+		// 	int row_offset = i*width_p1;
+		// 	int pre_row_offset = (i-1) * width_p1;
+		// 	int pre_kh_offset = (i-kh) * width_p1;
+			
+        //     int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
+		// 	int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j] - interim_1_x[pre_kh_offset + j];
+			
+		// 	int_2_y[row_offset + j] = interim_2_y[row_offset+j] + int_2_y[pre_row_offset + j] - interim_2_y[pre_kh_offset + j];
+		// 	int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j] - interim_1_y[pre_kh_offset + j];
+			
+		// 	int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
+        // }
+    // }	
 	
     free(interim_2_x);
 	free(interim_1_x);
@@ -384,22 +517,24 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int_2_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
+    var_x_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    var_y_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+    cov_xy_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
+
     integer_vif_comp_integral(x_pad_t, y_pad_t,
                             r_width, r_height,
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
-                            kw, kh);
+                            kw, kh, k_norm, var_x_t, var_y_t, cov_xy_t);
     // integer_integral_image(x_pad_t, r_width, r_height, int_1_x_t); 
     // integer_integral_image(y_pad_t, r_width, r_height, int_1_y_t); 
     // integer_integral_image_2(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t); 
     // integer_integral_image_2(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t); 
     // integer_integral_image_2(x_pad_t, y_pad_t, r_width, r_height, int_xy_t); 
 
-    var_x_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    var_y_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    cov_xy_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
 
-    integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
+
+    // integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
 
     // int64_t* g_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
     // uint32_t* sv_sq_t = (uint32_t*)malloc(sizeof(uint32_t) * s_width * s_height);
