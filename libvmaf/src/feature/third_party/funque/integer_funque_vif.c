@@ -179,7 +179,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 						     int64_t* int_1_x, int64_t* int_1_y,
 							 int64_t* int_2_x, int64_t* int_2_y,
 							 int64_t* int_x_y,
-							 int kw, int kh, int kNorm,
+							 int kw, int kh, double kNorm,
                              int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
 {
 	int width_p1  = (width + 1);
@@ -525,7 +525,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
                             r_width, r_height,
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
-                            kw, kh, k_norm, var_x_t, var_y_t, cov_xy_t);
+                            kw, kh, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
     // integer_integral_image(x_pad_t, r_width, r_height, int_1_x_t); 
     // integer_integral_image(y_pad_t, r_width, r_height, int_1_y_t); 
     // integer_integral_image_2(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t); 
