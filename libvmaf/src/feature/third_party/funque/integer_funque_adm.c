@@ -109,7 +109,7 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, i_dwt2buffers pyr_1, int 
   sum = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
   memset(sum, 0, ((r_width + 1) * sizeof(adm_i64_dtype)));
 
-  for (size_t i = 1; i < (height + 1); i++)
+  for (size_t i = 1; i < (k + 1); i++)
   {
     temp_sum[i * int_stride] = 0;
     for (size_t j = 1; j < (k + 1); j++)
@@ -120,19 +120,28 @@ void integer_integral_image_adm_sums(adm_u16_dtype *x, i_dwt2buffers pyr_1, int 
     {
       temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * width + (j - 1)] - x_pad[(i - 1) * width + j - k - 1];
     }
+	for (size_t j = 1; j < int_stride; j++)
+	{
+		sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j];
+	}
   }
-  for (size_t j = 1; j < int_stride; j++)
+  
+  for (size_t i = (k + 1); i < (height + 1); i++)
   {
-
-    for (size_t i = 1; i < (k + 1); i++)
+    for (size_t j = 1; j < (k + 1); j++)
     {
-      sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j];
+      temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * width + (j - 1)];
     }
-    for (size_t i = (k + 1); i < (height + 1); i++)
+    for (size_t j = k + 1; j < int_stride; j++)
     {
-      sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j] - temp_sum[(i - k) * int_stride + j];
+      temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * width + (j - 1)] - x_pad[(i - 1) * width + j - k - 1];
     }
+	for (size_t j = 1; j < int_stride; j++)
+	{
+		sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j] - temp_sum[(i - k) * int_stride + j];
+	}
   }
+
 
   if (band_index == 1)
   {
