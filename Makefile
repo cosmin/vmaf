@@ -8,5 +8,5 @@ clean:
 	rm -f python/vmaf/core/adm_dwt2_cy.c*
 
 install:
-	meson setup libvmaf/build libvmaf --buildtype debug && \
+	meson setup libvmaf/build libvmaf --buildtype release && \
 	ninja -vC libvmaf/build install
