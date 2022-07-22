@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define DYNAMIC_COEFF 0
+
 const int INTER_RESIZE_COEF_BITS = 11;
 const int INTER_RESIZE_COEF_SCALE = 1 << INTER_RESIZE_COEF_BITS;
 static const int MAX_ESIZE = 16;
@@ -39,9 +41,15 @@ static void interpolateCubic(float x, float* coeffs)
     coeffs[3] = 1.f - coeffs[0] - coeffs[1] - coeffs[2];
 }
 
+#if DYNAMIC_COEFF
 void hresize(const unsigned char** src, int** dst, int count,
     const int* xofs, const short* alpha,
     int swidth, int dwidth, int cn, int xmin, int xmax) {
+#else
+void hresize(const unsigned char** src, int** dst, int count,
+    const int* xofs, int swidth, int dwidth, int cn, int xmin, int xmax) {
+    const short alpha[] = {-192, 1216, 1216, -192};
+#endif
     for (int k = 0; k < count; k++)
     {
         const unsigned char* S = src[k];
@@ -49,7 +57,11 @@ void hresize(const unsigned char** src, int** dst, int count,
         int dx = 0, limit = xmin;
         for (;;)
         {
+#if DYNAMIC_COEFF
             for (; dx < limit; dx++, alpha += 4)
+#else
+            for (; dx < limit; dx++)
+#endif
             {
                 int j, sx = xofs[dx] - cn;
                 int v = 0;
@@ -69,14 +81,20 @@ void hresize(const unsigned char** src, int** dst, int count,
             }
             if (limit == dwidth)
                 break;
+#if DYNAMIC_COEFF
             for (; dx < xmax; dx++, alpha += 4)
+#else
+            for (; dx < xmax; dx++)
+#endif
             {
                 int sx = xofs[dx];
                 D[dx] = S[sx - cn] * alpha[0] + S[sx] * alpha[1] + S[sx + cn] * alpha[2] + S[sx + cn * 2] * alpha[3];
             }
             limit = dwidth;
         }
+#if DYNAMIC_COEFF
         alpha -= dwidth * 4;
+#endif
     }
 }
 
@@ -88,9 +106,17 @@ unsigned char castOp(int val)
     return CLIP3((val + DELTA) >> SHIFT, 0, 255);
 }
 
+#if DYNAMIC_COEFF
 void vresize(const int** src, unsigned char* dst, const short* beta, int width)
 {
     int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
+#else
+void vresize(const int** src, unsigned char* dst, int width)
+{
+    const short beta[] = {-192, 1216, 1216, -192};
+    int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
+#endif
+
     const int* S0 = src[0], * S1 = src[1], * S2 = src[2], * S3 = src[3];
 
     for (int x = 0; x < width; x++)
@@ -102,7 +128,11 @@ static int clip(int x, int a, int b)
     return x >= a ? (x < b ? x : b - 1) : a;
 }
 
+#if DYNAMIC_COEFF
 void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const int* yofs, const short* _alpha, const short* _beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
+#else
+void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const int* yofs, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
+#endif
 {
     int dy, cn = channels;
 
@@ -122,9 +152,12 @@ void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const
         rows[k] = _buffer + bufstep * k;
     }
 
+#if DYNAMIC_COEFF
     const short* beta = _beta + ksize * start;
-
     for (dy = start; dy < end; dy++, beta += ksize)
+#else
+    for (dy = start; dy < end; dy++)
+#endif
     {
         int sy0 = yofs[dy], k0 = ksize, k1 = 0, ksize2 = ksize / 2;
 
@@ -147,9 +180,15 @@ void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const
         }
 
         if (k0 < ksize)
+#if DYNAMIC_COEFF
             hresize((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
                 iwidth, dwidth, cn, xmin, xmax);
         vresize((const int**)rows, (_dst + dwidth * dy), beta, dwidth);
+#else
+            hresize((srows + k0), (rows + k0), ksize - k0, xofs,
+                iwidth, dwidth, cn, xmin, xmax);
+        vresize((const int**)rows, (_dst + dwidth * dy), dwidth);
+#endif
     }
     free(_buffer);
 }
@@ -179,10 +218,12 @@ void resize(const unsigned char* _src, unsigned char* _dst, int iwidth, int ihei
 
     int* xofs = (int*)_buffer;
     int* yofs = xofs + width;
+#if DYNAMIC_COEFF
     float* alpha = (float*)(yofs + dheight);
     short* ialpha = (short*)alpha;
     float* beta = alpha + width * ksize;
     short* ibeta = ialpha + width * ksize;
+#endif
     float cbuf[4] = { 0 };
 
     for (dx = 0; dx < dwidth; dx++)
@@ -204,22 +245,14 @@ void resize(const unsigned char* _src, unsigned char* _dst, int iwidth, int ihei
         for (k = 0, sx *= cn; k < cn; k++)
             xofs[dx * cn + k] = sx + k;
 
+#if DYNAMIC_COEFF
         interpolateCubic(fx, cbuf);
+        for (k = 0; k < ksize; k++)
+            ialpha[dx * cn * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
+        for (; k < cn * ksize; k++)
+            ialpha[dx * cn * ksize + k] = ialpha[dx * cn * ksize + k - ksize];
+#endif
 
-        // if (fixpt)
-        // {
-            for (k = 0; k < ksize; k++)
-                ialpha[dx * cn * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
-            for (; k < cn * ksize; k++)
-                ialpha[dx * cn * ksize + k] = ialpha[dx * cn * ksize + k - ksize];
-        // }
-        // else
-        // {
-        //     for (k = 0; k < ksize; k++)
-        //         alpha[dx * cn * ksize + k] = cbuf[k];
-        //     for (; k < cn * ksize; k++)
-        //         alpha[dx * cn * ksize + k] = alpha[dx * cn * ksize + k - ksize];
-        // }
     }
 
     for (dy = 0; dy < dheight; dy++)
@@ -230,19 +263,18 @@ void resize(const unsigned char* _src, unsigned char* _dst, int iwidth, int ihei
 
         yofs[dy] = sy;
 
+#if DYNAMIC_COEFF
         interpolateCubic(fy, cbuf);
+        for (k = 0; k < ksize; k++)
+            ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
+#endif
 
-        // if (fixpt)
-        // {
-            for (k = 0; k < ksize; k++)
-                ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
-        // }
-        // else
-        // {
-        //     for (k = 0; k < ksize; k++)
-        //         beta[dy * ksize + k] = cbuf[k];
-        // }
     }
 
+#if DYNAMIC_COEFF
     step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+#else
+    step(_src, _dst, xofs, yofs, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+#endif
+
 }
