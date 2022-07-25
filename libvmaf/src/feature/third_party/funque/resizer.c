@@ -41,15 +41,9 @@ static void interpolateCubic(float x, float* coeffs)
     coeffs[3] = 1.f - coeffs[0] - coeffs[1] - coeffs[2];
 }
 
-#if DYNAMIC_COEFF
 void hresize(const unsigned char** src, int** dst, int count,
     const int* xofs, const short* alpha,
     int swidth, int dwidth, int cn, int xmin, int xmax) {
-#else
-void hresize(const unsigned char** src, int** dst, int count,
-    const int* xofs, int swidth, int dwidth, int cn, int xmin, int xmax) {
-    const short alpha[] = {-192, 1216, 1216, -192};
-#endif
     for (int k = 0; k < count; k++)
     {
         const unsigned char* S = src[k];
@@ -106,17 +100,9 @@ unsigned char castOp(int val)
     return CLIP3((val + DELTA) >> SHIFT, 0, 255);
 }
 
-#if DYNAMIC_COEFF
 void vresize(const int** src, unsigned char* dst, const short* beta, int width)
 {
     int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
-#else
-void vresize(const int** src, unsigned char* dst, int width)
-{
-    const short beta[] = {-192, 1216, 1216, -192};
-    int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
-#endif
-
     const int* S0 = src[0], * S1 = src[1], * S2 = src[2], * S3 = src[3];
 
     for (int x = 0; x < width; x++)
@@ -128,11 +114,8 @@ static int clip(int x, int a, int b)
     return x >= a ? (x < b ? x : b - 1) : a;
 }
 
-#if DYNAMIC_COEFF
+
 void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const int* yofs, const short* _alpha, const short* _beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
-#else
-void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const int* yofs, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
-#endif
 {
     int dy, cn = channels;
 
@@ -180,14 +163,12 @@ void step(const unsigned char* _src, unsigned char* _dst, const int* xofs, const
         }
 
         if (k0 < ksize)
-#if DYNAMIC_COEFF
             hresize((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
                 iwidth, dwidth, cn, xmin, xmax);
+#if DYNAMIC_COEFF
         vresize((const int**)rows, (_dst + dwidth * dy), beta, dwidth);
 #else
-            hresize((srows + k0), (rows + k0), ksize - k0, xofs,
-                iwidth, dwidth, cn, xmin, xmax);
-        vresize((const int**)rows, (_dst + dwidth * dy), dwidth);
+        vresize((const int**)rows, (_dst + dwidth * dy), _beta, dwidth);
 #endif
     }
     free(_buffer);
@@ -274,7 +255,9 @@ void resize(const unsigned char* _src, unsigned char* _dst, int iwidth, int ihei
 #if DYNAMIC_COEFF
     step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 #else
-    step(_src, _dst, xofs, yofs, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+    const short alpha[] = {-192, 1216, 1216, -192};
+    const short beta[] = {-192, 1216, 1216, -192};
+    step(_src, _dst, xofs, yofs, alpha, beta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 #endif
 
 }
