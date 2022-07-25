@@ -173,6 +173,11 @@ void integer_integral_image(const dwt2_dtype* src, size_t width, size_t height, 
     }
 }
 
+/**
+ * To get the var_x, var_y, cov_xy only the previous kw x kh pixels are required from the current pixel
+ * Hence the integral image function is modified to store only required data
+ * The compute metrics function is also brought into this function itself
+ */
 void integer_vif_comp_integral(const dwt2_dtype* src_x,
 							  const dwt2_dtype* src_y, 
                              size_t width, size_t height, 
@@ -184,7 +189,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 {
 	int width_p1  = (width + 1);
 	int height_p1 = (height + 1);
-	int16_t knorm_fact = 25891;   // 2^21 / 81
+	int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
     int32_t mx, my; 
     int64_t vx, vy, cxy;
@@ -211,6 +216,13 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 	memset(int_x_y,0,width_p1 * sizeof(int64_t));
     size_t i;
     int row_offset, pre_kh_kw_offset;
+
+    /**
+     * To get the var_x, var_y, cov_xy only the previous kw x kh pixels are required from the current pixel
+     * Hence, the loop is divided into 2 parts, because till we reach kh row we have to sum all previous row pixels, 
+     * similar rule is applied for loop across width
+     */
+    //1st loop across height, sums all previous rows intermediate(kw pixel) sums i.e. previous_available_rows x kw sums 
     for (i=1; i<kh+1; i++)
     {
 		row_offset = i*width_p1;
@@ -225,6 +237,8 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 		
 		interim_x_y[row_offset] = 0; // 1st coloumn is set to 0	
 		
+        //The loop across width is divided into 2 parts, 
+        //1st loop across width, upto kw pixels since all pixels has to be summed up till here
         for(size_t j=1; j<kw+1; j++)
         {
 			int j_minus1 = j - 1;
@@ -240,6 +254,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			src_y_sq [j_minus1] = src_sq_val_y; // store the square in temp row buffer			
 			src_x_y[j_minus1]   = src_val_xy; // store the x*y in temp row buffer
 			
+            //These buffers will hold the sum of previous pixels in the row
             interim_2_x[row_offset + j] = interim_2_x[row_offset + j_minus1] + src_sq_val_x;			
 			interim_1_x[row_offset + j] = interim_1_x[row_offset + j_minus1] + src_x_val;
 			
@@ -248,6 +263,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			
 			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + src_val_xy;
         }
+        //2nd loop across width, stores only sum of previous kw pixels
         for(size_t j=kw+1; j<width_p1; j++)
         {
             int j_minus1 = j - 1;
@@ -262,22 +278,27 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			src_y_sq [j_minus1] = src_sq_val_y; // store the square in temp row buffer			
 			src_x_y[j_minus1]   = src_val_xy; // store the x*y in temp row buffer
 			
+            //These buffers will hold the sum of previous kw pixels in the row
             interim_2_x[row_offset + j] = interim_2_x[row_offset + j_minus1] + 
-			                              src_sq_val_x - src_x_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+			                              src_sq_val_x - src_x_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
 			
 			interim_1_x[row_offset + j] = interim_1_x[row_offset + j_minus1] + 
 			                              src_x_val - src_x[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
 									   
 		    interim_2_y[row_offset + j] = interim_2_y[row_offset + j_minus1] + 
-										  src_sq_val_y - src_y_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+										  src_sq_val_y - src_y_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
 			
 			interim_1_y[row_offset + j] = interim_1_y[row_offset + j_minus1] + 
 			                              src_y_val - src_y[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
 									   
 			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + 
-										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
 			
         }
+        /**
+         * These buffers will hold the sum of previous rows intermediate sums i.e.
+         * This will hold sums of kw x (available prev rows) pixels
+         */
         for (size_t j=1; j<width_p1; j++)
         {
             int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[pre_row_offset + j];
@@ -289,6 +310,13 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
             int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j]; 
         }
     }
+    /**
+     * The var_x, var_y, cov_xy is stored for 1 row
+     * Size of var_x, var_y, cov_xy is (width-kw)x(height-kh)
+     * 1st row of var_x, var_y, cov_xy is computed from int_*[kh * (width - kw) + kw]
+     * and computation for only 1st row is done in previous loops, 
+     * hence storing values for 1st rows of var_x, var_y, cov_xy
+    */
     pre_kh_kw_offset = (i-1-kh) * (width_p1-kw);
     for (size_t j = kw; j < width_p1; j++)
     {
@@ -304,6 +332,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
         cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
     }
 
+    //2nd loop across height, sums previous kh rows intermediate(kw pixel) sums i.e. kh x kw sums 
     for ( ; i<height_p1; i++)
     {
 		row_offset = i*width_p1;
@@ -319,6 +348,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 		
 		interim_x_y[row_offset] = 0; // 1st coloumn is set to 0	
 		
+        //1st loop across width, upto kw pixels since all pixels has to be summed up till here
         for(size_t j=1; j<kw+1; j++)
         {
 			int j_minus1 = j - 1;
@@ -342,6 +372,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			
 			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + src_val_xy;
         }
+        //2nd loop across width, stores only sum of previous kw pixels
         for(size_t j=kw+1; j<width_p1; j++)
         {
             int j_minus1 = j - 1;
@@ -357,20 +388,26 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			src_x_y[j_minus1]   = src_val_xy; // store the x*y in temp row buffer
 			
             interim_2_x[row_offset + j] = interim_2_x[row_offset + j_minus1] + 
-			                              src_sq_val_x - src_x_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+			                              src_sq_val_x - src_x_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
 			
 			interim_1_x[row_offset + j] = interim_1_x[row_offset + j_minus1] + 
 			                              src_x_val - src_x[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
 									   
 		    interim_2_y[row_offset + j] = interim_2_y[row_offset + j_minus1] + 
-										  src_sq_val_y - src_y_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+										  src_sq_val_y - src_y_sq[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
 			
 			interim_1_y[row_offset + j] = interim_1_y[row_offset + j_minus1] + 
 			                              src_y_val - src_y[src_offset + j_minus1 - kw]; // subtarct src from -kw pos;
 									   
 			interim_x_y[row_offset + j] = interim_x_y[row_offset + j_minus1] + 
-										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; ajay to check (int32_t)
+										  src_val_xy - src_x_y[j_minus1 - kw]; // subtarct src_x_sq from -kw pos; 
         }
+        //The loop is split due to requirement of cov_xy, var_x, var_y because the 1st element is kw element of int_*
+        //Operations to store int_* values is same in both loops
+        /**
+         * These buffers will hold the sum of previous kh rows intermediate sums i.e.
+         * This will hold sums of kh x kw pixels
+         */
         for (size_t j=1; j<kw; j++)
         {
             int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
@@ -381,6 +418,13 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			
 			int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
         }
+        //This loop is similar to previous loop for storing int_* i.e. int_1_x, int_1_y, int_2_x, int_2_y, int_x_y
+        /**
+         * 1st row of var_x, var_y, cov_xy is stored earlier, from 2nd row values are stored here
+         * Size of var_x, var_y, cov_xy is (width-kw)x(height-kh)
+         * 1st row of var_x, var_y, cov_xy is computed from int_*[kh * (width - kw) + kw] 
+         * values of int_* buffers from [i * (width - kw) + j] to end where i starts from kh to height, j starts from kw to width 
+         */
         for (size_t j=kw; j < width_p1; j++)
         {
             int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
@@ -404,38 +448,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
             cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
 
         }
-    }
-
-    // for (size_t j=1; j<width_p1; j++)
-    // {
-		// for (size_t i=1; i<kh+1; i++)
-        // {
-		// 	int row_offset = i*width_p1;
-		// 	int pre_row_offset = (i-1) * width_p1;
-			
-        //     int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[pre_row_offset + j];
-		// 	int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j];
-			
-		// 	int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[pre_row_offset + j];
-		// 	int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j];
-			
-		// 	int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j];
-        // }
-        // for (size_t i=kh+1; i<height_p1; i++)
-        // {
-		// 	int row_offset = i*width_p1;
-		// 	int pre_row_offset = (i-1) * width_p1;
-		// 	int pre_kh_offset = (i-kh) * width_p1;
-			
-        //     int_2_x[row_offset + j] = interim_2_x[row_offset+j] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + j];
-		// 	int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[pre_row_offset + j] - interim_1_x[pre_kh_offset + j];
-			
-		// 	int_2_y[row_offset + j] = interim_2_y[row_offset+j] + int_2_y[pre_row_offset + j] - interim_2_y[pre_kh_offset + j];
-		// 	int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[pre_row_offset + j] - interim_1_y[pre_kh_offset + j];
-			
-		// 	int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
-        // }
-    // }	
+    }	
 	
     free(interim_2_x);
 	free(interim_1_x);
@@ -527,18 +540,10 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
                             kw, kh, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
-    // integer_integral_image(x_pad_t, r_width, r_height, int_1_x_t); 
-    // integer_integral_image(y_pad_t, r_width, r_height, int_1_y_t); 
-    // integer_integral_image_2(x_pad_t, x_pad_t, r_width, r_height, int_2_x_t); 
-    // integer_integral_image_2(y_pad_t, y_pad_t, r_width, r_height, int_2_y_t); 
-    // integer_integral_image_2(x_pad_t, y_pad_t, r_width, r_height, int_xy_t); 
-
 
 
     // integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
 
-    // int64_t* g_t = (int64_t*)malloc(sizeof(int64_t) * s_width * s_height);
-    // uint32_t* sv_sq_t = (uint32_t*)malloc(sizeof(uint32_t) * s_width * s_height);
     uint32_t sv_sq_t;
     int64_t exp_t = 1;//exp*shift_val*shift_val; // using 1 because exp in Q32 format is still 0
     uint32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;

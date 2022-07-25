@@ -233,18 +233,28 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
 static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int height, int fwidth, int dst_row_idx, int half_fw)
 {
     int j, fj, jj, jj1, jj2;
-
+    /**
+     * Similar to vertical pass the loop is split into 3 parts
+     * This is to avoid the if conditions used for virtual padding
+     */
     for (j = 0; j < half_fw; j++)
     {
         int pro_j_end  = half_fw - j - 1;
         int diff_j_hfw = j - half_fw;
         spat_fil_accum_dtype accum = 0;
-        //Mirroring using for loop
+        /**
+         * The full loop is from fj = 0 to fwidth
+         * During the loop when the centre pixel is at j, 
+         * the left part is available only till j-(fwidth/2) >= 0, 
+         * hence padding (border mirroring) is required when j-fwidth/2 < 0
+         */
+        //This loop does border mirroring (jj = -(j - fwidth/2 + fj + 1))
         for (fj = 0; fj <= pro_j_end; fj++){
 
             jj = pro_j_end - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
+        //Here the normal loop is executed where jj = j - fwidth/2 + fj
         for ( ; fj < fwidth; fj++)
         {
             jj = diff_j_hfw + fj;
@@ -252,11 +262,18 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
         }
         dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
+
+    //This is the core loop
     for ( ; j < (width - half_fw); j++)
     {
         int f_l_j = j - half_fw;
         int f_r_j = j + half_fw;
         spat_fil_accum_dtype accum = 0;
+        /**
+         * The filter coefficients are symmetric, 
+         * hence the corresponding pixels for whom coefficient values would be same are added first & then multiplied by coeff
+         * The centre pixel is multiplied and accumulated outside the loop
+        */
         for (fj = 0; fj < half_fw; fj++){
 
             jj1 = f_l_j + fj;
@@ -266,17 +283,28 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
         accum += (spat_fil_inter_dtype) i_filter_coeffs[half_fw] * tmp[j];
         dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
+    /**
+     * This loop is to handle virtual padding of the right border pixels
+     */
     for ( ; j < width; j++)
     {
         int diff_j_hfw = j - half_fw;
         int epi_last_j = width - diff_j_hfw;
         int epi_mirr_j = (width<<1) - diff_j_hfw - 1;
         spat_fil_accum_dtype accum = 0;
+        /**
+         * The full loop is from fj = 0 to fwidth
+         * During the loop when the centre pixel is at j, 
+         * the right pixels are available only till j+(fwidth/2) < width, 
+         * hence padding (border mirroring) is required when j+(fwidth/2) >= width
+         */
+        //Here the normal loop is executed where jj = j - fwidth/2 + fj
         for (fj = 0; fj < epi_last_j; fj++){
 
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
+        //This loop does border mirroring (jj = 2*width - (j - fwidth/2 + fj) - 1)
         for ( ; fj < fwidth; fj++)
         {
             jj = epi_mirr_j - fj;
@@ -306,6 +334,11 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
     spat_fil_coeff_dtype *coeff_ptr;
     int fwidth = 21;
     int half_fw = fwidth / 2;
+
+    /**
+     * The loop i=0 to height is split into 3 parts
+     * This is to avoid the if conditions used for virtual padding
+     */
     for (i = 0; i < half_fw; i++){
 
         int diff_i_halffw = i - half_fw;
@@ -316,12 +349,19 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
 
             spat_fil_accum_dtype accum = 0;
 
-            //Mirroring using for loop itself
+            /**
+             * The full loop is from fi = 0 to fwidth
+             * During the loop when the centre pixel is at i, 
+             * the top part is available only till i-(fwidth/2) >= 0, 
+             * hence padding (border mirroring) is required when i-fwidth/2 < 0
+             */
+            //This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
             for (fi = 0; fi <= pro_mir_end; fi++){
 
                 ii = pro_mir_end - fi;
                 accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
+            //Here the normal loop is executed where ii = i - fwidth / 2 + fi
             for ( ; fi < fwidth; fi++)
             {
                 ii = diff_i_halffw + fi;
@@ -333,6 +373,7 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
         /* Horizontal pass. */
         integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, height, fwidth, i*dst_px_stride, half_fw);
     }
+    //This is the core loop
     for ( ; i < (height - half_fw); i++){
 
         int f_l_i = i - half_fw;
@@ -342,7 +383,11 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
 
             spat_fil_accum_dtype accum = 0;
 
-            //Mirroring using for loop itself
+            /**
+             * The filter coefficients are symmetric, 
+             * hence the corresponding pixels for whom coefficient values would be same are added first & then multiplied by coeff
+             * The centre pixel is multiplied and accumulated outside the loop
+            */
             for (fi = 0; fi < (half_fw); fi++){
                 ii1 = f_l_i + fi;
                 ii2 = f_r_i - fi;
@@ -355,6 +400,9 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
         /* Horizontal pass. */
         integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, height, fwidth, i*dst_px_stride, half_fw);
     }
+    /**
+     * This loop is to handle virtual padding of the bottom border pixels
+     */
     for (; i < height; i++){
 
         int diff_i_halffw = i - half_fw;
@@ -366,12 +414,19 @@ void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width,
 
             spat_fil_accum_dtype accum = 0;
 
-            //Mirroring using for loop itself
+            /**
+             * The full loop is from fi = 0 to fwidth
+             * During the loop when the centre pixel is at i, 
+             * the bottom pixels are available only till i+(fwidth/2) < height, 
+             * hence padding (border mirroring) is required when i+(fwidth/2) >= height
+             */
+            //Here the normal loop is executed where ii = i - fwidth/2 + fi
             for (fi = 0; fi < epi_last_i; fi++){
 
                 ii = diff_i_halffw + fi;
                 accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src[ii * src_px_stride + j];
             }
+            //This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
             for ( ; fi < fwidth; fi++)
             {
                 ii = epi_mir_i - fi;

@@ -42,7 +42,6 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
     size_t height = ref->height;
 
     /**
-     * @brief 
      * C1 is constant is added to ref^2, dist^2, 
      *  - hence we have to multiply by pending_div^2
      * As per floating point,C1 is added to 2*(mx/win_dim)*(my/win_dim) & (mx/win_dim)*(mx/win_dim)+(my/win_dim)*(my/win_dim)
@@ -51,7 +50,6 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
      */
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * ((pending_div*pending_div) << (2 - SSIM_INTER_L_SHIFT)));
     /**
-     * @brief 
      * shifts are handled similar to C1
      * not shifted left because the other terms to which this is added undergoes equivalent right shift 
      */
@@ -86,11 +84,6 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
 
             for (int k = 1; k < 4; k++)
             {
-                /**
-                 * @brief 
-                 * ref, dist in Q15 => (Q15*Q15)>>1 = Q29 
-                 * num_bands = 3(for accumulation) => Q29+Q29+Q29 = Q31
-                 */
                 var_x  += ((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]);
                 var_y  += ((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]);
                 cov_xy += ((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]);
@@ -99,6 +92,11 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
             var_y_band0  = (ssim_inter_dtype)my * my;
             cov_xy_band0 = (ssim_inter_dtype)mx * my;
 
+            /**
+             * ref, dist in Q15 with range [-23875, 23875]
+             * num_bands = 3(for accumulation) where max value requires 31 bits
+             * Since additions are present in next stage right shifted by SSIM_INTER_VAR_SHIFTS
+            */
             var_x  = (var_x  >> SSIM_INTER_VAR_SHIFTS);
             var_y  = (var_y  >> SSIM_INTER_VAR_SHIFTS);
             cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
@@ -118,20 +116,27 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
             //Hence the extra left shift is avoided for C2 unlike C1
             cs_num = ((2>>SSIM_INTER_CS_SHIFT)*cov_xy+C2);
             cs_den = (((var_x+var_y)>>SSIM_INTER_CS_SHIFT)+C2);
-
-            //right shift by SSIM_SHIFT_DIV for denominator to avoid precision loss
-            //adding 1 to avoid divide by 0
-            //This shift cancels when ssim_std / ssim_mean ratio is taken
-            ///map_den = (ssim_accum_dtype)l_den * cs_den; //2^63
-            ///map_den_best16 = getbest16(map_den, &power_den); //2^15, 63-15
-            ///map = (map_num * div_lookup[map_den_best16 + 32768])>>(power_den - SSIM_SHIFT_DIV);
-            // map = (ssim_inter_dtype) (((ssim_accum_dtype)l_num * cs_num) / ((((ssim_accum_dtype)l_den * cs_den) >> SSIM_SHIFT_DIV) + 1));
             
             map_num = (ssim_accum_dtype)l_num * cs_num;
             map_den = (ssim_accum_dtype)l_den * cs_den;
+            
+            /**
+             * l_den & cs_den are variance terms, hence they will always be +ve 
+             * getting best 15bits and retaining one signed bit, using get_best_i16_from_u64
+             * This is done to reuse ADM division LUT, which has LUT for values from -2^15 to 2^15
+            */
             int power_val;
             i16_map_den = get_best_i16_from_u64((uint64_t) map_den, &power_val);
-            map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> (30 - SSIM_SHIFT_DIV);
+            /**
+             * The actual equation of map is map_num/map_den
+             * The division is done using LUT, results of div_lookup = 2^30/i16_map_den
+             * map = map_num/map_den => map = map_num / (i16_map_den << power_val)
+             * => map = (map_num >> power_val) / i16_map_den
+             * => map = (map_num >> power_val) * (div_lookup[i16_map_den + 32768] >> 30) //since it has -ve vals in 1st half
+             * => map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> 30
+             * Shift by 30 might be very high even for 32 bits precision, hence shift only by 15 
+            */
+            map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
             accum_map += map;
             map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype) map * map));
         }
