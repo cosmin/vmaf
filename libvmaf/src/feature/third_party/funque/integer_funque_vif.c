@@ -184,8 +184,7 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 						     int64_t* int_1_x, int64_t* int_1_y,
 							 int64_t* int_2_x, int64_t* int_2_y,
 							 int64_t* int_x_y,
-							 int kw, int kh, double kNorm,
-                             int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
+							 int kw, int kh, double kNorm)
 {
 	int width_p1  = (width + 1);
 	int height_p1 = (height + 1);
@@ -310,27 +309,27 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
             int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[pre_row_offset + j]; 
         }
     }
-    /**
-     * The var_x, var_y, cov_xy is stored for 1 row
-     * Size of var_x, var_y, cov_xy is (width-kw)x(height-kh)
-     * 1st row of var_x, var_y, cov_xy is computed from int_*[kh * (width - kw) + kw]
-     * and computation for only 1st row is done in previous loops, 
-     * hence storing values for 1st rows of var_x, var_y, cov_xy
-    */
-    pre_kh_kw_offset = (i-1-kh) * (width_p1-kw);
-    for (size_t j = kw; j < width_p1; j++)
-    {
-        mx = int_1_x[row_offset + j];
-        my = int_1_y[row_offset + j];
+    // /**
+    //  * The var_x, var_y, cov_xy is stored for 1 row
+    //  * Size of var_x, var_y, cov_xy is (width-kw)x(height-kh)
+    //  * 1st row of var_x, var_y, cov_xy is computed from int_*[kh * (width - kw) + kw]
+    //  * and computation for only 1st row is done in previous loops, 
+    //  * hence storing values for 1st rows of var_x, var_y, cov_xy
+    // */
+    // pre_kh_kw_offset = (i-1-kh) * (width_p1-kw);
+    // for (size_t j = kw; j < width_p1; j++)
+    // {
+    //     mx = int_1_x[row_offset + j];
+    //     my = int_1_y[row_offset + j];
 
-        vx = int_2_x[row_offset + j] - (((int64_t)mx*mx*knorm_fact)>>knorm_shift);
-        vy = int_2_y[row_offset + j] - (((int64_t)my*my*knorm_fact)>>knorm_shift);
-        cxy = int_x_y[row_offset + j] - (((int64_t)mx*my*knorm_fact)>>knorm_shift);
+    //     vx = int_2_x[row_offset + j] - (((int64_t)mx*mx*knorm_fact)>>knorm_shift);
+    //     vy = int_2_y[row_offset + j] - (((int64_t)my*my*knorm_fact)>>knorm_shift);
+    //     cxy = int_x_y[row_offset + j] - (((int64_t)mx*my*knorm_fact)>>knorm_shift);
 
-        var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
-        var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
-        cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
-    }
+    //     var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+    //     var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+    //     cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+    // }
 
     //2nd loop across height, sums previous kh rows intermediate(kw pixel) sums i.e. kh x kw sums 
     for ( ; i<height_p1; i++)
@@ -436,16 +435,16 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 			int_x_y[row_offset + j] = interim_x_y[row_offset+j] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + j];
         
         
-            mx = int_1_x[row_offset + j];
-            my = int_1_y[row_offset + j];
+            // mx = int_1_x[row_offset + j];
+            // my = int_1_y[row_offset + j];
 
-            vx = int_2_x[row_offset + j] - (((int64_t)mx*mx*knorm_fact)>>knorm_shift);
-            vy = int_2_y[row_offset + j] - (((int64_t)my*my*knorm_fact)>>knorm_shift);
-            cxy = int_x_y[row_offset + j] - (((int64_t)mx*my*knorm_fact)>>knorm_shift);
+            // vx = int_2_x[row_offset + j] - (((int64_t)mx*mx*knorm_fact)>>knorm_shift);
+            // vy = int_2_y[row_offset + j] - (((int64_t)my*my*knorm_fact)>>knorm_shift);
+            // cxy = int_x_y[row_offset + j] - (((int64_t)mx*my*knorm_fact)>>knorm_shift);
 
-            var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
-            var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
-            cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            // var_x[pre_kh_kw_offset + j - kw] = vx < 0 ? 0 : (int32_t) (vx >> VIF_COMPUTE_METRIC_R_SHIFT); 
+            // var_y[pre_kh_kw_offset + j - kw] = vy < 0 ? 0 : (int32_t) (vy >> VIF_COMPUTE_METRIC_R_SHIFT);
+            // cov_xy[pre_kh_kw_offset + j -kw] = (vx < 0 || vy < 0) ? 0 : (int32_t) (cxy >> VIF_COMPUTE_METRIC_R_SHIFT);
 
         }
     }	
@@ -523,7 +522,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     integer_reflect_pad(y_t, width, height, y_reflect, y_pad_t);
 
     int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
-    int32_t* var_x_t, * var_y_t, * cov_xy_t;
+    int32_t var_x_t, var_y_t, cov_xy_t;
 
     int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_1_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
@@ -531,15 +530,11 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int_2_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
-    var_x_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    var_y_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-    cov_xy_t = (int32_t*)malloc(sizeof(int32_t) * (r_width + 1 - kw) * (r_height + 1 - kh));
-
     integer_vif_comp_integral(x_pad_t, y_pad_t,
                             r_width, r_height,
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
-                            kw, kh, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
+                            kw, kh, (double)k_norm);
 
 
     // integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
@@ -557,36 +552,39 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int64_t score_den_t = 0;
     int64_t den_power = 0;
 
+    int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
+    int16_t knorm_shift = 21; 
     for (unsigned int i = 0; i < s_height; i++)
     {
         for (unsigned int j = 0; j < s_width; j++)
         {
             index = i * s_width + j;
+            int32_t mx = int_1_x_t[(i+kh)*(r_width+1) + j + kw];
+            int32_t my = int_1_y_t[(i+kh)*(r_width+1) + j + kw];
+            var_x_t = (int_2_x_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+            var_y_t = (int_2_y_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+            cov_xy_t = (int_xy_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
             //These 2 loops can be kept in prev function also
-            if (var_x_t[index] < exp_t)
+            if (var_x_t < exp_t)
             {
-                // g_t_num = 0;
-                // sv_sq_t = var_y_t[index];
-                var_x_t[index] = 0;
-                cov_xy_t[index] = 0;
+                var_x_t = 0;
+                cov_xy_t = 0;
             }
             
-            if (var_y_t[index] < exp_t)
+            if (var_y_t < exp_t)
             {
-                // g_t_num = 0;
-                // sv_sq_t = 0;
-                var_y_t[index] = 0;
-                cov_xy_t[index] = 0;
+                var_y_t = 0;
+                cov_xy_t = 0;
             }
-            int32_t g_t_num = cov_xy_t[index];
-            int32_t g_den = var_x_t[index] + exp_t*k_norm;
+            int32_t g_t_num = cov_xy_t;
+            int32_t g_den = var_x_t + exp_t*k_norm;
 
-            sv_sq_t = (var_y_t[index] - ((int64_t)g_t_num * cov_xy_t[index])/g_den);
+            sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
 
 
             if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
             {
-                sv_sq_t = var_x_t[index];
+                sv_sq_t = var_x_t;
                 g_t_num = 0;
             }
 
@@ -594,9 +592,8 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
                 sv_sq_t = exp_t * k_norm;
 
             int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
-            uint32_t p2 = (uint32_t)(var_x_t[index]);
+            uint32_t p2 = (uint32_t)(var_x_t);
             int64_t n1 = p1 * (int64_t)p2;
-            // int64_t n2 = (((int64_t)g_den*((int64_t)sv_sq_t)) + (int64_t)g_den*(int64_t)sigma_nsq_t);
             int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
             int64_t num_t = n2 + n1;
             int64_t num_den_t = n2;
@@ -609,7 +606,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
             score_num_t += temp_numerator;
             num_power += temp_power_num;
 
-            uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t[index]));
+            uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
             uint32_t d2 = (sigma_nsq_t);
             int y1, y2;
 
@@ -638,11 +635,6 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     free(int_2_x_t);
     free(int_2_y_t);
     free(int_xy_t);
-    free(var_x_t);
-    free(var_y_t);
-    free(cov_xy_t);
-    // free(g_t);
-    // free(sv_sq_t);
 
     ret = 0;
 
