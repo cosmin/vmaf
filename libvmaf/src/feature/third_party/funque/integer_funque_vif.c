@@ -28,8 +28,71 @@
 
 #define VIF_COMPUTE_METRIC_R_SHIFT 6
 
-//increase storage value to remove calculation to get log value
-// uint32_t log_18[262144];
+void int16_frame_to_csv(int16_t *ptr_frm, int width, int height, char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
+    fprintf(fptr, ",");
+    for(int idx_w=0; idx_w<width; idx_w++)
+    {
+        fprintf(fptr, "%d,", idx_w);
+    }
+    fprintf(fptr, "\n");
+
+    for(int idx_h=0; idx_h<height; idx_h++)
+    {
+        fprintf(fptr, "%d,", idx_h);
+        for(int idx_w=0; idx_w<width; idx_w++)
+        {
+            fprintf(fptr, "%d,", ptr_frm[idx_h*width+idx_w]);
+        }
+        fprintf(fptr, "\n");
+    }
+    fclose(fptr);
+}
+
+void int32_frame_to_csv(int32_t *ptr_frm, int width, int height, char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
+    fprintf(fptr, ",");
+    for(int idx_w=0; idx_w<width; idx_w++)
+    {
+        fprintf(fptr, "%d,", idx_w);
+    }
+    fprintf(fptr, "\n");
+
+    for(int idx_h=0; idx_h<height; idx_h++)
+    {
+        fprintf(fptr, "%d,", idx_h);
+        for(int idx_w=0; idx_w<width; idx_w++)
+        {
+            fprintf(fptr, "%d,", ptr_frm[idx_h*width+idx_w]);
+        }
+        fprintf(fptr, "\n");
+    }
+    fclose(fptr);
+}
+
+void int64_frame_to_csv(int64_t *ptr_frm, int width, int height, char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
+    fprintf(fptr, ",");
+    for(int idx_w=0; idx_w<width; idx_w++)
+    {
+        fprintf(fptr, "%d,", idx_w);
+    }
+    fprintf(fptr, "\n");
+
+    for(int idx_h=0; idx_h<height; idx_h++)
+    {
+        fprintf(fptr, "%d,", idx_h);
+        for(int idx_w=0; idx_w<width; idx_w++)
+        {
+            fprintf(fptr, "%ld,", ptr_frm[idx_h*width+idx_w]);
+        }
+        fprintf(fptr, "\n");
+    }
+    fclose(fptr);
+}
 
 // just change the store offset to reduce multiple calculation when getting log value
 void funque_log_generate(uint32_t* log_18)
@@ -461,6 +524,297 @@ void integer_vif_comp_integral(const dwt2_dtype* src_x,
 	free(src_x_y);
 }
 
+void integer_vif_comp_integral_mod(const dwt2_dtype* src_x,
+							  const dwt2_dtype* src_y, 
+                             size_t width, size_t height, 
+						     int64_t* int_1_x, int64_t* int_1_y,
+							 int64_t* int_2_x, int64_t* int_2_y,
+							 int64_t* int_x_y,
+							 int kw, int kh, double kNorm)
+{
+	int width_p1  = (width + 1);
+	int height_p1 = (height + 1);
+	int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
+    int16_t knorm_shift = 21; 
+    int32_t mx, my; 
+    int64_t vx, vy, cxy;
+
+    int64_t *interim_2_x = (int64_t*)malloc(width_p1 * height_p1 * sizeof(int64_t));
+	int32_t *interim_1_x = (int32_t*)malloc(width_p1 * height_p1 * sizeof(int32_t));
+	
+	int64_t *interim_2_y = (int64_t*)malloc(width_p1 * height_p1 * sizeof(int64_t));
+	int32_t *interim_1_y = (int32_t*)malloc(width_p1 * height_p1 * sizeof(int32_t));
+	
+	int64_t *interim_x_y = (int64_t*)malloc(width_p1 * height_p1 * sizeof(int64_t));
+	
+	int32_t *src_x_sq    = (int32_t*)malloc(height * sizeof(int32_t));
+	int32_t *src_y_sq    = (int32_t*)malloc(height * sizeof(int32_t));
+	int32_t *src_x_y     = (int32_t*)malloc(height * sizeof(int32_t));
+	
+	//memset 1st row to 0
+	memset(int_1_x,0,width_p1 * sizeof(int64_t));
+	memset(int_2_x,0,width_p1 * sizeof(int64_t));
+	
+	memset(int_1_y,0,width_p1 * sizeof(int64_t));
+	memset(int_2_y,0,width_p1 * sizeof(int64_t));
+	
+	memset(int_x_y,0,width_p1 * sizeof(int64_t));
+    size_t i = 0;
+    size_t j = 0;
+    int row_offset, pre_kh_kw_offset;
+    int col_offset;
+    row_offset = i*width_p1;
+    int32_t int_1_x_pre = 0;
+    int32_t int_1_y_pre = 0;
+    int64_t int_2_x_pre = 0;
+    int64_t int_2_y_pre = 0;
+    int64_t int_x_y_pre = 0;
+    for (j=1; j<kw+1; j++)
+    {
+        col_offset = j*height_p1;
+        int j_minus1 = j - 1;
+// row_offset
+        // interim_1_x[col_offset] = 0;
+        // interim_1_y[col_offset] = 0;
+        // interim_2_x[col_offset] = 0;
+        // interim_x_y[col_offset] = 0;
+        int_1_x_pre = 0;
+        int_1_y_pre = 0;
+        int_2_x_pre = 0;
+        int_2_y_pre = 0;
+        int_x_y_pre = 0;
+
+        for (i=1; i<kh+1; i++)
+        {
+            row_offset = i * width_p1;
+            int src_offset = (i-1) * width;
+
+            int i_minus1 = i - 1;
+			
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            src_x_sq[i_minus1] = src_xx_val; // store the square in temp row buffer
+			src_y_sq[i_minus1] = src_yy_val; // store the square in temp row buffer			
+			src_x_y[i_minus1]  = src_xy_val; // store the x*y in temp row buffer
+
+            int32_t inter_1_x = int_1_x_pre + src_x_val;
+            int32_t inter_1_y = int_1_y_pre + src_y_val;
+            int64_t inter_2_x = int_2_x_pre + src_xx_val;
+            int64_t inter_2_y = int_2_y_pre + src_yy_val;
+            int64_t inter_x_y = int_x_y_pre + src_xy_val;
+
+            interim_1_x[row_offset + j] = inter_1_x;
+            interim_1_y[row_offset + j] = inter_1_y;
+            interim_2_x[row_offset + j] = inter_2_x;
+            interim_2_y[row_offset + j] = inter_2_y;
+            interim_x_y[row_offset + j] = inter_x_y;
+            // interim_1_x[col_offset+i] = inter_1_x;
+            // interim_1_y[col_offset+i] = inter_1_y;
+            // interim_2_x[col_offset+i] = inter_2_x;
+            // interim_x_y[col_offset+i] = inter_x_y;
+            int_1_x_pre = inter_1_x;
+            int_1_y_pre = inter_1_y;
+            int_2_x_pre = inter_2_x;
+            int_2_y_pre = inter_2_y;
+            int_x_y_pre = inter_x_y;
+        }
+        for (; i<height_p1; i++)
+        {
+            row_offset = i * width_p1;
+            int src_offset = (i-1) * width;
+            int pre_kh_offset = (i-1-kh) * width;
+            // int pre_row_offset = (i-1) * width_p1;
+
+            int i_minus1 = i - 1;
+			
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            src_x_sq[i_minus1] = src_xx_val; // store the square in temp row buffer
+			src_y_sq[i_minus1] = src_yy_val; // store the square in temp row buffer			
+			src_x_y[i_minus1]  = src_xy_val; // store the x*y in temp row buffer
+
+            int32_t inter_1_x = int_1_x_pre + src_x_val - src_x[pre_kh_offset + j_minus1];
+            int32_t inter_1_y = int_1_y_pre + src_y_val - src_y[pre_kh_offset + j_minus1];
+            int64_t inter_2_x = int_2_x_pre + src_xx_val - src_x_sq[i_minus1 - kh];
+            int64_t inter_2_y = int_2_y_pre + src_yy_val - src_y_sq[i_minus1 - kh];
+            int64_t inter_x_y = int_x_y_pre + src_xy_val - src_x_y[i_minus1 - kh];
+
+            interim_1_x[row_offset + j] = inter_1_x;
+            interim_1_y[row_offset + j] = inter_1_y;
+            interim_2_x[row_offset + j] = inter_2_x;
+            interim_2_y[row_offset + j] = inter_2_y;
+            interim_x_y[row_offset + j] = inter_x_y;
+            // interim_1_x[col_offset+i] = inter_1_x;
+            // interim_1_y[col_offset+i] = inter_1_y;
+            // interim_2_x[col_offset+i] = inter_2_x;
+            // interim_x_y[col_offset+i] = inter_x_y;
+            int_1_x_pre = inter_1_x;
+            int_1_y_pre = inter_1_y;
+            int_2_x_pre = inter_2_x;
+            int_2_y_pre = inter_2_y;
+            int_x_y_pre = inter_x_y;
+        }
+        for (i=1; i<height_p1; i++)
+        {
+            row_offset = i * width_p1;
+            int pre_row_offset = (i-1) * width_p1;
+            int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[row_offset + j_minus1];
+            int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[row_offset + j_minus1];
+            
+            int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[row_offset + j_minus1];
+            int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[row_offset + j_minus1];
+            
+            int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[row_offset + j_minus1];
+            // int_2_x[row_offset + j] = interim_2_x[col_offset + i] + int_2_x[pre_row_offset + j];
+            // int_1_x[row_offset + j] = interim_1_x[col_offset + i] + int_1_x[pre_row_offset + j];
+            
+            // int_2_y[row_offset + j] = interim_2_y[col_offset + i] + int_2_y[pre_row_offset + j];
+            // int_1_y[row_offset + j] = interim_1_y[col_offset + i] + int_1_y[pre_row_offset + j];
+            
+            // int_x_y[row_offset + j] = interim_x_y[col_offset + i] + int_x_y[pre_row_offset + j];
+        }
+    }
+    for ( ; j < width_p1; j++)
+    {
+        col_offset = j*height_p1;
+        int j_minus1 = j - 1;
+
+        // interim_1_x[col_offset] = 0;
+        // interim_1_y[col_offset] = 0;
+        // interim_2_x[col_offset] = 0;
+        // interim_x_y[col_offset] = 0;
+        int_1_x_pre = 0;
+        int_1_y_pre = 0;
+        int_2_x_pre = 0;
+        int_2_y_pre = 0;
+        int_x_y_pre = 0;
+
+        for (i=1; i<kh+1; i++)
+        {
+            row_offset = i * width_p1;
+            int src_offset = (i-1) * width;
+            // int pre_row_offset = (i-1) * width_p1;
+
+            int i_minus1 = i - 1;
+			
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            src_x_sq[i_minus1] = src_xx_val; // store the square in temp row buffer
+			src_y_sq[i_minus1] = src_yy_val; // store the square in temp row buffer			
+			src_x_y[i_minus1]  = src_xy_val; // store the x*y in temp row buffer
+
+            int32_t inter_1_x = int_1_x_pre + src_x_val;
+            int32_t inter_1_y = int_1_y_pre + src_y_val;
+            int64_t inter_2_x = int_2_x_pre + src_xx_val;
+            int64_t inter_2_y = int_2_y_pre + src_yy_val;
+            int64_t inter_x_y = int_x_y_pre + src_xy_val;
+
+            interim_1_x[row_offset + j] = inter_1_x;
+            interim_1_y[row_offset + j] = inter_1_y;
+            interim_2_x[row_offset + j] = inter_2_x;
+            interim_2_y[row_offset + j] = inter_2_y;
+            interim_x_y[row_offset + j] = inter_x_y;
+            // interim_1_x[col_offset+i] = inter_1_x;
+            // interim_1_y[col_offset+i] = inter_1_y;
+            // interim_2_x[col_offset+i] = inter_2_x;
+            // interim_x_y[col_offset+i] = inter_x_y;
+            int_1_x_pre = inter_1_x;
+            int_1_y_pre = inter_1_y;
+            int_2_x_pre = inter_2_x;
+            int_2_y_pre = inter_2_y;
+            int_x_y_pre = inter_x_y;
+        }
+        for (; i<height_p1; i++)
+        {
+            row_offset = i * width_p1;
+            int src_offset = (i-1) * width;
+            int pre_kh_offset = (i-1-kh) * width;
+            // int pre_row_offset = (i-1) * width_p1;
+
+            int i_minus1 = i - 1;
+			
+			dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            src_x_sq[i_minus1] = src_xx_val; // store the square in temp row buffer
+			src_y_sq[i_minus1] = src_yy_val; // store the square in temp row buffer			
+			src_x_y[i_minus1]  = src_xy_val; // store the x*y in temp row buffer
+
+            int32_t inter_1_x = int_1_x_pre + src_x_val - src_x[pre_kh_offset + j_minus1];
+            int32_t inter_1_y = int_1_y_pre + src_y_val - src_y[pre_kh_offset + j_minus1];
+            int64_t inter_2_x = int_2_x_pre + src_xx_val - src_x_sq[i_minus1 - kh];
+            int64_t inter_2_y = int_2_y_pre + src_yy_val - src_y_sq[i_minus1 - kh];
+            int64_t inter_x_y = int_x_y_pre + src_xy_val - src_x_y[i_minus1 - kh];
+
+            interim_1_x[row_offset + j] = inter_1_x;
+            interim_1_y[row_offset + j] = inter_1_y;
+            interim_2_x[row_offset + j] = inter_2_x;
+            interim_2_y[row_offset + j] = inter_2_y;
+            interim_x_y[row_offset + j] = inter_x_y;
+            // interim_1_x[col_offset+i] = inter_1_x;
+            // interim_1_y[col_offset+i] = inter_1_y;
+            // interim_2_x[col_offset+i] = inter_2_x;
+            // interim_x_y[col_offset+i] = inter_x_y;
+            int_1_x_pre = inter_1_x;
+            int_1_y_pre = inter_1_y;
+            int_2_x_pre = inter_2_x;
+            int_2_y_pre = inter_2_y;
+            int_x_y_pre = inter_x_y;
+        }
+        for (i=1; i<height_p1; i++)
+        {
+            row_offset = i * width_p1;
+            // int pre_kh_offset = (j-kh) * height_p1;
+            int pre_kh_offset = (i-kh) * width_p1;
+            int pre_row_offset = (i-1) * width_p1;
+            int_2_x[row_offset + j] = interim_2_x[row_offset + j] + int_2_x[row_offset + j_minus1] - interim_2_x[row_offset + j - kw];
+            int_1_x[row_offset + j] = interim_1_x[row_offset + j] + int_1_x[row_offset + j_minus1] - interim_1_x[row_offset + j - kw];
+            
+            int_2_y[row_offset + j] = interim_2_y[row_offset + j] + int_2_y[row_offset + j_minus1] - interim_2_y[row_offset + j - kw];
+            int_1_y[row_offset + j] = interim_1_y[row_offset + j] + int_1_y[row_offset + j_minus1] - interim_1_y[row_offset + j - kw];
+            
+            int_x_y[row_offset + j] = interim_x_y[row_offset + j] + int_x_y[row_offset + j_minus1] - interim_x_y[row_offset + j - kw];
+
+            // int_2_x[row_offset + j] = interim_2_x[col_offset + i] + int_2_x[pre_row_offset + j] - interim_2_x[pre_kh_offset + i];
+            // int_1_x[row_offset + j] = interim_1_x[col_offset + i] + int_1_x[pre_row_offset + j] - interim_1_x[pre_kh_offset + i];
+            
+            // int_2_y[row_offset + j] = interim_2_y[col_offset + i] + int_2_y[pre_row_offset + j] - interim_2_y[pre_kh_offset + i];
+            // int_1_y[row_offset + j] = interim_1_y[col_offset + i] + int_1_y[pre_row_offset + j] - interim_1_y[pre_kh_offset + i];
+            
+            // int_x_y[row_offset + j] = interim_x_y[col_offset + i] + int_x_y[pre_row_offset + j] - interim_x_y[pre_kh_offset + i];
+        }
+    }
+    free(interim_2_x);
+	free(interim_1_x);
+	free(src_x_sq);
+	
+	free(interim_2_y);
+	free(interim_1_y);
+	free(src_y_sq);
+	
+	free(interim_x_y);
+	free(src_x_y);
+}
+
 void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
 {
     int32_t mx, my; 
@@ -530,14 +884,12 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int_2_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
     int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
-    integer_vif_comp_integral(x_pad_t, y_pad_t,
+    
+    integer_vif_comp_integral_mod(x_pad_t, y_pad_t,
                             r_width, r_height,
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
                             kw, kh, (double)k_norm);
-
-
-    // integer_compute_metrics(int_1_x_t, int_1_y_t, int_2_x_t, int_2_y_t, int_xy_t, r_width + 1, r_height + 1, kh, kw, (double)k_norm, var_x_t, var_y_t, cov_xy_t);
 
     uint32_t sv_sq_t;
     int64_t exp_t = 1;//exp*shift_val*shift_val; // using 1 because exp in Q32 format is still 0
