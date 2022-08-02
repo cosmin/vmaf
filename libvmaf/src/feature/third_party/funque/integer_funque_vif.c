@@ -815,6 +815,150 @@ void integer_vif_comp_integral_mod(const dwt2_dtype* src_x,
 	free(src_x_y);
 }
 
+void integer_vif_comp_integral_mod_memopt(const dwt2_dtype* src_x,
+							  const dwt2_dtype* src_y, 
+                             size_t width, size_t height, 
+						     int64_t* int_1_x, int64_t* int_1_y,
+							 int64_t* int_2_x, int64_t* int_2_y,
+							 int64_t* int_x_y,
+							 int kw, int kh, double kNorm)
+{
+	int width_p1  = (width + 1);
+	int height_p1 = (height + 1);
+	int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
+    int16_t knorm_shift = 21; 
+    int32_t mx, my; 
+    int64_t vx, vy, cxy;
+
+    int64_t *interim_2_x = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+	int32_t *interim_1_x = (int32_t*)malloc(width_p1 * sizeof(int32_t));
+	
+	int64_t *interim_2_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+	int32_t *interim_1_y = (int32_t*)malloc(width_p1 * sizeof(int32_t));
+	
+	int64_t *interim_x_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+
+	memset(interim_2_x, 0, width_p1 * sizeof(int64_t));
+	memset(interim_1_x, 0, width_p1 * sizeof(int32_t));
+	memset(interim_2_y, 0, width_p1 * sizeof(int64_t));
+	memset(interim_1_y, 0, width_p1 * sizeof(int32_t));
+	memset(interim_x_y, 0, width_p1 * sizeof(int64_t));
+	
+	//memset 1st row to 0
+	memset(int_1_x,0,width_p1 * sizeof(int64_t));
+	memset(int_2_x,0,width_p1 * sizeof(int64_t));
+	
+	memset(int_1_y,0,width_p1 * sizeof(int64_t));
+	memset(int_2_y,0,width_p1 * sizeof(int64_t));
+	
+	memset(int_x_y,0,width_p1 * sizeof(int64_t));
+    size_t i = 0;
+    size_t j = 0;
+
+    for (i=1; i<kh+1; i++)
+    {
+        int row_offset = i * width_p1;
+        int src_offset = (i-1) * width;
+
+        for (j=1; j<width_p1; j++)
+        {
+            int j_minus1 = j-1;
+            dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            interim_1_x[j] = interim_1_x[j] + src_x_val;
+            interim_2_x[j] = interim_2_x[j] + src_xx_val;
+            interim_1_y[j] = interim_1_y[j] + src_y_val;
+            interim_2_y[j] = interim_2_y[j] + src_yy_val;
+            interim_x_y[j] = interim_x_y[j] + src_xy_val;
+
+        }
+        for (j=1; j<kw+1; j++)
+        {
+            int j_minus1 = j-1;
+            int_2_x[row_offset + j] = interim_2_x[j] + int_2_x[row_offset + j_minus1];
+            int_1_x[row_offset + j] = interim_1_x[j] + int_1_x[row_offset + j_minus1];
+            
+            int_2_y[row_offset + j] = interim_2_y[j] + int_2_y[row_offset + j_minus1];
+            int_1_y[row_offset + j] = interim_1_y[j] + int_1_y[row_offset + j_minus1];
+            
+            int_x_y[row_offset + j] = interim_x_y[j] + int_x_y[row_offset + j_minus1];
+        }
+        for (; j<width_p1; j++)
+        {
+            int j_minus1 = j-1;
+            int_2_x[row_offset + j] = interim_2_x[j] + int_2_x[row_offset + j_minus1] - interim_2_x[j - kw];
+            int_1_x[row_offset + j] = interim_1_x[j] + int_1_x[row_offset + j_minus1] - interim_1_x[j - kw];
+            
+            int_2_y[row_offset + j] = interim_2_y[j] + int_2_y[row_offset + j_minus1] - interim_2_y[j - kw];
+            int_1_y[row_offset + j] = interim_1_y[j] + int_1_y[row_offset + j_minus1] - interim_1_y[j - kw];
+            
+            int_x_y[row_offset + j] = interim_x_y[j] + int_x_y[row_offset + j_minus1] - interim_x_y[j - kw];
+        }
+    }
+    for(; i<height_p1; i++)
+    {
+        int row_offset = i * width_p1;
+        int src_offset = (i-1) * width;
+        int pre_kh_src_offset = (i-1-kh) * width;
+        for (j=1; j<width_p1; j++)
+        {
+            int j_minus1 = j-1;
+            dwt2_dtype src_x_val = src_x[src_offset + j_minus1];
+			dwt2_dtype src_y_val = src_y[src_offset + j_minus1];
+
+            dwt2_dtype src_x_prekh_val = src_x[pre_kh_src_offset + j_minus1];
+            dwt2_dtype src_y_prekh_val = src_y[pre_kh_src_offset + j_minus1];
+            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+			int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+			int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+            int32_t src_xx_prekh_val = (int32_t) src_x_prekh_val * src_x_prekh_val;
+			int32_t src_yy_prekh_val = (int32_t) src_y_prekh_val * src_y_prekh_val;
+			int32_t src_xy_prekh_val = (int32_t) src_x_prekh_val * src_y_prekh_val;
+
+            interim_1_x[j] = interim_1_x[j] + src_x_val - src_x_prekh_val;
+            interim_2_x[j] = interim_2_x[j] + src_xx_val - src_xx_prekh_val;
+            interim_1_y[j] = interim_1_y[j] + src_y_val - src_y_prekh_val;
+            interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
+            interim_x_y[j] = interim_x_y[j] + src_xy_val - src_xy_prekh_val;
+
+        }
+        for (j=1; j<kw+1; j++)
+        {
+            int j_minus1 = j-1;
+            int_2_x[row_offset + j] = interim_2_x[j] + int_2_x[row_offset + j_minus1];
+            int_1_x[row_offset + j] = interim_1_x[j] + int_1_x[row_offset + j_minus1];
+            
+            int_2_y[row_offset + j] = interim_2_y[j] + int_2_y[row_offset + j_minus1];
+            int_1_y[row_offset + j] = interim_1_y[j] + int_1_y[row_offset + j_minus1];
+            
+            int_x_y[row_offset + j] = interim_x_y[j] + int_x_y[row_offset + j_minus1];
+        }
+        for (; j<width_p1; j++)
+        {
+            int j_minus1 = j-1;
+            int_2_x[row_offset + j] = interim_2_x[j] + int_2_x[row_offset + j_minus1] - interim_2_x[j - kw];
+            int_1_x[row_offset + j] = interim_1_x[j] + int_1_x[row_offset + j_minus1] - interim_1_x[j - kw];
+            
+            int_2_y[row_offset + j] = interim_2_y[j] + int_2_y[row_offset + j_minus1] - interim_2_y[j - kw];
+            int_1_y[row_offset + j] = interim_1_y[j] + int_1_y[row_offset + j_minus1] - interim_1_y[j - kw];
+            
+            int_x_y[row_offset + j] = interim_x_y[j] + int_x_y[row_offset + j_minus1] - interim_x_y[j - kw];
+        }
+    }
+
+    free(interim_2_x);
+	free(interim_1_x);
+	free(interim_2_y);
+	free(interim_1_y);
+	free(interim_x_y);
+}
+
 void integer_compute_metrics(const int64_t* int_1_x, const int64_t* int_1_y, const int64_t* int_2_x, const int64_t* int_2_y, const int64_t* int_xy, size_t width, size_t height, size_t kh, size_t kw, double kNorm, int32_t* var_x, int32_t* var_y, int32_t* cov_xy)
 {
     int32_t mx, my; 
@@ -885,7 +1029,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
 
     
-    integer_vif_comp_integral_mod(x_pad_t, y_pad_t,
+    integer_vif_comp_integral_mod_memopt(x_pad_t, y_pad_t,
                             r_width, r_height,
                             int_1_x_t , int_1_y_t,
                             int_2_x_t , int_2_y_t, int_xy_t,
