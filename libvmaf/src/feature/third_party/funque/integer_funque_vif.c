@@ -548,6 +548,70 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     int32_t temp_power_den = -y1 + y2;
     *score_den_t += temp_denominator;
     *den_power += temp_power_den;
+}
+
+//This function does summation of horizontal intermediate_vertical_sums & then 
+//numerator denominator score calculations are done
+static inline vif_horz_integralsum(int kw, int width_p1, 
+                                   int16_t knorm_fact, int16_t knorm_shift, int k_norm, 
+                                   int16_t exp_t, int32_t sigma_nsq_t, uint32_t *log_18,
+                                   int32_t *interim_1_x, int32_t *interim_1_y,
+                                   int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
+                                   int64_t *score_num_t, int64_t *num_power,
+                                   int64_t *score_den_t, int64_t *den_power)
+{
+    int32_t int_1_x, int_1_y;
+    int64_t int_2_x, int_2_y, int_x_y;
+
+    //1st column vals are 0, hence intialising to 0
+    int_1_x = 0;
+    int_1_y = 0;
+    int_2_x = 0;
+    int_2_y = 0;
+    int_x_y = 0;
+    /**
+     * The horizontal accumulation similar to vertical accumulation
+     * metric_sum = prev_col_metric_sum + interim_metric_vertical_sum
+     * The previous kw col interim metric sum is not subtracted since it is not available here
+     */
+    for (size_t j=1; j<kw+1; j++)
+    {
+        int j_minus1 = j-1;
+        int_2_x = interim_2_x[j] + int_2_x;
+        int_1_x = interim_1_x[j] + int_1_x;
+        
+        int_2_y = interim_2_y[j] + int_2_y;
+        int_1_y = interim_1_y[j] + int_1_y;
+        
+        int_x_y = interim_x_y[j] + int_x_y;
+    }
+    /**
+     * The score needs to be calculated for kw column as well, 
+     * whose interim result calc is different from rest of the columns, 
+     * hence calling vif_stats_calc for kw column separately 
+     */
+    vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
+                    knorm_fact, knorm_shift, k_norm, 
+                    exp_t, sigma_nsq_t, log_18,
+                    score_num_t, num_power, score_den_t, den_power);
+
+    //Similar to prev loop, but previous kw col interim metric sum is subtracted
+    for (size_t j=kw+1; j<width_p1; j++)
+    {
+        int j_minus1 = j-1;
+        int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
+        int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
+        
+        int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
+        int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
+        
+        int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
+
+        vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
+                        knorm_fact, knorm_shift, k_norm, 
+                        exp_t, sigma_nsq_t, log_18,
+                        score_num_t, num_power, score_den_t, den_power);
+    }
 
 }
 
@@ -607,7 +671,6 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
         memset(interim_x_y, 0, width_p1 * sizeof(int64_t));
 
         size_t i = 0;
-        size_t j = 0;
 
         //The height loop is broken into 2 parts, 
         //1st loop, prev kh row is not available to subtract during vertical summation
@@ -626,7 +689,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
              * cur_metric_val can be srcx or srcy or srcxx or srcyy or srcxy
              * The previous kh row metric val is not subtracted since it is not available here 
             */
-            for (j=1; j<width_p1; j++)
+            for (size_t j=1; j<width_p1; j++)
             {
                 int j_minus1 = j-1;
                 dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
@@ -649,55 +712,11 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
-        {
-            //1st column vals are 0, hence intialising to 0
-            int_1_x = 0;
-            int_1_y = 0;
-            int_2_x = 0;
-            int_2_y = 0;
-            int_x_y = 0;
-            //The horizontal accumulation similar to vertical accumulation
-            //metric_sum = prev_col_metric_sum + interim_metric_vertical_sum
-            //The previous kw col interim metric sum is not subtracted since it is not available here
-            for (j=1; j<kw+1; j++)
-            {
-                int j_minus1 = j-1;
-                int_2_x = interim_2_x[j] + int_2_x;
-                int_1_x = interim_1_x[j] + int_1_x;
-                
-                int_2_y = interim_2_y[j] + int_2_y;
-                int_1_y = interim_1_y[j] + int_1_y;
-                
-                int_x_y = interim_x_y[j] + int_x_y;
-            }
-            /**
-             * The score needs to be calculated for kw column as well, 
-             * whose interim result calc is different from rest of the columns, 
-             * hence calling vif_stats_calc for kw column separately 
-             */
-            vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                            knorm_fact, knorm_shift, k_norm, 
-                            exp_t, sigma_nsq_t, log_18,
-                            &score_num_t, &num_power, &score_den_t, &den_power);
-
-            //Similar to prev loop, but previous kw col interim metric sum is subtracted
-            for (; j<width_p1; j++)
-            {
-                int j_minus1 = j-1;
-                int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
-                int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
-                
-                int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
-                int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
-                
-                int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
-
-                vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                               knorm_fact, knorm_shift, k_norm, 
-                               exp_t, sigma_nsq_t, log_18,
-                               &score_num_t, &num_power, &score_den_t, &den_power);
-            }
-        }
+        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+                             exp_t, sigma_nsq_t, log_18,
+                             interim_1_x, interim_1_y,
+                             interim_2_x, interim_2_y, interim_x_y,
+                             &score_num_t, &num_power, &score_den_t, &den_power);
 
         //2nd loop, core loop 
         for(; i<height_p1; i++)
@@ -711,7 +730,7 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
              * The interim buffer is of size 1 row
              * inter_sum = prev_inter_sum + cur_metric_val - prev_kh-row_metric_val
             */
-            for (j=1; j<width_p1; j++)
+            for (size_t j=1; j<width_p1; j++)
             {
                 int j_minus1 = j-1;
                 dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
@@ -735,52 +754,13 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
             }
 
-            //1st column vals are 0, hence intialising to 0
-            int_1_x = 0;
-            int_1_y = 0;
-            int_2_x = 0;
-            int_2_y = 0;
-            int_x_y = 0;
-            /**
-             * In the below 2 loops are same as the horizontal summation loops seen before
-             */
-            for (j=1; j<kw+1; j++)
-            {
-                int j_minus1 = j-1;
-                int_2_x = interim_2_x[j] + int_2_x;
-                int_1_x = interim_1_x[j] + int_1_x;
-                
-                int_2_y = interim_2_y[j] + int_2_y;
-                int_1_y = interim_1_y[j] + int_1_y;
-                
-                int_x_y = interim_x_y[j] + int_x_y;
-            }
-            /**
-             * The score needs to be calculated for kw column as well, 
-             * whose interim result calc is different from rest of the columns, 
-             * hence calling vif_stats_calc for kw column separately 
-             */
-            vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                           knorm_fact, knorm_shift, k_norm, 
-                           exp_t, sigma_nsq_t, log_18,
-                           &score_num_t, &num_power, &score_den_t, &den_power);
-
-            for (; j<width_p1; j++)
-            {
-                int j_minus1 = j-1;
-                int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
-                int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
-                
-                int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
-                int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
-                
-                int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
-
-                vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                               knorm_fact, knorm_shift, k_norm, 
-                               exp_t, sigma_nsq_t, log_18,
-                               &score_num_t, &num_power, &score_den_t, &den_power);
-            }
+            //horizontal summation and score compuations
+            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+                                 exp_t, sigma_nsq_t, log_18,
+                                 interim_1_x, interim_1_y,
+                                 interim_2_x, interim_2_y, interim_x_y,
+                                 &score_num_t, &num_power, 
+                                 &score_den_t, &den_power);
         }
 
         free(interim_2_x);
