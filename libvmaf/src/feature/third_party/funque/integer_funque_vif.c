@@ -1019,21 +1019,23 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
     integer_reflect_pad(x_t, width, height, x_reflect, x_pad_t);
     integer_reflect_pad(y_t, width, height, y_reflect, y_pad_t);
 
-    int64_t* int_1_x_t, * int_1_y_t, * int_2_x_t, * int_2_y_t, * int_xy_t;
+    int32_t int_1_x, int_1_y;
+    int64_t int_2_x, int_2_y, int_x_y;
+
     int32_t var_x_t, var_y_t, cov_xy_t;
 
-    int_1_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
-    int_1_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
-    int_2_x_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
-    int_2_y_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
-    int_xy_t = (int64_t*)calloc((r_width + 1) * (r_height + 1), sizeof(int64_t));
+    // int_1_x = (int64_t*)calloc((r_width + 1), sizeof(int64_t));
+    // int_1_y = (int64_t*)calloc((r_width + 1), sizeof(int64_t));
+    // int_2_x = (int64_t*)calloc((r_width + 1), sizeof(int64_t));
+    // int_2_y = (int64_t*)calloc((r_width + 1), sizeof(int64_t));
+    // int_x_y = (int64_t*)calloc((r_width + 1), sizeof(int64_t));
 
     
-    integer_vif_comp_integral_mod_memopt(x_pad_t, y_pad_t,
-                            r_width, r_height,
-                            int_1_x_t , int_1_y_t,
-                            int_2_x_t , int_2_y_t, int_xy_t,
-                            kw, kh, (double)k_norm);
+    // integer_vif_comp_integral_mod_memopt(x_pad_t, y_pad_t,
+    //                         r_width, r_height,
+    //                         int_1_x_t , int_1_y_t,
+    //                         int_2_x_t , int_2_y_t, int_xy_t,
+    //                         kw, kh, (double)k_norm);
 
     uint32_t sv_sq_t;
     int64_t exp_t = 1;//exp*shift_val*shift_val; // using 1 because exp in Q32 format is still 0
@@ -1050,70 +1052,482 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
     int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
-    for (unsigned int i = 0; i < s_height; i++)
+
+
     {
-        for (unsigned int j = 0; j < s_width; j++)
+        int width_p1 = r_width + 1;
+        int height_p1 = r_height + 1;
+        int64_t *interim_2_x = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+        int32_t *interim_1_x = (int32_t*)malloc(width_p1 * sizeof(int32_t));
+        
+        int64_t *interim_2_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+        int32_t *interim_1_y = (int32_t*)malloc(width_p1 * sizeof(int32_t));
+        
+        int64_t *interim_x_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
+
+        memset(interim_2_x, 0, width_p1 * sizeof(int64_t));
+        memset(interim_1_x, 0, width_p1 * sizeof(int32_t));
+        memset(interim_2_y, 0, width_p1 * sizeof(int64_t));
+        memset(interim_1_y, 0, width_p1 * sizeof(int32_t));
+        memset(interim_x_y, 0, width_p1 * sizeof(int64_t));
+
+        size_t i = 0;
+        size_t j = 0;
+
+        for (i=1; i<kh+1; i++)
         {
-            index = i * s_width + j;
-            int32_t mx = int_1_x_t[(i+kh)*(r_width+1) + j + kw];
-            int32_t my = int_1_y_t[(i+kh)*(r_width+1) + j + kw];
-            var_x_t = (int_2_x_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
-            var_y_t = (int_2_y_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
-            cov_xy_t = (int_xy_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
-            //These 2 loops can be kept in prev function also
-            if (var_x_t < exp_t)
+            int row_offset = i * width_p1;
+            int src_offset = (i-1) * r_width;
+
+            for (j=1; j<width_p1; j++)
             {
-                var_x_t = 0;
-                cov_xy_t = 0;
+                int j_minus1 = j-1;
+                dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
+                dwt2_dtype src_y_val = y_pad_t[src_offset + j_minus1];
+
+                int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+                int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+                int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+                interim_1_x[j] = interim_1_x[j] + src_x_val;
+                interim_2_x[j] = interim_2_x[j] + src_xx_val;
+                interim_1_y[j] = interim_1_y[j] + src_y_val;
+                interim_2_y[j] = interim_2_y[j] + src_yy_val;
+                interim_x_y[j] = interim_x_y[j] + src_xy_val;
+
             }
-            
-            if (var_y_t < exp_t)
-            {
-                var_y_t = 0;
-                cov_xy_t = 0;
-            }
-            int32_t g_t_num = cov_xy_t;
-            int32_t g_den = var_x_t + exp_t*k_norm;
-
-            sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
-
-
-            if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
-            {
-                sv_sq_t = var_x_t;
-                g_t_num = 0;
-            }
-
-            if (sv_sq_t < (exp_t * k_norm))
-                sv_sq_t = exp_t * k_norm;
-
-            int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
-            uint32_t p2 = (uint32_t)(var_x_t);
-            int64_t n1 = p1 * (int64_t)p2;
-            int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
-            int64_t num_t = n2 + n1;
-            int64_t num_den_t = n2;
-            int x1, x2;
-  
-            uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
-            uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
-            int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
-            int32_t temp_power_num = -x1 + x2; 
-            score_num_t += temp_numerator;
-            num_power += temp_power_num;
-
-            uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
-            uint32_t d2 = (sigma_nsq_t);
-            int y1, y2;
-
-            uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
-            uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
-            int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
-            int32_t temp_power_den = -y1 + y2;
-            score_den_t += temp_denominator;
-            den_power += temp_power_den;
+            // int_1_x = 0;
+            // int_1_y = 0;
+            // int_2_x = 0;
+            // int_2_y = 0;
+            // int_x_y = 0;
+            // for (j=1; j<kw+1; j++)
+            // {
+            //     int j_minus1 = j-1;
+            //     int_2_x = interim_2_x[j] + int_2_x;
+            //     int_1_x = interim_1_x[j] + int_1_x;
+                
+            //     int_2_y = interim_2_y[j] + int_2_y;
+            //     int_1_y = interim_1_y[j] + int_1_y;
+                
+            //     int_x_y = interim_x_y[j] + int_x_y;
+            // }
+            // for (; j<width_p1; j++)
+            // {
+            //     int j_minus1 = j-1;
+            //     int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
+            //     int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
+                
+            //     int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
+            //     int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
+                
+            //     int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
+            // }
         }
+
+        //score computation for 1st row
+        {
+            int_1_x = 0;
+            int_1_y = 0;
+            int_2_x = 0;
+            int_2_y = 0;
+            int_x_y = 0;
+
+            for (j=1; j<kw+1; j++)
+            {
+                int j_minus1 = j-1;
+                int_2_x = interim_2_x[j] + int_2_x;
+                int_1_x = interim_1_x[j] + int_1_x;
+                
+                int_2_y = interim_2_y[j] + int_2_y;
+                int_1_y = interim_1_y[j] + int_1_y;
+                
+                int_x_y = interim_x_y[j] + int_x_y;
+            }
+            //For kw index
+            {
+                int32_t mx = int_1_x;
+                int32_t my = int_1_y;
+                var_x_t = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                var_y_t = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                cov_xy_t = (int_x_y - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                //These 2 loops can be kept in prev function also
+                if (var_x_t < exp_t)
+                {
+                    var_x_t = 0;
+                    cov_xy_t = 0;
+                }
+                
+                if (var_y_t < exp_t)
+                {
+                    var_y_t = 0;
+                    cov_xy_t = 0;
+                }
+                int32_t g_t_num = cov_xy_t;
+                int32_t g_den = var_x_t + exp_t*k_norm;
+
+                sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
+
+
+                if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
+                {
+                    sv_sq_t = var_x_t;
+                    g_t_num = 0;
+                }
+
+                if (sv_sq_t < (exp_t * k_norm))
+                    sv_sq_t = exp_t * k_norm;
+
+                int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
+                uint32_t p2 = (uint32_t)(var_x_t);
+                int64_t n1 = p1 * (int64_t)p2;
+                int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
+                int64_t num_t = n2 + n1;
+                int64_t num_den_t = n2;
+                int x1, x2;
+    
+                uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+                uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+                int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+                int32_t temp_power_num = -x1 + x2; 
+                score_num_t += temp_numerator;
+                num_power += temp_power_num;
+
+                uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
+                uint32_t d2 = (sigma_nsq_t);
+                int y1, y2;
+
+                uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+                uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+                int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+                int32_t temp_power_den = -y1 + y2;
+                score_den_t += temp_denominator;
+                den_power += temp_power_den;
+
+            }
+            for (; j<width_p1; j++)
+            {
+                int j_minus1 = j-1;
+                int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
+                int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
+                
+                int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
+                int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
+                
+                int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
+
+                int32_t mx = int_1_x;
+                int32_t my = int_1_y;
+                var_x_t = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                var_y_t = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                cov_xy_t = (int_x_y - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                //These 2 loops can be kept in prev function also
+                if (var_x_t < exp_t)
+                {
+                    var_x_t = 0;
+                    cov_xy_t = 0;
+                }
+                
+                if (var_y_t < exp_t)
+                {
+                    var_y_t = 0;
+                    cov_xy_t = 0;
+                }
+                int32_t g_t_num = cov_xy_t;
+                int32_t g_den = var_x_t + exp_t*k_norm;
+
+                sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
+
+
+                if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
+                {
+                    sv_sq_t = var_x_t;
+                    g_t_num = 0;
+                }
+
+                if (sv_sq_t < (exp_t * k_norm))
+                    sv_sq_t = exp_t * k_norm;
+
+                int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
+                uint32_t p2 = (uint32_t)(var_x_t);
+                int64_t n1 = p1 * (int64_t)p2;
+                int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
+                int64_t num_t = n2 + n1;
+                int64_t num_den_t = n2;
+                int x1, x2;
+    
+                uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+                uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+                int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+                int32_t temp_power_num = -x1 + x2; 
+                score_num_t += temp_numerator;
+                num_power += temp_power_num;
+
+                uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
+                uint32_t d2 = (sigma_nsq_t);
+                int y1, y2;
+
+                uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+                uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+                int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+                int32_t temp_power_den = -y1 + y2;
+                score_den_t += temp_denominator;
+                den_power += temp_power_den;
+
+            }
+        }
+
+        for(; i<height_p1; i++)
+        {
+            int row_offset = i * width_p1;
+            int src_offset = (i-1) * r_width;
+            int pre_kh_src_offset = (i-1-kh) * r_width;
+            for (j=1; j<width_p1; j++)
+            {
+                int j_minus1 = j-1;
+                dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
+                dwt2_dtype src_y_val = y_pad_t[src_offset + j_minus1];
+
+                dwt2_dtype src_x_prekh_val = x_pad_t[pre_kh_src_offset + j_minus1];
+                dwt2_dtype src_y_prekh_val = y_pad_t[pre_kh_src_offset + j_minus1];
+                int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+                int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+                int32_t src_xy_val = (int32_t) src_x_val * src_y_val;
+
+                int32_t src_xx_prekh_val = (int32_t) src_x_prekh_val * src_x_prekh_val;
+                int32_t src_yy_prekh_val = (int32_t) src_y_prekh_val * src_y_prekh_val;
+                int32_t src_xy_prekh_val = (int32_t) src_x_prekh_val * src_y_prekh_val;
+
+                interim_1_x[j] = interim_1_x[j] + src_x_val - src_x_prekh_val;
+                interim_2_x[j] = interim_2_x[j] + src_xx_val - src_xx_prekh_val;
+                interim_1_y[j] = interim_1_y[j] + src_y_val - src_y_prekh_val;
+                interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
+                interim_x_y[j] = interim_x_y[j] + src_xy_val - src_xy_prekh_val;
+
+            }
+            int_1_x = 0;
+            int_1_y = 0;
+            int_2_x = 0;
+            int_2_y = 0;
+            int_x_y = 0;
+            for (j=1; j<kw+1; j++)
+            {
+                int j_minus1 = j-1;
+                int_2_x = interim_2_x[j] + int_2_x;
+                int_1_x = interim_1_x[j] + int_1_x;
+                
+                int_2_y = interim_2_y[j] + int_2_y;
+                int_1_y = interim_1_y[j] + int_1_y;
+                
+                int_x_y = interim_x_y[j] + int_x_y;
+            }
+            //for kw index
+            {
+                int32_t mx = int_1_x;
+                int32_t my = int_1_y;
+                var_x_t = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                var_y_t = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                cov_xy_t = (int_x_y - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                //These 2 loops can be kept in prev function also
+                if (var_x_t < exp_t)
+                {
+                    var_x_t = 0;
+                    cov_xy_t = 0;
+                }
+                
+                if (var_y_t < exp_t)
+                {
+                    var_y_t = 0;
+                    cov_xy_t = 0;
+                }
+                int32_t g_t_num = cov_xy_t;
+                int32_t g_den = var_x_t + exp_t*k_norm;
+
+                sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
+
+
+                if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
+                {
+                    sv_sq_t = var_x_t;
+                    g_t_num = 0;
+                }
+
+                if (sv_sq_t < (exp_t * k_norm))
+                    sv_sq_t = exp_t * k_norm;
+
+                int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
+                uint32_t p2 = (uint32_t)(var_x_t);
+                int64_t n1 = p1 * (int64_t)p2;
+                int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
+                int64_t num_t = n2 + n1;
+                int64_t num_den_t = n2;
+                int x1, x2;
+    
+                uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+                uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+                int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+                int32_t temp_power_num = -x1 + x2; 
+                score_num_t += temp_numerator;
+                num_power += temp_power_num;
+
+                uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
+                uint32_t d2 = (sigma_nsq_t);
+                int y1, y2;
+
+                uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+                uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+                int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+                int32_t temp_power_den = -y1 + y2;
+                score_den_t += temp_denominator;
+                den_power += temp_power_den;
+
+            }
+            for (; j<width_p1; j++)
+            {
+                int j_minus1 = j-1;
+                int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
+                int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
+                
+                int_2_y = interim_2_y[j] + int_2_y - interim_2_y[j - kw];
+                int_1_y = interim_1_y[j] + int_1_y - interim_1_y[j - kw];
+                
+                int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
+
+                int32_t mx = int_1_x;
+                int32_t my = int_1_y;
+                var_x_t = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                var_y_t = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                cov_xy_t = (int_x_y - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+                //These 2 loops can be kept in prev function also
+                if (var_x_t < exp_t)
+                {
+                    var_x_t = 0;
+                    cov_xy_t = 0;
+                }
+                
+                if (var_y_t < exp_t)
+                {
+                    var_y_t = 0;
+                    cov_xy_t = 0;
+                }
+                int32_t g_t_num = cov_xy_t;
+                int32_t g_den = var_x_t + exp_t*k_norm;
+
+                sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
+
+
+                if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
+                {
+                    sv_sq_t = var_x_t;
+                    g_t_num = 0;
+                }
+
+                if (sv_sq_t < (exp_t * k_norm))
+                    sv_sq_t = exp_t * k_norm;
+
+                int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
+                uint32_t p2 = (uint32_t)(var_x_t);
+                int64_t n1 = p1 * (int64_t)p2;
+                int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
+                int64_t num_t = n2 + n1;
+                int64_t num_den_t = n2;
+                int x1, x2;
+    
+                uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+                uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+                int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+                int32_t temp_power_num = -x1 + x2; 
+                score_num_t += temp_numerator;
+                num_power += temp_power_num;
+
+                uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
+                uint32_t d2 = (sigma_nsq_t);
+                int y1, y2;
+
+                uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+                uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+                int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+                int32_t temp_power_den = -y1 + y2;
+                score_den_t += temp_denominator;
+                den_power += temp_power_den;
+
+            }
+        }
+
+        free(interim_2_x);
+        free(interim_1_x);
+        free(interim_2_y);
+        free(interim_1_y);
+        free(interim_x_y);
     }
+
+
+
+
+    // for (unsigned int i = 0; i < s_height; i++)
+    // {
+    //     for (unsigned int j = 0; j < s_width; j++)
+    //     {
+    //         index = i * s_width + j;
+    //         int32_t mx = int_1_x_t[(i+kh)*(r_width+1) + j + kw];
+    //         int32_t my = int_1_y_t[(i+kh)*(r_width+1) + j + kw];
+    //         var_x_t = (int_2_x_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+    //         var_y_t = (int_2_y_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+    //         cov_xy_t = (int_xy_t[(i+kh)*(r_width+1) + j + kw] - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
+    //         //These 2 loops can be kept in prev function also
+    //         if (var_x_t < exp_t)
+    //         {
+    //             var_x_t = 0;
+    //             cov_xy_t = 0;
+    //         }
+            
+    //         if (var_y_t < exp_t)
+    //         {
+    //             var_y_t = 0;
+    //             cov_xy_t = 0;
+    //         }
+    //         int32_t g_t_num = cov_xy_t;
+    //         int32_t g_den = var_x_t + exp_t*k_norm;
+
+    //         sv_sq_t = (var_y_t - ((int64_t)g_t_num * cov_xy_t)/g_den);
+
+
+    //         if((g_t_num < 0 && g_den > 0) || (g_den < 0 && g_t_num > 0))
+    //         {
+    //             sv_sq_t = var_x_t;
+    //             g_t_num = 0;
+    //         }
+
+    //         if (sv_sq_t < (exp_t * k_norm))
+    //             sv_sq_t = exp_t * k_norm;
+
+    //         int64_t p1 = ((int64_t)g_t_num * (int64_t)g_t_num)/(int64_t)g_den;
+    //         uint32_t p2 = (uint32_t)(var_x_t);
+    //         int64_t n1 = p1 * (int64_t)p2;
+    //         int64_t n2 = (int64_t) g_den * ((int64_t) sv_sq_t + (int64_t)sigma_nsq_t);
+    //         int64_t num_t = n2 + n1;
+    //         int64_t num_den_t = n2;
+    //         int x1, x2;
+  
+    //         uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
+    //         uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+    //         int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+    //         int32_t temp_power_num = -x1 + x2; 
+    //         score_num_t += temp_numerator;
+    //         num_power += temp_power_num;
+
+    //         uint32_t d1 = ((uint32_t)sigma_nsq_t + (uint32_t)(var_x_t));
+    //         uint32_t d2 = (sigma_nsq_t);
+    //         int y1, y2;
+
+    //         uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
+    //         uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+    //         int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+    //         int32_t temp_power_den = -y1 + y2;
+    //         score_den_t += temp_denominator;
+    //         den_power += temp_power_den;
+    //     }
+    // }
 
     double add_exp = 1e-4*s_height*s_width;
 
@@ -1126,11 +1540,11 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
     free(x_pad_t);
     free(y_pad_t);
-    free(int_1_x_t);
-    free(int_1_y_t);
-    free(int_2_x_t);
-    free(int_2_y_t);
-    free(int_xy_t);
+    // free(int_1_x_t);
+    // free(int_1_y_t);
+    // free(int_2_x_t);
+    // free(int_2_y_t);
+    // free(int_xy_t);
 
     ret = 0;
 
