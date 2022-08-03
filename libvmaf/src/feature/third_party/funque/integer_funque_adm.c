@@ -106,11 +106,12 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
     }
 }
 
-void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int k, int stride, i_adm_buffers masked_pyr, int width, int height, int band_index)
+void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int k, 
+                                     int stride, i_adm_buffers masked_pyr, int width, int height, 
+                                     int band_index, adm_i32_dtype *sum, adm_i32_dtype *interim_x)
 {
     adm_u16_dtype *x_pad;
-    adm_i32_dtype *sum;
-    adm_i32_dtype *interim_x;
+    
     int i, j, index;
     adm_i32_dtype pyr_abs;
     
@@ -124,8 +125,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
     size_t r_height = height + (2 * x_reflect);
     size_t r_width_p1 = r_width + 1;
     
-    sum = (adm_i32_dtype *)malloc(r_width_p1 * (r_height + 1) * sizeof(adm_i32_dtype));
-    interim_x = (adm_i32_dtype *)malloc(r_width_p1 * sizeof(adm_i32_dtype));
+
 	/*
 	** Setting the first row values to 0
 	*/
@@ -244,20 +244,22 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
 	    	}
 	    }
     }
-    
-    free(interim_x);
-    free(sum);
+
     free(x_pad);
 }
 
 void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
 {
     int k;
-    
+
+    adm_i32_dtype *sum = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * (height + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
+    adm_i32_dtype *interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
     for (k = 1; k < 4; k++)
     {
-        integer_integral_image_adm_sums(pyr_1, pyr_2.bands[k], 3, 1, masked_pyr, width, height, k);
+        integer_integral_image_adm_sums(pyr_1, pyr_2.bands[k], K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, k, sum, interim_x);
     }
+    free(interim_x);
+    free(sum);
 }
 
 void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add, int32_t *adm_div_lookup)
