@@ -85,11 +85,32 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
     }
 }
 
+static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
+                                   adm_i64_dtype *sum, adm_i64_dtype *interim_x)
+{
+    //Initialising first column value to 0
+    sum[row_offset] = 0;
+    /**
+     * The horizontal accumulation similar to vertical accumulation
+     * sum = prev_col_sum + interim_vertical_sum
+     * The previous k col interim sum is not subtracted since it is not available here
+     */
+    for (size_t j=1; j<k+1; j++)
+    {
+        sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1];
+    }
+    //Similar to prev loop, but previous k col interim metric sum is subtracted
+    for (size_t j=k+1; j<r_width_p1; j++)
+    {
+        sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1] - interim_x[j - k];
+    }
+}
+
 void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int k, int stride, i_adm_buffers masked_pyr, int width, int height, int band_index)
 {
     adm_u16_dtype *x_pad;
     adm_i64_dtype *sum;
-    adm_i64_dtype *temp_sum;
+    adm_i64_dtype *interim_x;
     int i, j, index;
     adm_i32_dtype pyr_abs;
     
@@ -101,48 +122,58 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
     
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
-    size_t int_stride = r_width + 1;
+    size_t r_width_p1 = r_width + 1;
     
-    sum = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
-    temp_sum = (adm_i64_dtype *)malloc((r_width + 1) * (r_height + 1) * sizeof(adm_i64_dtype));
+    sum = (adm_i64_dtype *)malloc(r_width_p1 * (r_height + 1) * sizeof(adm_i64_dtype));
+    interim_x = (adm_i64_dtype *)malloc(r_width_p1 * sizeof(adm_i64_dtype));
 	/*
 	** Setting the first row values to 0
 	*/
-    memset(sum, 0, int_stride * sizeof(adm_i64_dtype));
+    memset(sum, 0, r_width_p1 * sizeof(adm_i64_dtype));
+    memset(interim_x, 0, r_width_p1 * sizeof(adm_i64_dtype));
+    for (size_t i=1; i<k+1; i++)
+    {
+        int src_offset = (i-1) * r_width;
+        /**
+         * In this loop the pixels are summated vertically and stored in interim buffer
+         * The interim buffer is of size 1 row
+         * inter_sum = prev_inter_sum + cur_pixel_val
+         * 
+         * where inter_sum will have vertical pixel sums, 
+         * prev_inter_sum will have prev rows inter_sum and 
+         * The previous k row metric val is not subtracted since it is not available here 
+         */
+        for (size_t j=1; j<r_width_p1; j++)
+        {
+            interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1];
+        }
+    }
+    /**
+     * The integral score is used from kxk offset of 2D array
+     * Hence horizontal summation of 1st k rows are not used, hence that compuattion is avoided
+     */
+    int row_offset = k * r_width_p1;
+    adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x);
 
-    for (size_t i = 1; i < (k + 1); i++)
+    for (size_t i=k+1; i<r_height+1; i++)
     {
-        temp_sum[i * int_stride] = 0; // Setting the first column value to 0
-        for (size_t j = 1; j < (k + 1); j++)
+        row_offset = i * r_width_p1;
+        int src_offset = (i-1) * r_width;
+        int pre_k_src_offset = (i-1-k) * r_width;
+        /**
+         * This loop is similar to the loop across columns seen in 1st for loop
+         * In this loop the pixels are summated vertically and stored in interim buffer
+         * The interim buffer is of size 1 row
+         * inter_sum = prev_inter_sum + cur_pixel_val - prev_k-row_pixel_val
+         */
+        for (size_t j=1; j<r_width_p1; j++)
         {
-            temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * r_width + (j - 1)];
+            interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
         }
-        for (size_t j = k + 1; j < int_stride; j++)
-        {
-            temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * r_width + (j - 1)] - x_pad[(i - 1) * r_width + j - k - 1];
-        }
-        for (size_t j = 1; j < int_stride; j++)
-        {
-        	sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j];
-        }
+        //horizontal summation
+        adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x);
     }
-  
-    for (size_t i = (k + 1); i < (r_height + 1); i++)
-    {
-        temp_sum[i * int_stride] = 0; // Setting the first column value to 0
-        for (size_t j = 1; j < (k + 1); j++)
-        {
-           temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * r_width + (j - 1)];
-        }
-        for (size_t j = k + 1; j < int_stride; j++)
-        {
-            temp_sum[i * int_stride + j] = temp_sum[i * int_stride + j - 1] + x_pad[(i - 1) * r_width + (j - 1)] - x_pad[(i - 1) * r_width + j - k - 1];
-        }
-        for (size_t j = 1; j < int_stride; j++)
-        {
-        	sum[i * int_stride + j] = temp_sum[i * int_stride + j] + sum[(i - 1) * int_stride + j] - temp_sum[(i - k) * int_stride + j];
-        }
-    }
+
     /*
 	** For band 1 loop the pyr_1 value is multiplied by 
 	** 30 to avaoid the precision loss that would happen 
@@ -157,7 +188,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
         		adm_i32_dtype masking_threshold;
         		adm_i32_dtype val;
         		index = i * width + j;
-        		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * int_stride + j + k]; // x + mx
+        		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
         		pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
         		val = pyr_abs - masking_threshold;
         		masked_pyr.bands[1][index] = val;
@@ -180,7 +211,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
 	    		adm_i32_dtype masking_threshold;
 	    		adm_i32_dtype val;
 	    		index = i * width + j;
-	    		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * int_stride + j + k]; // x + mx
+	    		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
 	    		val = masked_pyr.bands[1][index] - masking_threshold;
 	    		masked_pyr.bands[1][index] = val;
 	    		val = masked_pyr.bands[2][index] - masking_threshold;
@@ -203,7 +234,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
 	    		adm_i32_dtype masking_threshold;
 	    		adm_i32_dtype val;
 	    		index = i * width + j;
-	    		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * int_stride + j + k]; // x + mx
+	    		masking_threshold = (adm_i32_dtype)x[index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
 	    		val = masked_pyr.bands[1][index] - masking_threshold;
 	    		masked_pyr.bands[1][index] = (adm_i32_dtype)clip(val, 0.0, val);
 	    		val = masked_pyr.bands[2][index] - masking_threshold;
@@ -214,7 +245,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
 	    }
     }
     
-    free(temp_sum);
+    free(interim_x);
     free(sum);
     free(x_pad);
 }
