@@ -86,7 +86,7 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
 }
 
 static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
-                                   adm_i64_dtype *sum, adm_i64_dtype *interim_x)
+                                   adm_i32_dtype *sum, adm_i32_dtype *interim_x)
 {
     //Initialising first column value to 0
     sum[row_offset] = 0;
@@ -109,8 +109,8 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
 void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int k, int stride, i_adm_buffers masked_pyr, int width, int height, int band_index)
 {
     adm_u16_dtype *x_pad;
-    adm_i64_dtype *sum;
-    adm_i64_dtype *interim_x;
+    adm_i32_dtype *sum;
+    adm_i32_dtype *interim_x;
     int i, j, index;
     adm_i32_dtype pyr_abs;
     
@@ -124,13 +124,13 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x, int 
     size_t r_height = height + (2 * x_reflect);
     size_t r_width_p1 = r_width + 1;
     
-    sum = (adm_i64_dtype *)malloc(r_width_p1 * (r_height + 1) * sizeof(adm_i64_dtype));
-    interim_x = (adm_i64_dtype *)malloc(r_width_p1 * sizeof(adm_i64_dtype));
+    sum = (adm_i32_dtype *)malloc(r_width_p1 * (r_height + 1) * sizeof(adm_i32_dtype));
+    interim_x = (adm_i32_dtype *)malloc(r_width_p1 * sizeof(adm_i32_dtype));
 	/*
 	** Setting the first row values to 0
 	*/
-    memset(sum, 0, r_width_p1 * sizeof(adm_i64_dtype));
-    memset(interim_x, 0, r_width_p1 * sizeof(adm_i64_dtype));
+    memset(sum, 0, r_width_p1 * sizeof(adm_i32_dtype));
+    memset(interim_x, 0, r_width_p1 * sizeof(adm_i32_dtype));
     for (size_t i=1; i<k+1; i++)
     {
         int src_offset = (i-1) * r_width;
