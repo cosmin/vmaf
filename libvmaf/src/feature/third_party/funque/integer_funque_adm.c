@@ -86,8 +86,10 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
 }
 
 static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
-                                   adm_i32_dtype *sum, adm_i32_dtype *interim_x)
+                                   adm_i32_dtype *sum, adm_i32_dtype *interim_x, 
+                                   adm_u16_dtype *x_pad, int xpad_i)
 {
+    int32_t interim_sum = 0;
     //Initialising first column value to 0
     sum[row_offset] = 0;
     /**
@@ -97,12 +99,17 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
      */
     for (size_t j=1; j<k+1; j++)
     {
-        sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1];
+        // sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1];
+        interim_sum = interim_sum + interim_x[j];
+        // sum[row_offset + j] = interim_sum + x_pad[xpad_i + j - k];
     }
+    sum[row_offset + k] = interim_sum + x_pad[xpad_i];
     //Similar to prev loop, but previous k col interim metric sum is subtracted
     for (size_t j=k+1; j<r_width_p1; j++)
     {
-        sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1] - interim_x[j - k];
+        // sum[row_offset + j] = interim_x[j] + sum[row_offset + j - 1] - interim_x[j - k];
+        interim_sum = interim_sum + interim_x[j] - interim_x[j - k];
+        sum[row_offset + j] = interim_sum + x_pad[xpad_i + j - k];
     }
 }
 
@@ -124,7 +131,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
     size_t r_width_p1 = r_width + 1;
-    
+    int xpad_i;
 
 	/*
 	** Setting the first row values to 0
@@ -153,7 +160,8 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
      * Hence horizontal summation of 1st k rows are not used, hence that compuattion is avoided
      */
     int row_offset = k * r_width_p1;
-    adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x);
+    xpad_i = r_width + 1;
+    adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x, x_pad, xpad_i);
 
     for (size_t i=k+1; i<r_height+1; i++)
     {
@@ -170,8 +178,9 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
         {
             interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
         }
+        xpad_i = (i+1-k)*(r_width) + 1;
         //horizontal summation
-        adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x);
+        adm_horz_integralsum(row_offset, k, r_width_p1, sum, interim_x, x_pad, xpad_i);
     }
     int xpad_index;
     /*
@@ -191,7 +200,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
         		adm_i32_dtype val;
         		index = index_i + j;
                 xpad_index = xpad_i + j;
-        		masking_threshold = (adm_i32_dtype)x_pad[xpad_index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
+        		masking_threshold = /*(adm_i32_dtype)(-x_pad[xpad_index]) +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
         		pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
         		val = pyr_abs - masking_threshold;
         		masked_pyr.bands[1][index] = val;
@@ -217,7 +226,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
 	    		adm_i32_dtype val;
 	    		index = index_i + j;
                 xpad_index = xpad_i + j;
-	    		masking_threshold = (adm_i32_dtype)x_pad[xpad_index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
+	    		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
 	    		val = masked_pyr.bands[1][index] - masking_threshold;
 	    		masked_pyr.bands[1][index] = val;
 	    		val = masked_pyr.bands[2][index] - masking_threshold;
@@ -243,7 +252,7 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
 	    		adm_i32_dtype val;
 	    		index = index_i + j;
                 xpad_index = xpad_i + j;
-	    		masking_threshold = (adm_i32_dtype)x_pad[xpad_index] + sum[(i + k) * r_width_p1 + j + k]; // x + mx
+	    		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
 	    		val = masked_pyr.bands[1][index] - masking_threshold;
 	    		masked_pyr.bands[1][index] = (adm_i32_dtype)clip(val, 0.0, val);
 	    		val = masked_pyr.bands[2][index] - masking_threshold;
@@ -263,6 +272,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
 
     adm_i32_dtype *sum = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * (height + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
     adm_i32_dtype *interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
+    // adm_i32_dtype *interim_sum = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
     for (k = 1; k < 4; k++)
     {
         integer_integral_image_adm_sums(pyr_1, pyr_2.bands[k], K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, k, sum, interim_x);
