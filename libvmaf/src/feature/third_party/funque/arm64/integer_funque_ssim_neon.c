@@ -2,6 +2,8 @@
 #include <arm_neon.h>
 #include <math.h>
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
 #define ENABLE_C_CODE_IN_SIMD 0
 
 static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
