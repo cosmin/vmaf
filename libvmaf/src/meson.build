@@ -202,6 +202,8 @@ if is_asm_enabled
     if host_machine.cpu_family().startswith('arm64') or host_machine.cpu_family().startswith('aarch64')
         arm64_sources = [
             funque_feature_dir + 'arm64/integer_funque_motion_neon.c',
+            funque_feature_dir + 'arm64/integer_funque_ssim_neon.c',
+            funque_feature_dir + 'arm64/integer_funque_filters_neon.c',
         ]
 
           arm64_static_lib = static_library(
