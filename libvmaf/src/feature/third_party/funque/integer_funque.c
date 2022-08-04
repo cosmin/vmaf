@@ -34,7 +34,12 @@
 #include "integer_funque_adm.h"
 #include "funque_adm_options.h"
 #include "integer_funque_motion.h"
+#if ARCH_AARCH64
+#include "arm64/integer_funque_filters_neon.h"
+#include "arm64/integer_funque_ssim_neon.h"
+#else
 #include "integer_funque_ssim.h"
+#endif
 #include "resizer.h"
 
 typedef struct IntFunqueState
@@ -354,9 +359,17 @@ static int extract(VmafFeatureExtractor *fex,
     int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
 
     integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+#if ARCH_AARCH64
+    integer_funque_dwt2_neon(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+#else
     integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+#endif
     integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+#if ARCH_AARCH64
+    integer_funque_dwt2_neon(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+#else
     integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+#endif
 
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT;
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
@@ -400,8 +413,13 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
 
+#if ARCH_AARCH64
+    err = integer_compute_ssim_funque_neon(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
+                                      pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2, s->adm_div_lookup);
+#else
     err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
                                       pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2, s->adm_div_lookup);
+#endif
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
