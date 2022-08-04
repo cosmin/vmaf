@@ -24,6 +24,7 @@
 #include <time.h>
 
 const int INTER_RESIZE_COEF_BITS = 11;
+// const int INTER_RESIZE_COEF_SCALE = 1 << INTER_RESIZE_COEF_BITS;
 const int INTER_RESIZE_COEF_SCALE = 2048;
 static const int MAX_ESIZE = 16;
 
@@ -34,6 +35,7 @@ static const int MAX_ESIZE = 16;
 
 // enabled by default for funque since resize factor is always 0.5, disabled otherwise
 #define OPTIMISED_COEFF 1
+#define USE_C_VRESIZE 1
 
 #if !OPTIMISED_COEFF
 static void interpolateCubic(float x, float *coeffs)
@@ -47,10 +49,21 @@ static void interpolateCubic(float x, float *coeffs)
 }
 #endif
 
-void hresize(const unsigned char **src, int **dst, int count,
-             const int *xofs, const short *alpha,
-             int swidth, int dwidth, int cn, int xmin, int xmax)
+void hresize_neon(const unsigned char **src, int **dst, int count,
+                  const int *xofs, const short *alpha,
+                  int swidth, int dwidth, int cn, int xmin, int xmax)
 {
+    int first_col_count = 0;
+    uint8x8_t src1_8x8, src2_8x8, src3_8x8;
+    int simd_loop = (xmax / 8) * 8;
+    int num_pix = 8;
+
+#if OPTIMISED_COEFF
+    int sx_start = 2;
+#else
+    int sx_start = xofs[1];
+#endif
+
     for (int k = 0; k < count; k++)
     {
         const unsigned char *S = src[k];
@@ -86,16 +99,57 @@ void hresize(const unsigned char **src, int **dst, int count,
             }
             if (limit == dwidth)
                 break;
+
+            int start = sx_start - cn;
+            src1_8x8 = vld1_u8(S + start);
+#if OPTIMISED_COEFF
+            for (; dx < simd_loop;)
+            {
+#else
+            for (; dx < simd_loop; alpha += 32)
+            {
+#endif
+                start += num_pix;
+                src2_8x8 = vld1_u8(S + start);
+                start += num_pix;
+                src3_8x8 = vld1_u8(S + start);
+
+                uint16x8_t movl1_16x8 = vmovl_u8(src1_8x8);
+                uint16x8_t movl2_16x8 = vmovl_u8(src2_8x8);
+                uint16x8_t movl3_16x8 = vmovl_u8(src3_8x8);
+                int16x8_t s_movl1_16x8 = vreinterpretq_s16_u16(movl1_16x8);
+                int16x8_t s_movl2_16x8 = vreinterpretq_s16_u16(movl2_16x8);
+                int16x8_t s_movl3_16x8 = vreinterpretq_s16_u16(movl3_16x8);
+                int16x8x2_t t1 = vuzpq_s16(s_movl1_16x8, s_movl2_16x8); // 0 odd, 1 even
+                int16x8x2_t t2 = vuzpq_s16(s_movl3_16x8, s_movl3_16x8);
+                int16x8_t vx1 = vextq_s16(t1.val[0], t2.val[0], 1); // s_movl3_16x8,1);
+                int16x8_t vx2 = vextq_s16(t1.val[1], t2.val[1], 1);
+                int32x4_t m1_l = vmull_n_s16(vget_low_s16(t1.val[0]), alpha[0]);
+                int32x4_t m1_h = vmull_n_s16(vget_high_s16(t1.val[0]), alpha[0]);
+                int32x4_t m2_l = vmlal_n_s16(m1_l, vget_low_s16(vx1), alpha[1]);
+                int32x4_t m2_h = vmlal_n_s16(m1_h, vget_high_s16(vx1), alpha[1]);
+                int32x4_t m3_l = vmlal_n_s16(m2_l, vget_low_s16(t1.val[1]), alpha[2]);
+                int32x4_t m3_h = vmlal_n_s16(m2_h, vget_high_s16(t1.val[1]), alpha[2]);
+                int32x4_t out_l = vmlal_n_s16(m3_l, vget_low_s16(vx2), alpha[3]);  // final out
+                int32x4_t out_h = vmlal_n_s16(m3_h, vget_high_s16(vx2), alpha[3]); // final out
+
+                vst1q_s32(D + dx, out_l);
+                dx += 4;
+                vst1q_s32(D + dx, out_h);
+                dx += 4;
+                src1_8x8 = src3_8x8;
+            }
+
 #if OPTIMISED_COEFF
             for (; dx < xmax; dx++)
             {
-                int sx = dx * 2;
+                int sx2 = dx * 2;
 #else
             for (; dx < xmax; dx++, alpha += 4)
             {
-                int sx = xofs[dx]; // sx - 2, 4, 6, 8....
+                int sx2 = xofs[dx]; // sx - 2, 4, 6, 8....
 #endif
-                D[dx] = S[sx - 1] * alpha[0] + S[sx] * alpha[1] + S[sx + 1] * alpha[2] + S[sx + 2] * alpha[3];
+                D[dx] = S[sx2 - 1] * alpha[0] + S[sx2] * alpha[1] + S[sx2 + 1] * alpha[2] + S[sx2 + 2] * alpha[3];
             }
             limit = dwidth;
         }
@@ -122,12 +176,65 @@ void vresize(const int **src, unsigned char *dst, const short *beta, int width)
         dst[x] = castOp(S0[x] * b0 + S1[x] * b1 + S2[x] * b2 + S3[x] * b3);
 }
 
+void vresize_neon(const int **src, unsigned char *dst, const short *beta, int width)
+{
+    int32x4_t src_1, src_2, src_3, src_4, src_1_mul;
+    int32x4_t d4_q;
+    int32x4_t add_1;
+    int32x4_t add_delta;
+    int32x4_t shift_right_32x4;
+    uint16x4_t shift_right_16x4;
+    uint16x8_t shift_right_16x8;
+    int32x4_t dt;
+    uint8x8_t dt2;
+
+    int bits = 22;
+    // int32x4_t SHIFT = vdupq_n_s32(bits);
+    int DELTA = (1 << (bits - 1));
+    // b1_vq = vdupq_n_s32(beta[0]);
+    // b2_vq = vdupq_n_s32(beta[1]);
+    // b3_vq = vdupq_n_s32(beta[2]);
+    // b4_vq = vdupq_n_s32(beta[3]);
+    d4_q = vdupq_n_s32(DELTA);
+    src_1_mul = vdupq_n_s32(0);
+
+    int32x4_t lower = vdupq_n_s32(0);
+    int32x4_t higher = vdupq_n_s32(255);
+
+    for (int x = 0; x < width; x += 4)
+    {
+        src_1 = vld1q_s32(src[0] + x);
+        src_2 = vld1q_s32(src[1] + x);
+        src_3 = vld1q_s32(src[2] + x);
+        src_4 = vld1q_s32(src[3] + x);
+
+        add_1 = vmlaq_n_s32(src_1_mul, src_1, beta[0]);
+        add_1 = vmlaq_n_s32(add_1, src_2, beta[1]);
+        add_1 = vmlaq_n_s32(add_1, src_3, beta[2]);
+        add_1 = vmlaq_n_s32(add_1, src_4, beta[3]);
+
+        add_delta = vaddq_s32(add_1, d4_q);
+
+        shift_right_32x4 = vshrq_n_s32(add_delta, bits); // 32x4
+
+        dt = vminq_s32(shift_right_32x4, higher);
+        dt = vmaxq_s32(dt, lower);
+
+        // shift_right_32x4 = vshrq_n_s32(add_delta, bits); // 32x4
+        shift_right_16x4 = vqmovun_s32(dt);                                  // 16x4
+        shift_right_16x8 = vcombine_u16(shift_right_16x4, shift_right_16x4); // 16x8
+        dt2 = vqmovn_u16(shift_right_16x8);                                  // 8x8
+
+        vst1_lane_u32((unsigned int *)(dst + x), vreinterpret_u32_u8(dt2), 0);
+    }
+}
+
 static int clip(int x, int a, int b)
 {
     return x >= a ? (x < b ? x : b - 1) : a;
 }
 
-void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
+void step_neon(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
 {
     int dy, cn = channels;
 
@@ -150,6 +257,7 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
 #if !OPTIMISED_COEFF
     const short *beta = _beta + ksize * start;
 #endif
+
 
 #if OPTIMISED_COEFF
     for (dy = start; dy < end; dy++)
@@ -182,21 +290,30 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
 
         if (k0 < ksize)
         {
-            hresize((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
-                    iwidth, dwidth, cn, xmin, xmax);
+            hresize_neon((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
+                         iwidth, dwidth, cn, xmin, xmax);
         }
 
-        // regular c
 #if OPTIMISED_COEFF
+#if USE_C_VRESIZE
         vresize((const int **)rows, (_dst + dwidth * dy), _beta, dwidth);
-#else
-        vresize((const int **)rows, (_dst + dwidth * dy), beta, dwidth);
+#elif !USE_C_VRESIZE
+        vresize_neon((const int **)rows, (_dst + dwidth * dy), _beta, dwidth);
 #endif
+#else
+#if USE_C_VRESIZE
+        vresize((const int **)rows, (_dst + dwidth * dy), beta, dwidth);
+#elif !USE_C_VRESIZE
+        vresize_neon((const int **)rows, (_dst + dwidth * dy), beta, dwidth);
+#endif
+#endif
+
     }
+
     free(_buffer);
 }
 
-void resize(const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight)
+void resize_neon(const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight, int neon)
 {
     int depth = 0, cn = 1;
     double inv_scale_x = (double)dwidth / iwidth;
@@ -293,6 +410,5 @@ void resize(const unsigned char *_src, unsigned char *_dst, int iwidth, int ihei
             ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
     }
 #endif
-
-    step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+    step_neon(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 }

@@ -1,0 +1,1 @@
+void resize_neon(const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);

@@ -30,6 +30,10 @@
 #include "adm_tools.h"
 #include "integer_funque_filters.h"
 
+#if ARCH_AARCH64
+#include "arm64/integer_funque_adm_neon.h"
+#endif
+
 typedef struct i_adm_buffers
 {
   adm_i32_dtype *bands[4];
@@ -225,7 +229,11 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2,
     
     for (k = 1; k < 4; k++)
     {
+#if ARCH_AARCH64
+        integer_integral_image_adm_sums_neon(pyr_1, pyr_2.bands[k], 3, 1, masked_pyr, width, height, k);
+#else
         integer_integral_image_adm_sums(pyr_1, pyr_2.bands[k], 3, 1, masked_pyr, width, height, k);
+#endif
     }
 }
 
