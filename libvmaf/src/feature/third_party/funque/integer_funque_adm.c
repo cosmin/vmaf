@@ -87,7 +87,7 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
 
 static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
                                    adm_i32_dtype *sum, adm_i32_dtype *interim_x, 
-                                   adm_u16_dtype *x_pad, int xpad_i)
+                                   int32_t *x_pad, int xpad_i)
 {
     int32_t interim_sum = 0;
     //Initialising first column value to 0
@@ -113,9 +113,9 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
     }
 }
 
-void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, int k, 
+void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, i_adm_buffers masked_pyr, int width, int height, 
-                                     int band_index, adm_i32_dtype *sum, adm_i32_dtype *interim_x)
+                                     adm_i32_dtype *sum, adm_i32_dtype *interim_x)
 {
     // adm_u16_dtype *x_pad;
     
@@ -188,8 +188,8 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
 	** 30 to avaoid the precision loss that would happen 
 	** due to the division by 30 of masking_threshold
 	*/
-    if(band_index == 1)
-    {
+    // if(band_index == 3)
+    // {
         for (i = 0; i < height; i++)
         {
             int xpad_i = (i+1)*(width+2) + 1;
@@ -203,86 +203,90 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, adm_u16_dtype *x_pad, 
         		masking_threshold = /*(adm_i32_dtype)(-x_pad[xpad_index]) +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
         		pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
         		val = pyr_abs - masking_threshold;
-        		masked_pyr.bands[1][index] = val;
+                masked_pyr.bands[1][index] = (adm_i32_dtype)clip(val, 0.0, val);
+        		// masked_pyr.bands[1][index] = val;
         		pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
         		val = pyr_abs - masking_threshold;
-        		masked_pyr.bands[2][index] = val;
+                masked_pyr.bands[2][index] = (adm_i32_dtype)clip(val, 0.0, val);
+        		// masked_pyr.bands[2][index] = val;
         		pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
         		val = pyr_abs - masking_threshold;
-        		masked_pyr.bands[3][index] = val;
+        		// masked_pyr.bands[3][index] = val;
+                masked_pyr.bands[3][index] = (adm_i32_dtype)clip(val, 0.0, val);
         	}
         }
-    }
+    // }
 	
-    if(band_index == 2)
-    {
-	    for (i = 0; i < height; i++)
-	    {
-            int xpad_i = (i+1)*(width+2) + 1;
-            int index_i = i * width;
-	    	for (j = 0; j < width; j++)
-	    	{
-	    		adm_i32_dtype masking_threshold;
-	    		adm_i32_dtype val;
-	    		index = index_i + j;
-                xpad_index = xpad_i + j;
-	    		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
-	    		val = masked_pyr.bands[1][index] - masking_threshold;
-	    		masked_pyr.bands[1][index] = val;
-	    		val = masked_pyr.bands[2][index] - masking_threshold;
-	    		masked_pyr.bands[2][index] = val;
-	    		val = masked_pyr.bands[3][index] - masking_threshold;
-	    		masked_pyr.bands[3][index] = val;
-	    	}
-	    }
-    }
-	/*
-	** For band 3 loop the final value is clipped
-	** to minimum of zero.
-	*/
-    if(band_index == 3)
-    {
-	    for (i = 0; i < height; i++)
-	    {
-            int xpad_i = (i+1)*(width+2) + 1;
-            int index_i = i * width;
-	    	for (j = 0; j < width; j++)
-	    	{
-	    		adm_i32_dtype masking_threshold;
-	    		adm_i32_dtype val;
-	    		index = index_i + j;
-                xpad_index = xpad_i + j;
-	    		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
-	    		val = masked_pyr.bands[1][index] - masking_threshold;
-	    		masked_pyr.bands[1][index] = (adm_i32_dtype)clip(val, 0.0, val);
-	    		val = masked_pyr.bands[2][index] - masking_threshold;
-	    		masked_pyr.bands[2][index] = (adm_i32_dtype)clip(val, 0.0, val);
-	    		val = masked_pyr.bands[3][index] - masking_threshold;
-	    		masked_pyr.bands[3][index] = (adm_i32_dtype)clip(val, 0.0, val);
-	    	}
-	    }
-    }
+    // if(band_index == 2)
+    // {
+	//     for (i = 0; i < height; i++)
+	//     {
+    //         int xpad_i = (i+1)*(width+2) + 1;
+    //         int index_i = i * width;
+	//     	for (j = 0; j < width; j++)
+	//     	{
+	//     		adm_i32_dtype masking_threshold;
+	//     		adm_i32_dtype val;
+	//     		index = index_i + j;
+    //             xpad_index = xpad_i + j;
+	//     		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
+	//     		val = masked_pyr.bands[1][index] - masking_threshold;
+	//     		masked_pyr.bands[1][index] = val;
+	//     		val = masked_pyr.bands[2][index] - masking_threshold;
+	//     		masked_pyr.bands[2][index] = val;
+	//     		val = masked_pyr.bands[3][index] - masking_threshold;
+	//     		masked_pyr.bands[3][index] = val;
+	//     	}
+	//     }
+    // }
+	// /*
+	// ** For band 3 loop the final value is clipped
+	// ** to minimum of zero.
+	// */
+    // if(band_index == 3)
+    // {
+	//     for (i = 0; i < height; i++)
+	//     {
+    //         int xpad_i = (i+1)*(width+2) + 1;
+    //         int index_i = i * width;
+	//     	for (j = 0; j < width; j++)
+	//     	{
+	//     		adm_i32_dtype masking_threshold;
+	//     		adm_i32_dtype val;
+	//     		index = index_i + j;
+    //             xpad_index = xpad_i + j;
+	//     		masking_threshold = /*(adm_i32_dtype)x_pad[xpad_index] +*/ sum[(i + k) * r_width_p1 + j + k]; // x + mx
+	//     		val = masked_pyr.bands[1][index] - masking_threshold;
+	//     		masked_pyr.bands[1][index] = (adm_i32_dtype)clip(val, 0.0, val);
+	//     		val = masked_pyr.bands[2][index] - masking_threshold;
+	//     		masked_pyr.bands[2][index] = (adm_i32_dtype)clip(val, 0.0, val);
+	//     		val = masked_pyr.bands[3][index] - masking_threshold;
+	//     		masked_pyr.bands[3][index] = (adm_i32_dtype)clip(val, 0.0, val);
+	//     	}
+	//     }
+    // }
 
-    // free(x_pad);
+    // // free(x_pad);
 }
 
-void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, u_adm_buffers pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
+void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, int32_t *pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
 {
     int k;
 
     adm_i32_dtype *sum = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * (height + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
     adm_i32_dtype *interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
+    // memset(sum, 0, (width + K_INTEGRALIMG_ADM) * (height + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
     // adm_i32_dtype *interim_sum = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
-    for (k = 1; k < 4; k++)
-    {
-        integer_integral_image_adm_sums(pyr_1, pyr_2.bands[k], K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, k, sum, interim_x);
-    }
+    // for (k = 1; k < 4; k++)
+    // {
+    integer_integral_image_adm_sums(pyr_1, pyr_2, K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, sum, interim_x);
+    // }
     free(interim_x);
     free(sum);
 }
 
 void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, 
-                          i_dwt2buffers i_dlm_rest, u_adm_buffers i_dlm_add, 
+                          i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
                           int32_t *adm_div_lookup, float border_size, double *adm_score_den)
 {
     const float cos_1deg_sq = COS_1DEG_SQ;
@@ -310,7 +314,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
             angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            
+            i_dlm_add[addIndex] = 0;
             for (k = 1; k < 4; k++)
             {
                 /**
@@ -329,15 +333,12 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add.bands[k][addIndex] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
             }
         }
         addIndex = (i + 1) * (width + 2);
-        for (k = 1; k < 4; k++)
-        {
-            i_dlm_add.bands[k][addIndex + 0] = i_dlm_add.bands[k][addIndex + 2];
-            i_dlm_add.bands[k][addIndex + width + 1] = i_dlm_add.bands[k][addIndex + width - 1];
-        }
+        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
+        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
     }
     for (; i < loop_h; i++)
     {
@@ -349,7 +350,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
             angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            
+            i_dlm_add[addIndex] = 0;
             for (k = 1; k < 4; k++)
             {
                 /**
@@ -368,7 +369,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add.bands[k][addIndex] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
             }
         }
         for (; j < loop_w; j++)
@@ -379,7 +380,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
             angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            
+            i_dlm_add[addIndex] = 0;
             for (k = 1; k < 4; k++)
             {
                 /**
@@ -398,7 +399,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add.bands[k][addIndex] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t)abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
 
                 //Accumulating denominator score to avoid load in next stage
                 int16_t ref_abs = abs(ref.bands[k][index]);
@@ -414,7 +415,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
             angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            
+            i_dlm_add[addIndex] = 0;
             for (k = 1; k < 4; k++)
             {
                 /**
@@ -433,15 +434,13 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add.bands[k][addIndex] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t)abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
             }
         }
         addIndex = (i + 1) * (width + 2);
-        for (k = 1; k < 4; k++)
-        {
-            i_dlm_add.bands[k][addIndex + 0] = i_dlm_add.bands[k][addIndex + 2];
-            i_dlm_add.bands[k][addIndex + width + 1] = i_dlm_add.bands[k][addIndex + width - 1];
-        }
+        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
+        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
+
     }
 
     for (; i < height; i++)
@@ -454,7 +453,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
             angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            
+            i_dlm_add[addIndex] = 0;
             for (k = 1; k < 4; k++)
             {
                 /**
@@ -473,24 +472,20 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add.bands[k][addIndex] = abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
             }
         }
         addIndex = (i + 1) * (width + 2);
-        for (k = 1; k < 4; k++)
-        {
-            i_dlm_add.bands[k][addIndex + 0] = i_dlm_add.bands[k][addIndex + 2];
-            i_dlm_add.bands[k][addIndex + width + 1] = i_dlm_add.bands[k][addIndex + width - 1];
-        }
+
+        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
+        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
     }
     int row2Idx = 2 * (width + 2);
     int rowLast2Idx = (height - 1) * (width + 2);
     int rowLastPadIdx = (height + 1) * (width + 2);
-    for (k = 1; k < 4; k++)
-    {
-        memcpy(&i_dlm_add.bands[k][0], &i_dlm_add.bands[k][row2Idx], sizeof(uint16_t) * (width + 2));
-        memcpy(&i_dlm_add.bands[k][rowLastPadIdx], &i_dlm_add.bands[k][rowLast2Idx], sizeof(uint16_t) * (width+2));
-    }
+
+    memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (width + 2));
+    memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (width+2));
     
     //Calculating denominator score
     double den_band = 0;
@@ -512,14 +507,12 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
     adm_i64_dtype num_cube = 0, den_cube = 0;
     double num_band = 0, den_band = 0;
     i_dwt2buffers i_dlm_rest;
-    u_adm_buffers i_dlm_add;
+    adm_i32_dtype *i_dlm_add;
     i_adm_buffers i_pyr_rest;
     i_dlm_rest.bands[1] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
     i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
     i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
-    i_dlm_add.bands[1] = (adm_u16_dtype *)malloc(sizeof(adm_u16_dtype) * (height+2) * (width+2));
-    i_dlm_add.bands[2] = (adm_u16_dtype *)malloc(sizeof(adm_u16_dtype) * (height+2) * (width+2));
-    i_dlm_add.bands[3] = (adm_u16_dtype *)malloc(sizeof(adm_u16_dtype) * (height+2) * (width+2));
+    i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (height+2) * (width+2));
     i_pyr_rest.bands[1] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
     i_pyr_rest.bands[2] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
     i_pyr_rest.bands[3] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
@@ -571,10 +564,10 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
     for (int i = 1; i < 4; i++)
     {
         free(i_dlm_rest.bands[i]);
-        free(i_dlm_add.bands[i]);
+        
         free(i_pyr_rest.bands[i]);
     }
-
+    free(i_dlm_add);
     int ret = 0;
     return ret;
 }
