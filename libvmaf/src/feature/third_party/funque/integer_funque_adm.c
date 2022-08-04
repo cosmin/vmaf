@@ -34,20 +34,6 @@
 #include "arm64/integer_funque_adm_neon.h"
 #endif
 
-typedef struct i_adm_buffers
-{
-  adm_i32_dtype *bands[4];
-  int width;
-  int height;
-} i_adm_buffers;
-
-typedef struct u_adm_buffers
-{
-    adm_u16_dtype *bands[4];
-    int width;
-    int height;
-} u_adm_buffers;
-
 static const int32_t div_Q_factor = 1073741824; // 2^30
 
 void div_lookup_generator(int32_t *adm_div_lookup)

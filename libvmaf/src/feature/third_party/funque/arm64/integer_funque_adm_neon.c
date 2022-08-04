@@ -29,20 +29,6 @@
 #include "../integer_funque_filters.h"
 #include "../integer_funque_adm.h"
 
-typedef struct i_adm_buffers
-{
-  adm_i32_dtype *bands[4];
-  int width;
-  int height;
-} i_adm_buffers;
-
-typedef struct u_adm_buffers
-{
-    adm_u16_dtype *bands[4];
-    int width;
-    int height;
-} u_adm_buffers;
-
 void integer_integral_image_adm_sums_neon(i_dwt2buffers pyr_1, adm_u16_dtype *x, int k, int stride, i_adm_buffers masked_pyr, int width, int height, int band_index)
 {
     adm_u16_dtype *x_pad;
