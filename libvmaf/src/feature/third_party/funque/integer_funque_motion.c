@@ -24,8 +24,14 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+
 #include "integer_funque_filters.h"
 #include "integer_funque_motion.h"
+
+#if ARCH_AARCH64
+#include "arm64/integer_funque_motion_neon.h"
+#endif
+
 
 /**
  * Note: img1_stride and img2_stride are in terms of (sizeof(double) bytes)
@@ -70,7 +76,11 @@ int integer_compute_motion_funque(const dwt2_dtype *ref, const dwt2_dtype *dis, 
         goto fail;
     }
     // stride for integer_funque_image_mad_c is in terms of (sizeof(dwt2_dtype) bytes)
+#if ARCH_AARCH64
+    *score = integer_funque_image_mad_neon(ref, dis, w, h, ref_stride / sizeof(dwt2_dtype), dis_stride / sizeof(dwt2_dtype), pending_div_factor);
+#else
     *score = integer_funque_image_mad_c(ref, dis, w, h, ref_stride / sizeof(dwt2_dtype), dis_stride / sizeof(dwt2_dtype), pending_div_factor);
+#endif
 
     return 0;
 
