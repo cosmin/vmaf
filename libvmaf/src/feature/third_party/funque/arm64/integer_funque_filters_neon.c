@@ -3,116 +3,14 @@
 
 void integer_funque_dwt2_neon(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
-#if 0
-
-    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
-
     /**
      * Absolute value of filter coefficients are 1/sqrt(2)
      * The filter is handled by multiplying square of coefficients in final stage
      * Hence the value becomes 1/2, and this is handled using shifts
      * Also extra required out shift is done along with filter shift itself
      */
-    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
-    const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
-    /**
-     * Last column due to padding the values are left shifted and then right shifted
-     * Hence using updated shifts. Subtracting 1 due to left shift
-     */
-    const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
-    const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
-
-    dwt2_dtype *band_a = dwt2_dst->bands[0];
-    dwt2_dtype *band_h = dwt2_dst->bands[1];
-    dwt2_dtype *band_v = dwt2_dst->bands[2];
-    dwt2_dtype *band_d = dwt2_dst->bands[3];
-
-    int16_t row_idx0, row_idx1, col_idx0, col_idx1;
-    int row0_offset, row1_offset;
-    int64_t accum;
-    int width_div_2 = width >> 1; // without rounding (last value is handle outside)
-    int last_col = width & 1;
-
-    unsigned i, j;
-    for (i=0; i < (height+1)/2; ++i)
-    {
-        row_idx0 = 2*i;
-        row_idx1 = 2*i+1;
-        row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-        row0_offset = (row_idx0)*width;
-        row1_offset = (row_idx1)*width;
-        
-        for(j=0; j< width_div_2; ++j)
-        {
-            int col_idx0 = (j << 1);
-            int col_idx1 = (j << 1) + 1;
-            
-            // a & b 2 values in adjacent rows at the same coloumn
-            spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
-            spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
-            
-            // c & d are adjacent values to a & b in teh same row
-            spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
-            spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
-            
-            //a + b    & a - b    
-            int32_t src_a_p_b = src_a + src_b;
-            int32_t src_a_m_b = src_a - src_b;
-            
-            //c + d    & c - d
-            int32_t src_c_p_d = src_c + src_d;
-            int32_t src_c_m_d = src_c - src_d;
-            
-            //F* F (a + b + c + d) - band A  (F*F is 1/2)
-            band_a[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> filter_shift);
-            
-            //F* F (a - b + c - d) - band H  (F*F is 1/2)
-            band_h[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_m_b + src_c_m_d) + filter_shift_rnd) >> filter_shift);
-            
-            //F* F (a + b - c + d) - band V  (F*F is 1/2)
-            band_v[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_p_b - src_c_p_d) + filter_shift_rnd) >> filter_shift);
-
-            //F* F (a - b - c - d) - band D  (F*F is 1/2)
-            band_d[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_m_b - src_c_m_d) + filter_shift_rnd) >> filter_shift);        
-        }
-
-        if(last_col)
-        {
-            col_idx0 = width_div_2 << 1;
-            j = width_div_2;
-            
-            // a & b 2 values in adjacent rows at the last coloumn
-            spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
-            spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
-            
-            //a + b    & a - b    
-            int src_a_p_b = src_a + src_b;
-            int src_a_m_b = src_a - src_b;
-            
-            //F* F (a + b + a + b) - band A  (F*F is 1/2)
-            band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
-            
-            //F* F (a - b + a - b) - band H  (F*F is 1/2)
-            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_m_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
-            
-            //F* F (a + b - (a + b)) - band V, Last column V will always be 0            
-            band_v[i*dst_px_stride+j] = 0;
-
-            //F* F (a - b - (a -b)) - band D,  Last column D will always be 0
-            band_d[i*dst_px_stride+j] = 0;
-        }
-    }
-
-#else
-
-    /**
-     * Absolute value of filter coefficients are 1/sqrt(2)
-     * The filter is handled by multiplying square of coefficients in final stage
-     * Hence the value becomes 1/2, and this is handled using shifts
-     * Also extra required out shift is done along with filter shift itself
-     */
-    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
-    const int8_t filter_shift_rnd = 1 << (filter_shift - 1);
+    // const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    const int8_t filter_shift_rnd = 1 << (FILTER_SHIFT - 1);
     /**
      * Last column due to padding the values are left shifted and then right shifted
      * Hence using updated shifts. Subtracting 1 due to left shift
@@ -201,10 +99,10 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
             addH_32x4_lo = vaddq_s32(subAB_32x4_lo, subCD_32x4_lo);
             addH_32x4_hi = vaddq_s32(subAB_32x4_hi, subCD_32x4_hi);
 
-            bandA_16x4_lo = vqrshrn_n_s32(addA_32x4_lo, filter_shift);
-            bandA_16x4_hi = vqrshrn_n_s32(addA_32x4_hi, filter_shift);
-            bandH_16x4_lo = vqrshrn_n_s32(addH_32x4_lo, filter_shift);
-            bandH_16x4_hi = vqrshrn_n_s32(addH_32x4_hi, filter_shift);
+            bandA_16x4_lo = vqrshrn_n_s32(addA_32x4_lo, FILTER_SHIFT);
+            bandA_16x4_hi = vqrshrn_n_s32(addA_32x4_hi, FILTER_SHIFT);
+            bandH_16x4_lo = vqrshrn_n_s32(addH_32x4_lo, FILTER_SHIFT);
+            bandH_16x4_hi = vqrshrn_n_s32(addH_32x4_hi, FILTER_SHIFT);
 
 #endif
 
@@ -213,10 +111,10 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
             subD_32x4_lo = vsubq_s32(subAB_32x4_lo, subCD_32x4_lo);
             subD_32x4_hi = vsubq_s32(subAB_32x4_hi, subCD_32x4_hi);
 
-            bandV_16x4_lo = vqrshrn_n_s32(subV_32x4_lo, filter_shift);
-            bandV_16x4_hi = vqrshrn_n_s32(subV_32x4_hi, filter_shift);
-            bandD_16x4_lo = vqrshrn_n_s32(subD_32x4_lo, filter_shift);
-            bandD_16x4_hi = vqrshrn_n_s32(subD_32x4_hi, filter_shift);
+            bandV_16x4_lo = vqrshrn_n_s32(subV_32x4_lo, FILTER_SHIFT);
+            bandV_16x4_hi = vqrshrn_n_s32(subV_32x4_hi,FILTER_SHIFT);
+            bandD_16x4_lo = vqrshrn_n_s32(subD_32x4_lo, FILTER_SHIFT);
+            bandD_16x4_hi = vqrshrn_n_s32(subD_32x4_hi, FILTER_SHIFT);
 
             bandOffset = i * dst_px_stride + (j >> 1);
             vst1_s16(band_a + bandOffset, bandA_16x4_lo);
@@ -280,23 +178,21 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
                 int32_t src_c_m_d = src_c - src_d;
 
                 // F* F (a + b + c + d) - band A  (F*F is 1/2)
-                band_a[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> filter_shift);
+                band_a[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> FILTER_SHIFT);
                 // printf("%d\t", (dwt2_dtype)(((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> filter_shift));
 
                 // F* F (a - b + c - d) - band H  (F*F is 1/2)
-                band_h[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_m_b + src_c_m_d) + filter_shift_rnd) >> filter_shift);
+                band_h[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_m_b + src_c_m_d) + filter_shift_rnd) >> FILTER_SHIFT);
                 // printf("%d\t", (dwt2_dtype)(((src_a_m_b + src_c_m_d) + filter_shift_rnd) >> filter_shift));
 
                 // F* F (a + b - c + d) - band V  (F*F is 1/2)
-                band_v[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_p_b - src_c_p_d) + filter_shift_rnd) >> filter_shift);
+                band_v[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_p_b - src_c_p_d) + filter_shift_rnd) >> FILTER_SHIFT);
                 // printf("%d\t", (dwt2_dtype)(((src_a_p_b - src_c_p_d) + filter_shift_rnd) >> filter_shift));
 
                 // F* F (a - b - c - d) - band D  (F*F is 1/2)
-                band_d[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_m_b - src_c_m_d) + filter_shift_rnd) >> filter_shift);
+                band_d[i * dst_px_stride + j] = (dwt2_dtype)(((src_a_m_b - src_c_m_d) + filter_shift_rnd) >> FILTER_SHIFT);
                 // printf("%d\t", (dwt2_dtype)(((src_a_m_b - src_c_m_d) + filter_shift_rnd) >> filter_shift));
             }
         }
     }
-
-#endif
 }
