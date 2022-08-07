@@ -358,13 +358,21 @@ static int extract(VmafFeatureExtractor *fex,
     // TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
 
+#if ARCH_AARCH64
+    integer_spatial_filter_neon(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0])
+#else
     integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+#endif
 #if ARCH_AARCH64
     integer_funque_dwt2_neon(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
 #else
     integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
 #endif
+#if ARCH_AARCH64
+    integer_spatial_filter_neon(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0])
+#else
     integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+#endif
 #if ARCH_AARCH64
     integer_funque_dwt2_neon(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 #else
