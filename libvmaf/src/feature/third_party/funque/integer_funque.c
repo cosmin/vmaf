@@ -34,13 +34,14 @@
 #include "integer_funque_adm.h"
 #include "funque_adm_options.h"
 #include "integer_funque_motion.h"
-#if ARCH_AARCH64
-#include "arm64/integer_funque_filters_neon.h"
-#include "arm64/integer_funque_ssim_neon.h"
-#endif
 #include "integer_funque_ssim.h"
 #include "resizer.h"
 
+#if ARCH_AARCH64
+#include "arm64/integer_funque_filters_neon.h"
+#include "arm64/integer_funque_ssim_neon.h"
+#include "arm64/integer_funque_motion_neon.h"
+#endif
 typedef struct IntFunqueState
 {
     size_t float_stride;
@@ -58,10 +59,6 @@ typedef struct IntFunqueState
     // funque configurable parameters
     bool enable_resize;
     int vif_levels;
-
-    //filters
-    void (*integer_spatial_filter)(uint8_t *src, spat_fil_output_dtype *dst, int width, int height);
-    void (*integer_funque_dwt2)(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -85,9 +82,9 @@ typedef struct IntFunqueState
     bool enable_db;
     bool clip_db;
     double max_db;
-    int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
 
     VmafDictionary *feature_name_dict;
+    ModuleFunqueState modules;
 } IntFunqueState;
 
 static const VmafOption options[] = {
@@ -288,13 +285,15 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->max_db = INFINITY;
     }
 
-    s->integer_spatial_filter = integer_spatial_filter;
-    s->integer_funque_dwt2 = integer_funque_dwt2;
-    s->integer_compute_ssim_funque = integer_compute_ssim_funque;
+    s->modules.integer_spatial_filter = integer_spatial_filter;
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
+    s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
  #if ARCH_AARCH64
-    s->integer_spatial_filter = integer_spatial_filter_neon;
-    s->integer_funque_dwt2 = integer_funque_dwt2_neon;
-    s->integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
+    s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
+    s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
  #endif   
 
     funque_log_generate(s->log_18);
@@ -372,11 +371,11 @@ static int extract(VmafFeatureExtractor *fex,
     // TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
 
-    s->integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
-    s->integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+    s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
 
-    s->integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
-    s->integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT;
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
@@ -396,7 +395,7 @@ static int extract(VmafFeatureExtractor *fex,
     {
         double motion_score;
 
-        err |= integer_compute_motion_funque(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
+        err |= integer_compute_motion_funque(s->modules, s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
                                              s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
                                              s->i_dwt2_stride, s->i_dwt2_stride,
                                              pending_div_factor,
@@ -420,7 +419,7 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
 
-    err = s->integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
+    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
                                       pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2, s->adm_div_lookup);
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",

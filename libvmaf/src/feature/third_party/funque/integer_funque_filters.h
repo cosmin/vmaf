@@ -56,6 +56,16 @@ typedef struct i_dwt2buffers {
     int height;
 }i_dwt2buffers;
 
+typedef struct ModuleFunqueState
+{
+    //function pointers
+    void (*integer_spatial_filter)(uint8_t *src, spat_fil_output_dtype *dst, int width, int height);
+    void (*integer_funque_dwt2)(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+    int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
+    double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
+
+}ModuleFunqueState;
+
 void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width, int height);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
