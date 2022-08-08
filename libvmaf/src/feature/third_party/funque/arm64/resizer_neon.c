@@ -22,32 +22,7 @@
 #include <string.h>
 #include <arm_neon.h>
 #include <time.h>
-
-const int INTER_RESIZE_COEF_BITS = 11;
-// const int INTER_RESIZE_COEF_SCALE = 1 << INTER_RESIZE_COEF_BITS;
-const int INTER_RESIZE_COEF_SCALE = 2048;
-static const int MAX_ESIZE = 16;
-
-#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-                                                        : X)
-#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
-
-// enabled by default for funque since resize factor is always 0.5, disabled otherwise
-#define OPTIMISED_COEFF 1
-#define USE_C_VRESIZE 1
-
-#if !OPTIMISED_COEFF
-static void interpolateCubic(float x, float *coeffs)
-{
-    const float A = -0.75f;
-
-    coeffs[0] = ((A * (x + 1) - 5 * A) * (x + 1) + 8 * A) * (x + 1) - 4 * A;
-    coeffs[1] = ((A + 2) * x - (A + 3)) * x * x + 1;
-    coeffs[2] = ((A + 2) * (1 - x) - (A + 3)) * (1 - x) * (1 - x) + 1;
-    coeffs[3] = 1.f - coeffs[0] - coeffs[1] - coeffs[2];
-}
-#endif
+#include "../resizer.h"
 
 void hresize_neon(const unsigned char **src, int **dst, int count,
                   const int *xofs, const short *alpha,
@@ -159,23 +134,6 @@ void hresize_neon(const unsigned char **src, int **dst, int count,
     }
 }
 
-unsigned char castOp(int val)
-{
-    int bits = 22;
-    int SHIFT = bits;
-    int DELTA = (1 << (bits - 1));
-    return CLIP3((val + DELTA) >> SHIFT, 0, 255);
-}
-
-void vresize(const int **src, unsigned char *dst, const short *beta, int width)
-{
-    int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
-    const int *S0 = src[0], *S1 = src[1], *S2 = src[2], *S3 = src[3];
-
-    for (int x = 0; x < width; x++)
-        dst[x] = castOp(S0[x] * b0 + S1[x] * b1 + S2[x] * b2 + S3[x] * b3);
-}
-
 void vresize_neon(const int **src, unsigned char *dst, const short *beta, int width)
 {
     int32x4_t src_1, src_2, src_3, src_4, src_1_mul;
@@ -229,7 +187,7 @@ void vresize_neon(const int **src, unsigned char *dst, const short *beta, int wi
     }
 }
 
-static int clip(int x, int a, int b)
+static int clip_neon(int x, int a, int b)
 {
     return x >= a ? (x < b ? x : b - 1) : a;
 }
@@ -272,7 +230,7 @@ void step_neon(const unsigned char *_src, unsigned char *_dst, const int *xofs, 
 
         for (int k = 0; k < ksize; k++)
         {
-            int sy = clip(sy0 - ksize2 + 1 + k, 0, iheight);
+            int sy = clip_neon(sy0 - ksize2 + 1 + k, 0, iheight);
             for (k1 = MAX(k1, k); k1 < ksize; k1++)
             {
                 if (k1 < MAX_ESIZE && sy == prev_sy[k1]) // if the sy-th row has been computed already, reuse it.
@@ -311,104 +269,4 @@ void step_neon(const unsigned char *_src, unsigned char *_dst, const int *xofs, 
     }
 
     free(_buffer);
-}
-
-void resize_neon(const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight, int neon)
-{
-    int depth = 0, cn = 1;
-    double inv_scale_x = (double)dwidth / iwidth;
-    double inv_scale_y = (double)dheight / iheight;
-
-    int ksize = 4, ksize2;
-    ksize2 = ksize / 2;
-
-    int xmin = 0, xmax = dwidth, width = dwidth * cn;
-
-#if OPTIMISED_COEFF
-    const short ibeta[] = {-192, 1216, 1216, -192};
-    const short ialpha[] = {-192, 1216, 1216, -192};
-    double scale_x = 1. / inv_scale_x;
-    int *xofs, *yofs;
-    float fx;
-    int sx;
-
-    for (int dx = 0; dx < dwidth; dx++)
-    {
-        fx = (float)((dx + 0.5) * scale_x - 0.5);
-        sx = (int)floor(fx);
-        fx -= sx;
-
-        if (sx < ksize2 - 1)
-        {
-            xmin = dx + 1;
-        }
-
-        if (sx + ksize2 >= iwidth)
-        {
-            xmax = MIN(xmax, dx);
-        }
-    }
-#else
-
-    double scale_x = 1. / inv_scale_x, scale_y = 1. / inv_scale_y;
-
-    int iscale_x = (int)scale_x;
-    int iscale_y = (int)scale_y;
-
-    int k, sx, sy, dx, dy;
-
-    float fx, fy;
-
-    unsigned char *_buffer = (unsigned char *)malloc((width + dheight) * (sizeof(int) + sizeof(float) * ksize));
-
-    int *xofs = (int *)_buffer;
-    int *yofs = xofs + width;
-    float *alpha = (float *)(yofs + dheight);
-    short *ialpha = (short *)alpha;
-    float *beta = alpha + width * ksize;
-    short *ibeta = ialpha + width * ksize;
-    float cbuf[4] = {0};
-
-    for (dx = 0; dx < dwidth; dx++)
-    {
-        fx = (float)((dx + 0.5) * scale_x - 0.5);
-        sx = (int)floor(fx);
-        fx -= sx;
-
-        if (sx < ksize2 - 1)
-        {
-            xmin = dx + 1;
-        }
-
-        if (sx + ksize2 >= iwidth)
-        {
-            xmax = MIN(xmax, dx);
-        }
-
-        for (k = 0, sx *= cn; k < cn; k++)
-            xofs[dx * cn + k] = sx + k;
-
-        interpolateCubic(fx, cbuf);
-
-        for (k = 0; k < ksize; k++)
-            ialpha[dx * cn * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
-        for (; k < cn * ksize; k++)
-            ialpha[dx * cn * ksize + k] = ialpha[dx * cn * ksize + k - ksize];
-    }
-
-    for (dy = 0; dy < dheight; dy++)
-    {
-        fy = (float)((dy + 0.5) * scale_y - 0.5);
-        sy = (int)floor(fy);
-        fy -= sy;
-
-        yofs[dy] = sy;
-
-        interpolateCubic(fy, cbuf);
-
-        for (k = 0; k < ksize; k++)
-            ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
-    }
-#endif
-    step_neon(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 }

@@ -22,18 +22,7 @@
 #include <string.h>
 #include <arm_neon.h>
 #include <time.h>
-
-const int INTER_RESIZE_COEF_BITS = 11;
-const int INTER_RESIZE_COEF_SCALE = 2048;
-static const int MAX_ESIZE = 16;
-
-#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-                                                        : X)
-#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
-
-// enabled by default for funque since resize factor is always 0.5, disabled otherwise
-#define OPTIMISED_COEFF 1
+#include "resizer.h"
 
 #if !OPTIMISED_COEFF
 static void interpolateCubic(float x, float *coeffs)
@@ -196,7 +185,7 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
     free(_buffer);
 }
 
-void resize(const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight)
+void resize(ModuleFunqueState m, const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight)
 {
     int depth = 0, cn = 1;
     double inv_scale_x = (double)dwidth / iwidth;
@@ -293,6 +282,6 @@ void resize(const unsigned char *_src, unsigned char *_dst, int iwidth, int ihei
             ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
     }
 #endif
-
-    step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+    
+    m.resizer_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 }
