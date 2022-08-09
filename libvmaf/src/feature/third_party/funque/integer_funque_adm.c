@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
-
+#include <stdbool.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -152,15 +152,48 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
 
 void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, i_adm_buffers masked_pyr, int width, int height, 
-                                     adm_i32_dtype *interim_x)
+                                     adm_i32_dtype *interim_x, float border_size)
 {    
     int i, j, index;
     adm_i32_dtype pyr_abs;
     
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	
+	*/
     int x_reflect = (int)((k - stride) / 2);
+	int border_h = (border_size * height);
+    int border_w = (border_size * width);
+    int loop_h, loop_w, dlm_width, dlm_height;
+	int extra_sample_h = 0, extra_sample_w = 0;
+	
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	
+	*/	
+	
+	// add one sample on the boundary to account for integral image calculation
+	if(border_h)
+		extra_sample_h = 1; 
+	
+	if(border_w)
+		extra_sample_w = 1; 
+	
+	border_h -= extra_sample_h;
+	border_w -= extra_sample_w;
+	
+    loop_h = height - border_h;
+    loop_w = width - border_w;
+	
+	dlm_height = height - (border_h << 1);
+	dlm_width = width - (border_w << 1);
     
-    size_t r_width = width + (2 * x_reflect);
-    size_t r_height = height + (2 * x_reflect);
+    size_t r_width = dlm_width + (2 * x_reflect);
+    size_t r_height = dlm_height + (2 * x_reflect);
     size_t r_width_p1 = r_width + 1;
     int xpad_i;
 
@@ -208,20 +241,20 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
             interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
         }
         xpad_i = (i+1-k)*(r_width) + 1;
-        index = (i-k) * width;
+        index = (i-k) * dlm_width;
         //horizontal summation
         adm_horz_integralsum(row_offset, k, r_width_p1, NULL, interim_x, x_pad, xpad_i, index,
                              pyr_1, masked_pyr);
     }
 }
 
-void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, int32_t *pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height)
+void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, int32_t *pyr_2, i_adm_buffers masked_pyr, size_t width, size_t height, float border_size)
 {
     int k;
 
     adm_i32_dtype *interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
 
-    integer_integral_image_adm_sums(pyr_1, pyr_2, K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, interim_x);
+    integer_integral_image_adm_sums(pyr_1, pyr_2, K_INTEGRALIMG_ADM, 1, masked_pyr, width, height, interim_x, border_size);
 
     free(interim_x);
 }
@@ -233,7 +266,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
     const float cos_1deg_sq = COS_1DEG_SQ;
     size_t width = ref.width;
     size_t height = ref.height;
-    int i, j, k, index, addIndex;
+    int i, j, k, index, addIndex,restIndex;
     
     adm_i16_dtype tmp_val;
     int angle_flag;
@@ -241,16 +274,43 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int border_h = (border_size * height);
     int border_w = (border_size * width);
-    int loop_h = height - border_h;
-    int loop_w = width - border_w;
-    int64_t den_sum[3] = {0};
-
-    for (i = 0; i < border_h; i++)
+	int64_t den_sum[3] = {0};
+    int loop_h, loop_w, dlm_width, dlm_height;
+	int extra_sample_h = 0, extra_sample_w = 0;
+	bool row_flag = 1, col_flag = 1;
+	
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	
+	*/	
+	
+	// add one sample on the boundary to account for integral image calculation
+	if(border_h)
+		extra_sample_h = 1; 
+	
+	if(border_w)
+		extra_sample_w = 1; 
+	
+	border_h -= extra_sample_h;
+	border_w -= extra_sample_w;
+	
+    loop_h = height - border_h;
+    loop_w = width - border_w;
+	
+	dlm_height = height - (border_h << 1);
+	dlm_width = width - (border_w << 1);
+	
+	row_flag = (!extra_sample_h);
+    for (i = border_h; i < loop_h; i++)
     {
-        for (j = 0; j < width; j++)
+		col_flag = (!extra_sample_w);
+        for (j = border_w; j < loop_w; j++)
         {
             index = i * width + j;
-            addIndex = (i + 1) * (width + 2) + j + 1;
+            addIndex = (i + 1 - border_h) * (dlm_width + 2) + j + 1 - border_w;
+			restIndex = (i - border_h) * (dlm_width) + j - border_w;
             ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
@@ -269,164 +329,41 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
                  */
                 tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
                 
-                i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
+                i_dlm_rest.bands[k][restIndex] = angle_flag ? dist.bands[k][index] : tmp_val;
                 /**
                  * Absolute is taken here for the difference value instead of 
                  * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
                  */
-                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
-            }
-        }
-        addIndex = (i + 1) * (width + 2);
-        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
-        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
-    }
-    for (; i < loop_h; i++)
-    {
-        for (j = 0; j < border_w; j++)
-        {
-            index = i * width + j;
-            addIndex = (i + 1) * (width + 2) + j + 1;
-            ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
-            o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
-            t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
-            angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            i_dlm_add[addIndex] = 0;
-            for (k = 1; k < 4; k++)
-            {
-                /**
-                 * Division dist/ref is carried using lookup table adm_div_lookup and converted to multiplication
-                 */
-                adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)adm_div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
-                adm_u16_dtype kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
-                /**
-                 * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
-                 * 15 to make result Q16
-                 */
-                tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
-                
-                i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
-                /**
-                 * Absolute is taken here for the difference value instead of 
-                 * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
-                 */
-                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
-            }
-        }
-        for (; j < loop_w; j++)
-        {
-            index = i * width + j;
-            addIndex = (i + 1) * (width + 2) + j + 1;
-            ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
-            o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
-            t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
-            angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            i_dlm_add[addIndex] = 0;
-            for (k = 1; k < 4; k++)
-            {
-                /**
-                 * Division dist/ref is carried using lookup table adm_div_lookup and converted to multiplication
-                 */
-                adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)adm_div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
-                adm_u16_dtype kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
-                /**
-                 * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
-                 * 15 to make result Q16
-                 */
-                tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
-                
-                i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
-                /**
-                 * Absolute is taken here for the difference value instead of 
-                 * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
-                 */
-                i_dlm_add[addIndex] += (int32_t)abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
+                i_dlm_add[addIndex] += (int32_t)abs(dist.bands[k][index] - i_dlm_rest.bands[k][restIndex]);
 
                 //Accumulating denominator score to avoid load in next stage
                 int16_t ref_abs = abs(ref.bands[k][index]);
                 adm_i64_dtype den_cube = (adm_i64_dtype)ref_abs * ref_abs * ref_abs;
-                den_sum[k-1] += den_cube;
+                if ((j!= (loop_w -1)) && (j != border_w) && (i != border_h) && (i != (loop_h-1)))
+                    den_sum[k-1] += /*(col_flag && row_flag) */ den_cube;
+				col_flag = row_flag;
             }
         }
-        for (; j < width; j++)
-        {
-            index = i * width + j;
-            addIndex = (i + 1) * (width + 2) + j + 1;
-            ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
-            o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
-            t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
-            angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            i_dlm_add[addIndex] = 0;
-            for (k = 1; k < 4; k++)
-            {
-                /**
-                 * Division dist/ref is carried using lookup table adm_div_lookup and converted to multiplication
-                 */
-                adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)adm_div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
-                adm_u16_dtype kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
-                /**
-                 * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
-                 * 15 to make result Q16
-                 */
-                tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
-                
-                i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
-                /**
-                 * Absolute is taken here for the difference value instead of 
-                 * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
-                 */
-                i_dlm_add[addIndex] += (int32_t)abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
-            }
-        }
-        addIndex = (i + 1) * (width + 2);
-        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
-        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
-
+        if(!border_w)
+		{
+			addIndex = (i + 1 - border_h) * (width + 2);
+			i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
+			i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
+		}
+		row_flag = 1;
+		if(i == (loop_h - 1))
+			row_flag = (!extra_sample_h);
     }
 
-    for (; i < height; i++)
-    {
-        for (j = 0; j < width; j++)
-        {
-            index = i * width + j;
-            addIndex = (i + 1) * (width + 2) + j + 1;
-            ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
-            o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
-            t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
-            angle_flag = ((ot_dp >= 0) && (((adm_i64_dtype)ot_dp * ot_dp) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_sq * t_mag_sq)));
-            i_dlm_add[addIndex] = 0;
-            for (k = 1; k < 4; k++)
-            {
-                /**
-                 * Division dist/ref is carried using lookup table adm_div_lookup and converted to multiplication
-                 */
-                adm_i32_dtype tmp_k = (ref.bands[k][index] == 0) ? 32768 : (((adm_i64_dtype)adm_div_lookup[ref.bands[k][index] + 32768] * dist.bands[k][index]) + 16384) >> 15;
-                adm_u16_dtype kh = tmp_k < 0 ? 0 : (tmp_k > 32768 ? 32768 : tmp_k);
-                /**
-                 * kh is in Q15 type and ref.bands[k][index] is in Q16 type hence shifted by
-                 * 15 to make result Q16
-                 */
-                tmp_val = (((adm_i32_dtype)kh * ref.bands[k][index]) + 16384) >> 15;
-                
-                i_dlm_rest.bands[k][index] = angle_flag ? dist.bands[k][index] : tmp_val;
-                /**
-                 * Absolute is taken here for the difference value instead of 
-                 * taking absolute of pyr_2 in integer_dlm_contrast_mask_one_way function
-                 */
-                i_dlm_add[addIndex] += (int32_t) abs(dist.bands[k][index] - i_dlm_rest.bands[k][index]);
-            }
-        }
-        addIndex = (i + 1) * (width + 2);
+	if(!border_h)
+	{
+		int row2Idx = 2 * (width + 2);
+		int rowLast2Idx = (height - 1) * (width + 2);
+		int rowLastPadIdx = (height + 1) * (width + 2);
 
-        i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
-        i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
-    }
-    int row2Idx = 2 * (width + 2);
-    int rowLast2Idx = (height - 1) * (width + 2);
-    int rowLastPadIdx = (height + 1) * (width + 2);
-
-    memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (width + 2));
-    memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (width+2));
+		memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (width + 2));
+		memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (width+2));
+	}
     
     //Calculating denominator score
     double den_band = 0;
@@ -450,33 +387,58 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
     i_dwt2buffers i_dlm_rest;
     adm_i32_dtype *i_dlm_add;
     i_adm_buffers i_pyr_rest;
-    i_dlm_rest.bands[1] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
-    i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
-    i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * height * width);
-    i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (height+2) * (width+2));
-    i_pyr_rest.bands[1] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
-    i_pyr_rest.bands[2] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
-    i_pyr_rest.bands[3] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * height * width);
-
-    int border_h = (border_size * height);
+	int border_h = (border_size * height);
     int border_w = (border_size * width);
-    int loop_h = height - border_h;
-    int loop_w = width - border_w;
+	int loop_h, loop_w, dlm_width, dlm_height;
+	int extra_sample_h = 0, extra_sample_w = 0;
+	
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	
+	*/	
+	
+	// add one sample on the boundary to account for integral image calculation
+	if(border_h)
+		extra_sample_h = 1;
+	
+	if(border_w)
+		extra_sample_w = 1;
+	
+	border_h -= extra_sample_h;
+	border_w -= extra_sample_w;
+	
+    loop_h = height - border_h;
+    loop_w = width - border_w;
+	
+	dlm_height = height - (border_h << 1);
+	dlm_width = width - (border_w << 1);
+	
+    i_dlm_rest.bands[1] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
+    i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
+    i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
+    i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (dlm_height+2) * (dlm_width+2));
+    i_pyr_rest.bands[1] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * dlm_height * dlm_width);
+    i_pyr_rest.bands[2] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * dlm_height * dlm_width);
+    i_pyr_rest.bands[3] = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * dlm_height * dlm_width);
+
+    
     double row_num, row_den, accum_num = 0, accum_den = 0;
 
     integer_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
     
-    integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, i_pyr_rest, width, height);
+    integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, i_pyr_rest, width, height, border_size);
     
 
 
     for (k = 1; k < 4; k++)
     {
-        for (i = border_h; i < loop_h; i++)
+        for (i = extra_sample_h; i < dlm_height - (extra_sample_h); i++)
         {
-            for (j = border_w; j < loop_w; j++)
+            for (j = extra_sample_w; j < dlm_width - (extra_sample_w); j++)
             {
-                index = i * width + j;
+                index = i * dlm_width + j;
                 num_cube = (adm_i64_dtype)i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index] * i_pyr_rest.bands[k][index];
                 num_sum += ((num_cube + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
             }
