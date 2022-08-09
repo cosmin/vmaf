@@ -289,10 +289,12 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
     int border_h = (border_size * height);
     int border_w = (border_size * width);
 	int64_t den_sum[3] = {0};
+    int64_t den_row_sum[3] = {0};
+    int64_t col0_ref_cube[3] = {0};
     int loop_h, loop_w, dlm_width, dlm_height;
 	int extra_sample_h = 0, extra_sample_w = 0;
-	bool row_flag = 1, col_flag = 1;
-	
+	adm_i64_dtype den_cube[3];
+
 	/**
 	DLM has the configurability of computing the metric only for the
 	centre region. currently border_size defines the percentage of pixels to be avoided
@@ -316,10 +318,16 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
 	dlm_height = height - (border_h << 1);
 	dlm_width = width - (border_w << 1);
 	
-	row_flag = (!extra_sample_h);
     for (i = border_h; i < loop_h; i++)
     {
-		col_flag = (!extra_sample_w);
+        if(extra_sample_w)
+        {
+            for(k=1; k<4; k++)
+            {
+                int16_t ref_abs = abs(ref.bands[k][i*width + border_w]);
+                col0_ref_cube[k-1] = (int64_t) ref_abs * ref_abs * ref_abs;
+            }
+        }
         for (j = border_w; j < loop_w; j++)
         {
             index = i * width + j;
@@ -352,24 +360,39 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
 
                 //Accumulating denominator score to avoid load in next stage
                 int16_t ref_abs = abs(ref.bands[k][index]);
-                adm_i64_dtype den_cube = (adm_i64_dtype)ref_abs * ref_abs * ref_abs;
-                if ((j!= (loop_w -1)) && (j != border_w) && (i != border_h) && (i != (loop_h-1)))
-                    den_sum[k-1] += /*(col_flag && row_flag) */ den_cube;
-				col_flag = row_flag;
+                den_cube[k-1] = (adm_i64_dtype)ref_abs * ref_abs * ref_abs;
+                
+                den_row_sum[k-1] += den_cube[k-1];
             }
         }
-        if(!border_w)
+        if(extra_sample_w)
+        {
+            for(k = 0; k < 3; k++)
+            {
+                den_row_sum[k] -= den_cube[k];
+                den_row_sum[k] -= col0_ref_cube[k];
+            }
+        }
+        if((i != border_h && i != (loop_h - 1)) || !extra_sample_h)
+        {
+            for(k=0; k<3; k++)
+            {
+                den_sum[k] += den_row_sum[k];
+            }
+        }
+        den_row_sum[0] = 0;
+        den_row_sum[1] = 0;
+        den_row_sum[2] = 0;
+
+        if(!extra_sample_w)
 		{
 			addIndex = (i + 1 - border_h) * (width + 2);
 			i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
 			i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
-		}
-		row_flag = 1;
-		if(i == (loop_h - 1))
-			row_flag = (!extra_sample_h);
+		}			
     }
 
-	if(!border_h)
+	if(!extra_sample_h)
 	{
 		int row2Idx = 2 * (width + 2);
 		int rowLast2Idx = (height - 1) * (width + 2);
