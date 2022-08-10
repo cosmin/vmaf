@@ -30,6 +30,7 @@
 #include "adm_tools.h"
 #include "integer_funque_filters.h"
 
+#define EXTRA_SAMPLE_BORDER 1
 typedef struct i_adm_buffers
 {
   adm_i32_dtype *bands[4];
@@ -88,7 +89,7 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
 static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
                                    int64_t *num_sum, adm_i32_dtype *interim_x, 
                                    int32_t *x_pad, int xpad_i, int index, 
-                                   i_dwt2buffers pyr_1)
+                                   i_dwt2buffers pyr_1, int extra_sample_w)
 {
     int32_t interim_sum = 0;
     adm_i32_dtype masking_threshold;
@@ -141,9 +142,12 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
         index++;
     }
     //Removing the last column i.e. padded column cube value
-    num_sum[0] -= ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
-    num_sum[1] -= ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
-    num_sum[2] -= ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
+    if(extra_sample_w)
+    {
+        num_sum[0] -= ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
+        num_sum[1] -= ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
+        num_sum[2] -= ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
+    }
 }
 
 void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
@@ -173,13 +177,15 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
 	
 	*/	
 	
+#if EXTRA_SAMPLE_BORDER
 	// add one sample on the boundary to account for integral image calculation
 	if(border_h)
 		extra_sample_h = 1; 
 	
 	if(border_w)
 		extra_sample_w = 1; 
-	
+#endif
+
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 	
@@ -221,7 +227,13 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
     index = 0;
     //The numerator score is not accumulated for the first row
     adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
-                            x_pad, xpad_i, index, pyr_1);
+                            x_pad, xpad_i, index, pyr_1, extra_sample_w);
+    if(!extra_sample_h)
+    {
+        accum_num[0] += num_sum[0];
+        accum_num[1] += num_sum[1];
+        accum_num[2] += num_sum[2];
+    }
 
     for (size_t i=k+1; i<r_height+1; i++)
     {
@@ -245,15 +257,18 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
         num_sum[1] = 0;
         num_sum[2] = 0;
         adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
-                                x_pad, xpad_i, index, pyr_1);
+                                x_pad, xpad_i, index, pyr_1, extra_sample_w);
         accum_num[0] += num_sum[0];
         accum_num[1] += num_sum[1];
         accum_num[2] += num_sum[2];
     }
     //Removing the row sum
-    accum_num[0] -= num_sum[0];
-    accum_num[1] -= num_sum[1];
-    accum_num[2] -= num_sum[2];
+    if(extra_sample_h)
+    {
+        accum_num[0] -= num_sum[0];
+        accum_num[1] -= num_sum[1];
+        accum_num[2] -= num_sum[2];
+    }
     double num_band = 0;
     for(int band=1; band<4; band++)
     {
@@ -301,13 +316,14 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
 	from all sides so that size of centre region is defined.
 	
 	*/	
-	
+#if EXTRA_SAMPLE_BORDER	
 	// add one sample on the boundary to account for integral image calculation
 	if(border_h)
 		extra_sample_h = 1; 
 	
 	if(border_w)
 		extra_sample_w = 1; 
+#endif
 	
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
@@ -386,20 +402,20 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
 
         if(!extra_sample_w)
 		{
-			addIndex = (i + 1 - border_h) * (width + 2);
+			addIndex = (i + 1 - border_h) * (dlm_width + 2);
 			i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
-			i_dlm_add[addIndex + width + 1] = i_dlm_add[addIndex + width - 1];
+			i_dlm_add[addIndex + dlm_width + 1] = i_dlm_add[addIndex + dlm_width - 1];
 		}			
     }
 
 	if(!extra_sample_h)
 	{
-		int row2Idx = 2 * (width + 2);
-		int rowLast2Idx = (height - 1) * (width + 2);
-		int rowLastPadIdx = (height + 1) * (width + 2);
+		int row2Idx = 2 * (dlm_width + 2);
+		int rowLast2Idx = (dlm_height - 1) * (dlm_width + 2);
+		int rowLastPadIdx = (dlm_height + 1) * (dlm_width + 2);
 
-		memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (width + 2));
-		memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (width+2));
+		memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (dlm_width + 2));
+		memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_width+2));
 	}
     
     //Calculating denominator score
@@ -463,7 +479,7 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
     integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, width, height, border_size, adm_score_num);
 
     *adm_score = (*adm_score_num) / (*adm_score_den);
-    
+
     for (int i = 1; i < 4; i++)
     {
         free(i_dlm_rest.bands[i]);
