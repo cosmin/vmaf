@@ -108,7 +108,30 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
     {
         interim_sum = interim_sum + interim_x[j];
     }
+    if(!extra_sample_w)
+    {
+        sum = interim_sum + x_pad[xpad_i];
 
+        masking_threshold = sum;
+
+        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
+        val = pyr_abs - masking_threshold;
+        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        num_cube1 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
+        num_sum[0] += ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
+        
+        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
+        val = pyr_abs - masking_threshold;
+        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        num_cube2 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
+        num_sum[1] += ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
+        
+        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
+        val = pyr_abs - masking_threshold;
+        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        num_cube3 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
+        num_sum[2] += ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
+    }
     //The sum is needed only from the k+1 column, hence not computed here
     index++; 
 
@@ -452,12 +475,14 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
 	*/	
 	
 	// add one sample on the boundary to account for integral image calculation
+#if EXTRA_SAMPLE_BORDER
 	if(border_h)
 		extra_sample_h = 1;
 	
 	if(border_w)
 		extra_sample_w = 1;
-	
+#endif
+
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 	
