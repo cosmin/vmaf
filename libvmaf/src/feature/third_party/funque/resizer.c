@@ -23,7 +23,7 @@
 #if ARCH_AARCH64
 #include <arm_neon.h>
 #endif
-#include <time.h>
+
 #include "resizer.h"
 
 #if !OPTIMISED_COEFF
@@ -126,7 +126,8 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
     int *_buffer = (int *)malloc(bufstep * ksize * sizeof(int));
     if (_buffer == NULL)
     {
-        printf("malloc fails\n");
+        printf("resizer: malloc fails\n");
+        return;
     }
     const unsigned char *srows[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int *rows[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

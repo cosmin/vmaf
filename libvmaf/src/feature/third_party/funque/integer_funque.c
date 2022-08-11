@@ -45,7 +45,7 @@
 #endif
 typedef struct IntFunqueState
 {
-    size_t float_stride;
+    size_t width_aligned_stride;
     dwt2_dtype *i_prev_ref_dwt2;
     bool debug;
 
@@ -237,14 +237,15 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h + 1) >> 1;
     }
 
-    s->float_stride = ALIGN_CEIL(w * sizeof(float));
+    s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
+    s->i_dwt2_stride = (s->width_aligned_stride + 3) / 4;
 
     if (s->enable_resize)
     {
-        s->res_ref_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
+        s->res_ref_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        s->res_dist_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
+        s->res_dist_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h, 32);
         if (!s->res_dist_pic.data[0])
             goto fail;
     }
@@ -259,7 +260,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->i_dist_dwt2out.width = (int)(w + 1) / 2;
     s->i_dist_dwt2out.height = (int)(h + 1) / 2;
 
-    s->i_dwt2_stride = (s->float_stride + 3) / 4;
     s->i_prev_ref_dwt2 = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
     if (!s->i_prev_ref_dwt2)
         goto fail;
