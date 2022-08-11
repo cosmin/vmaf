@@ -20,7 +20,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#if ARCH_AARCH64
 #include <arm_neon.h>
+#endif
 #include <time.h>
 #include "resizer.h"
 
