@@ -42,3 +42,8 @@ option('enable_float_funque',
     type: 'boolean',
     value: false,
     description: 'Compile floating-point funque feature extractors into the library')
+
+option('enable_integer_funque',
+    type: 'boolean',
+    value: false,
+    description: 'Compile floating-point funque feature extractors into the library')

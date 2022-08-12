@@ -124,6 +124,8 @@ float_enabled = get_option('enable_float') == true
 cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
 funque_float_enabled = get_option('enable_float_funque') == true
 cdata.set10('FUNQUE_FLOAT_FEATURES', funque_float_enabled)
+funque_fixed_enabled = get_option('enable_integer_funque') == true
+cdata.set10('FUNQUE_INTEGER_FEATURES', funque_fixed_enabled)
 
 if built_in_models_enabled
     xxd = find_program('xxd', required: false)
@@ -450,6 +452,18 @@ if funque_float_enabled
         funque_feature_dir + 'funque_vif.c',
         funque_feature_dir + 'funque_adm.c',
         funque_feature_dir + 'funque_ssim.c',
+        funque_feature_dir + 'resizer.c'
+    ]
+endif
+
+if funque_fixed_enabled
+    libvmaf_feature_sources += [
+        funque_feature_dir + 'integer_funque.c',
+        funque_feature_dir + 'integer_funque_filters.c',
+        funque_feature_dir + 'integer_funque_motion.c',
+        funque_feature_dir + 'integer_funque_vif.c',
+        funque_feature_dir + 'integer_funque_adm.c',
+        funque_feature_dir + 'integer_funque_ssim.c',
         funque_feature_dir + 'resizer.c'
     ]
 endif
