@@ -55,16 +55,19 @@ void integer_dlm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
      DLM has the configurability of computing the metric only for the
     centre region. currently border_size defines the percentage of pixels to be avoided
     from all sides so that size of centre region is defined.
-
     */
-    #if EXTRA_SAMPLE_BORDER
-    // add one sample on the boundary to account for integral image calculation
-    if (border_h)
-    extra_sample_h = 1;
-
-    if (border_w)
+#if REFLECT_PAD
+    extra_sample_w = 0;
+    extra_sample_h = 0;
+#else
     extra_sample_w = 1;
-    #endif
+    extra_sample_h = 1;
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    if(!border_w)
+        border_w = 1;
+    if(!border_h)
+        border_h = 1;
+#endif
 
     border_h -= extra_sample_h;
     border_w -= extra_sample_w;

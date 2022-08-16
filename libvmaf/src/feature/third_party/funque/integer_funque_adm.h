@@ -59,8 +59,6 @@ typedef struct u_adm_buffers
 
 #define SHIFT_ADM_DECOUPLE_FINAL 16
 
-#define EXTRA_SAMPLE_BORDER 1
-
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795028841971693993751
 #endif
