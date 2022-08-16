@@ -30,8 +30,6 @@
 #include "adm_tools.h"
 #include "integer_funque_filters.h"
 
-#define EXTRA_SAMPLE_BORDER 1
-
 static const int32_t div_Q_factor = 1073741824; // 2^30
 
 void div_lookup_generator(int32_t *adm_div_lookup)
