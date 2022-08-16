@@ -271,28 +271,28 @@ int integer_compute_vif_funque(const dwt2_dtype* x_t, const dwt2_dtype* y_t, siz
 
     int x_reflect = (int)((kh - stride) / 2); // amount for reflecting
     int y_reflect = (int)((kw - stride) / 2);
-    size_t frm_width, frm_height;
+    size_t vif_width, vif_height;
 
 #if REFLECT_PAD
-    frm_width  = width;
-    frm_height = height;
+    vif_width  = width;
+    vif_height = height;
 #else
-    frm_width = width - (2 * y_reflect);
-    frm_height = height - (2 * x_reflect);
+    vif_width = width - (2 * y_reflect);
+    vif_height = height - (2 * x_reflect);
 #endif
 
-    size_t r_width = frm_width + (2 * x_reflect); // after reflect pad
-    size_t r_height = frm_height + (2 * x_reflect);
+    size_t r_width = vif_width + (2 * x_reflect); // after reflect pad
+    size_t r_height = vif_height + (2 * x_reflect);
 
     size_t s_width = (r_width + 1) - kw;
     size_t s_height = (r_height + 1) - kh;
 
     dwt2_dtype* x_pad_t, *y_pad_t;
 #if REFLECT_PAD
-    x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (frm_width + (2 * x_reflect)) * (frm_height + (2 * x_reflect)));
-    y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (frm_width + (2 * y_reflect)) * (frm_height + (2 * y_reflect)));
-    integer_reflect_pad(x_t, frm_width, frm_height, x_reflect, x_pad_t);
-    integer_reflect_pad(y_t, frm_width, frm_height, y_reflect, y_pad_t);
+    x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * x_reflect)) * (vif_height + (2 * x_reflect)));
+    y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * y_reflect)) * (vif_height + (2 * y_reflect)));
+    integer_reflect_pad(x_t, vif_width, vif_height, x_reflect, x_pad_t);
+    integer_reflect_pad(y_t, vif_width, vif_height, y_reflect, y_pad_t);
 #else
     x_pad_t = x_t;
     y_pad_t = y_t;
