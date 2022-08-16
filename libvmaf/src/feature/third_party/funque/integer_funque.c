@@ -41,6 +41,7 @@
 #include "arm64/integer_funque_filters_neon.h"
 #include "arm64/integer_funque_ssim_neon.h"
 #include "arm64/integer_funque_motion_neon.h"
+#include "arm64/integer_funque_adm_neon.h"
 #include "arm64/resizer_neon.h"
 #endif
 typedef struct IntFunqueState
@@ -290,12 +291,14 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_dwt2 = integer_funque_dwt2;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+    s->modules.integer_funque_dlm_decouple = integer_dlm_decouple_c;
     s->modules.resizer_step = step;
  #if ARCH_AARCH64
     s->modules.integer_spatial_filter = integer_spatial_filter_neon;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
+    s->modules.integer_funque_dlm_decouple = integer_dlm_decouple_neon;
     // commenting this out temporarily
     // s->modules.resizer_step = step_neon; 
  #endif   
@@ -417,7 +420,7 @@ static int extract(VmafFeatureExtractor *fex,
     double adm_score, adm_score_num, adm_score_den;
     double ssim_score;
 
-    err = integer_compute_adm_funque(s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, (int16_t) pending_div_factor, s->adm_div_lookup);
+    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, (int16_t) pending_div_factor, s->adm_div_lookup);
     if (err)
         return err;
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",

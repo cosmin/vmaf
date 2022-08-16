@@ -66,7 +66,12 @@ typedef struct u_adm_buffers
 
 static inline int clip(int value, int low, int high);
 void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t height, int reflect, adm_u16_dtype *dest);
-int integer_compute_adm_funque(i_dwt2buffers ref, i_dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int16_t shift_val, int32_t* adm_div_lookup);
+int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers ref, i_dwt2buffers dist, double *adm_score, 
+                               double *adm_score_num, double *adm_score_den, size_t width, size_t height, 
+                               float border_size, int16_t shift_val, int32_t* adm_div_lookup);
+void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
+                          i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den);
 
 void div_lookup_generator(int32_t* adm_div_lookup);
 #endif /* _FEATURE_ADM_H_ */

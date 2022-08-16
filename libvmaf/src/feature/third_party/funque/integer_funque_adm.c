@@ -298,7 +298,7 @@ void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, int32_t *pyr_2, size
     free(interim_x);
 }
 
-void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist, 
+void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
                           int32_t *adm_div_lookup, float border_size, double *adm_score_den)
 {
@@ -440,7 +440,7 @@ void integer_dlm_decouple(i_dwt2buffers ref, i_dwt2buffers dist,
 
 }
 
-int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int16_t shift_val, int32_t *adm_div_lookup)
+int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int16_t shift_val, int32_t *adm_div_lookup)
 {
     int i, j, k, index;
     adm_i64_dtype num_sum = 0, den_sum = 0;
@@ -486,7 +486,7 @@ int integer_compute_adm_funque(i_dwt2buffers i_ref, i_dwt2buffers i_dist, double
     
     double row_num, accum_num = 0;
 
-    integer_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
+    m.integer_funque_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
     
     integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, width, height, border_size, adm_score_num);
 
