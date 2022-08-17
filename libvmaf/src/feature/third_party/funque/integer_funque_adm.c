@@ -189,15 +189,16 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
 #else
     extra_sample_w = 1;
     extra_sample_h = 1;
-    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
-    if(!border_w)
-        border_w = 1;
-    if(!border_h)
-        border_h = 1;
 #endif
 
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
+
+#if !REFLECT_PAD
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    border_h = MAX(1,border_h);
+    border_w = MAX(1,border_w);
+#endif
 	
     loop_h = height - border_h;
     loop_w = width - border_w;
@@ -331,16 +332,17 @@ void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 #else
     extra_sample_w = 1;
     extra_sample_h = 1;
-    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
-    if(!border_w)
-        border_w = 1;
-    if(!border_h)
-        border_h = 1;
 #endif
 	
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
-	
+
+#if !REFLECT_PAD
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    border_h = MAX(1,border_h);
+    border_w = MAX(1,border_w);
+#endif
+
     loop_h = height - border_h;
     loop_w = width - border_w;
 	
@@ -471,16 +473,17 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 #else
     extra_sample_w = 1;
     extra_sample_h = 1;
-    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
-    if(!border_w)
-        border_w = 1;
-    if(!border_h)
-        border_h = 1;
 #endif
 
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
-	
+
+#if !REFLECT_PAD
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    border_h = MAX(1,border_h);
+    border_w = MAX(1,border_w);
+#endif
+
     loop_h = height - border_h;
     loop_w = width - border_w;
 	

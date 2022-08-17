@@ -22,6 +22,7 @@
 
 #include "config.h"
 #define REFLECT_PAD 0
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))

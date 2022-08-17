@@ -28,8 +28,6 @@
 
 #include "integer_funque_adm_neon.h"
 
-// #include "common.h"
-
 void integer_dlm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
                                  i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add,
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den)
@@ -62,15 +60,16 @@ void integer_dlm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
 #else
     extra_sample_w = 1;
     extra_sample_h = 1;
-    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
-    if(!border_w)
-        border_w = 1;
-    if(!border_h)
-        border_h = 1;
 #endif
 
     border_h -= extra_sample_h;
     border_w -= extra_sample_w;
+
+#if !REFLECT_PAD
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    border_h = MAX(1,border_h);
+    border_w = MAX(1,border_w);
+#endif
 
     loop_h = height - border_h;
     loop_w = width - border_w;
