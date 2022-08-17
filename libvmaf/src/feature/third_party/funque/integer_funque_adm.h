@@ -72,6 +72,12 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers ref, i_dwt2buf
 void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
                           int32_t *adm_div_lookup, float border_size, double *adm_score_den);
-
+void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
+                                     int stride, int width, int height, 
+                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num);
+static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
+                                   int64_t *num_sum, adm_i32_dtype *interim_x, 
+                                   int32_t *x_pad, int xpad_i, int index, 
+                                   i_dwt2buffers pyr_1, int extra_sample_w);
 void div_lookup_generator(int32_t* adm_div_lookup);
 #endif /* _FEATURE_ADM_H_ */

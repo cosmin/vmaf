@@ -426,3 +426,165 @@ void integer_dlm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     free(buf_ot_dp_sq);
     free(buf_ot_mag);
 }
+
+void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
+                            int stride, int width, int height, adm_i32_dtype *interim_x, 
+                            float border_size, double *adm_score_num)
+{
+    int i, j, index;
+    adm_i32_dtype pyr_abs;
+    int64_t num_sum[3] = {0};
+    double accum_num[3] = {0};
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	
+	*/
+    int x_reflect = (int)((k - stride) / 2);
+	int border_h = (border_size * height);
+    int border_w = (border_size * width);
+    int loop_h, loop_w, dlm_width, dlm_height;
+	int extra_sample_h = 0, extra_sample_w = 0;
+	
+	/**
+	DLM has the configurability of computing the metric only for the
+	centre region. currently border_size defines the percentage of pixels to be avoided
+	from all sides so that size of centre region is defined.
+	*/	
+#if REFLECT_PAD
+    extra_sample_w = 0;
+    extra_sample_h = 0;
+#else
+    extra_sample_w = 1;
+    extra_sample_h = 1;
+#endif
+
+	border_h -= extra_sample_h;
+	border_w -= extra_sample_w;
+
+#if !REFLECT_PAD
+    //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
+    border_h = MAX(1,border_h);
+    border_w = MAX(1,border_w);
+#endif
+	
+    loop_h = height - border_h;
+    loop_w = width - border_w;
+	
+	dlm_height = height - (border_h << 1);
+	dlm_width = width - (border_w << 1);
+    
+    size_t r_width = dlm_width + (2 * x_reflect);
+    size_t r_height = dlm_height + (2 * x_reflect);
+    size_t r_width_p1 = r_width + 1;
+    int xpad_i;
+
+    memset(interim_x, 0, r_width_p1 * sizeof(adm_i32_dtype));
+    for (i=1; i<k+1; i++)
+    {
+        int src_offset = (i-1) * r_width;
+        /**
+         * In this loop the pixels are summated vertically and stored in interim buffer
+         * The interim buffer is of size 1 row
+         * inter_sum = prev_inter_sum + cur_pixel_val
+         * 
+         * where inter_sum will have vertical pixel sums, 
+         * prev_inter_sum will have prev rows inter_sum and 
+         * The previous k row metric val is not subtracted since it is not available here 
+         */
+        for (j=1; j<r_width_p1-8; j++)
+        {
+            int16x8_t x_pad_16x8;
+            int32x4_t interim_32x4_hi, interim_32x4_lo;
+            x_pad_16x8      = vld1q_s16(x_pad + src_offset + j - 1);
+            interim_32x4_lo = vld1q_s32(interim_x + j);
+            interim_32x4_hi = vld1q_s32(interim_x + j + 4);
+
+            interim_32x4_lo = vaddw_s16(interim_32x4_lo, vget_low_s16(x_pad_16x8));
+            interim_32x4_hi = vaddw_high_s16(interim_32x4_hi, x_pad_16x8);
+
+            vst1q_s32(interim_x + j,     interim_32x4_lo);
+            vst1q_s32(interim_x + j + 4, interim_32x4_hi);
+        }
+        for (; j<r_width_p1; j++)
+        {
+            interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1];
+        }
+    }
+    /**
+     * The integral score is used from kxk offset of 2D array
+     * Hence horizontal summation of 1st k rows are not used, hence that compuattion is avoided
+     */
+    int row_offset = k * r_width_p1;
+    xpad_i = r_width + 1;
+    index = 0;
+    //The numerator score is not accumulated for the first row
+    adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
+                            x_pad, xpad_i, index, pyr_1, extra_sample_w);
+    if(!extra_sample_h)
+    {
+        accum_num[0] += num_sum[0];
+        accum_num[1] += num_sum[1];
+        accum_num[2] += num_sum[2];
+    }
+
+    for (i=k+1; i<r_height+1; i++)
+    {
+        row_offset = i * r_width_p1;
+        int src_offset = (i-1) * r_width;
+        int pre_k_src_offset = (i-1-k) * r_width;
+        /**
+         * This loop is similar to the loop across columns seen in 1st for loop
+         * In this loop the pixels are summated vertically and stored in interim buffer
+         * The interim buffer is of size 1 row
+         * inter_sum = prev_inter_sum + cur_pixel_val - prev_k-row_pixel_val
+         */
+        for (j=1; j<r_width_p1-8; j++)
+        {
+            int16x8_t x_pad_16x8, prekh_x_pad_16x8;
+            int32x4_t interim_32x4_hi, interim_32x4_lo;
+            int32x4_t sub_32x4_xhi, sub_32x4_xlo;
+            x_pad_16x8       = vld1q_s16(x_pad + src_offset + j - 1);
+            prekh_x_pad_16x8 = vld1q_s16(x_pad + pre_k_src_offset + j - 1);
+            interim_32x4_lo  = vld1q_s32(interim_x + j);
+            interim_32x4_hi  = vld1q_s32(interim_x + j + 4);
+
+            sub_32x4_xlo = vsubl_s16(vget_low_s16(x_pad_16x8), vget_low_s16(prekh_x_pad_16x8));
+            sub_32x4_xhi = vsubl_high_s16(x_pad_16x8, prekh_x_pad_16x8);
+            interim_32x4_lo = vaddq_s32(interim_32x4_lo, sub_32x4_xlo);
+            interim_32x4_hi = vaddq_s32(interim_32x4_hi, sub_32x4_xhi);
+
+            vst1q_s32(interim_x + j,     interim_32x4_lo);
+            vst1q_s32(interim_x + j + 4, interim_32x4_hi);
+        }
+        for (; j<r_width_p1; j++)
+        {
+            interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
+        }
+        xpad_i = (i+1-k)*(r_width) + 1;
+        index = (i-k) * dlm_width;
+        //horizontal summation & numerator score accumulation
+        num_sum[0] = 0;
+        num_sum[1] = 0;
+        num_sum[2] = 0;
+        adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
+                                x_pad, xpad_i, index, pyr_1, extra_sample_w);
+        accum_num[0] += num_sum[0];
+        accum_num[1] += num_sum[1];
+        accum_num[2] += num_sum[2];
+    }
+    //Removing the row sum
+    if(extra_sample_h)
+    {
+        accum_num[0] -= num_sum[0];
+        accum_num[1] -= num_sum[1];
+        accum_num[2] -= num_sum[2];
+    }
+    double num_band = 0;
+    for(int band=1; band<4; band++)
+    {
+        num_band += powf(accum_num[band-1], 1.0/3.0);
+    }
+    *adm_score_num = num_band + 1e-4;
+}

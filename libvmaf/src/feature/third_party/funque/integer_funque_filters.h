@@ -66,6 +66,9 @@ typedef struct ModuleFunqueState
     double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
     void (*integer_funque_dlm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den);
+    void (*integer_adm_integralimg_numscore)(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
+                                             int stride, int width, int height, int32_t *interim_x, 
+                                             float border_size, double *adm_score_num);
     void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 }ModuleFunqueState;
 

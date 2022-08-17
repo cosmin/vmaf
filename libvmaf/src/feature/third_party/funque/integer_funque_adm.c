@@ -489,7 +489,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 
     m.integer_funque_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
     
-    integer_adm_integralimg_numscore_c(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
+    m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
 
     *adm_score = (*adm_score_num) / (*adm_score_den);
 
