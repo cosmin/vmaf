@@ -205,6 +205,7 @@ if is_asm_enabled
             funque_feature_dir + 'arm64/integer_funque_ssim_neon.c',
             funque_feature_dir + 'arm64/integer_funque_filters_neon.c',
             funque_feature_dir + 'arm64/integer_funque_adm_neon.c',
+            funque_feature_dir + 'arm64/integer_funque_vif_neon.c',
 			funque_feature_dir + 'arm64/resizer_neon.c',
         ]
 

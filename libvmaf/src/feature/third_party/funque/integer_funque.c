@@ -29,6 +29,7 @@
 #include "mem.h"
 
 #include "integer_funque_filters.h"
+#include "common/macros.h"
 #include "integer_funque_vif.h"
 #include "funque_vif_options.h"
 #include "integer_funque_adm.h"
@@ -43,6 +44,7 @@
 #include "arm64/integer_funque_motion_neon.h"
 #include "arm64/integer_funque_adm_neon.h"
 #include "arm64/resizer_neon.h"
+#include "arm64/integer_funque_vif_neon.h"
 #endif
 typedef struct IntFunqueState
 {
@@ -293,6 +295,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
+    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
     s->modules.resizer_step = step;
  #if ARCH_AARCH64
     s->modules.integer_spatial_filter = integer_spatial_filter_neon;
@@ -301,6 +304,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
+    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
     // commenting this out temporarily
     // s->modules.resizer_step = step_neon; 
  #endif   
@@ -436,7 +440,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
     if (err) return err;
 
@@ -456,7 +460,7 @@ static int extract(VmafFeatureExtractor *fex,
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
 
-        err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
+        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
                                     &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18);        
         if (err) return err;
     }
