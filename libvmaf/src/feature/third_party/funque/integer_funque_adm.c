@@ -288,7 +288,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
     *adm_score_num = num_band + 1e-4;
 }
 
-void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
+void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
                           int32_t *adm_div_lookup, float border_size, double *adm_score_den)
 {
@@ -487,7 +487,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 
     double row_num, accum_num = 0;
 
-    m.integer_funque_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
+    m.integer_funque_adm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
     
     m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
 
