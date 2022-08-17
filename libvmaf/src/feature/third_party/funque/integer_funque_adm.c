@@ -42,11 +42,6 @@ void div_lookup_generator(int32_t *adm_div_lookup)
     }
 }
 
-static inline int clip(int value, int low, int high)
-{
-    return value < low ? low : (value > high ? high : value);
-}
-
 void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t height, int reflect, adm_u16_dtype *dest)
 {
     size_t out_width = width + 2 * reflect;
@@ -68,93 +63,6 @@ void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t heig
     {
         memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(adm_u16_dtype) * out_width);
         memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(adm_u16_dtype) * out_width);
-    }
-}
-
-static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
-                                   int64_t *num_sum, adm_i32_dtype *interim_x, 
-                                   int32_t *x_pad, int xpad_i, int index, 
-                                   i_dwt2buffers pyr_1, int extra_sample_w)
-{
-    int32_t interim_sum = 0;
-    adm_i32_dtype masking_threshold;
-    adm_i32_dtype val, pyr_abs;
-    int32_t masked_pyr;
-    //Initialising first column value to 0
-    int32_t sum = 0;
-
-    int64_t num_cube1, num_cube2, num_cube3;
-    /**
-     * The horizontal accumulation similar to vertical accumulation
-     * sum = prev_col_sum + interim_vertical_sum
-     * The previous k col interim sum is not subtracted since it is not available here
-     */
-    for (size_t j=1; j<k+1; j++)
-    {
-        interim_sum = interim_sum + interim_x[j];
-    }
-    if(!extra_sample_w)
-    {
-        sum = interim_sum + x_pad[xpad_i];
-
-        masking_threshold = sum;
-
-        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
-        val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-        num_cube1 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-        num_sum[0] += ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-        
-        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
-        val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-        num_cube2 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-        num_sum[1] += ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-        
-        pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
-        val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-        num_cube3 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-        num_sum[2] += ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-    }
-    //The sum is needed only from the k+1 column, hence not computed here
-    index++; 
-
-    //Similar to prev loop, but previous k col interim metric sum is subtracted
-    for (size_t j=k+1; j<r_width_p1; j++)
-    {
-        interim_sum = interim_sum + interim_x[j] - interim_x[j - k];
-        sum = interim_sum + x_pad[xpad_i + j - k];
-
-        {
-            masking_threshold = sum;
-
-            pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
-            val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-            num_cube1 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-            num_sum[0] += ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-            
-            pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
-            val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-            num_cube2 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-            num_sum[1] += ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-            
-            pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
-            val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
-            num_cube3 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
-            num_sum[2] += ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
-        }
-        index++;
-    }
-    //Removing the last column i.e. padded column cube value
-    if(extra_sample_w)
-    {
-        num_sum[0] -= ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
-        num_sum[1] -= ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
-        num_sum[2] -= ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT);
     }
 }
 
@@ -212,7 +120,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
     int xpad_i;
 
     memset(interim_x, 0, r_width_p1 * sizeof(adm_i32_dtype));
-    for (size_t i=1; i<k+1; i++)
+    for (i=1; i<k+1; i++)
     {
         int src_offset = (i-1) * r_width;
         /**
@@ -224,7 +132,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
          * prev_inter_sum will have prev rows inter_sum and 
          * The previous k row metric val is not subtracted since it is not available here 
          */
-        for (size_t j=1; j<r_width_p1; j++)
+        for (j=1; j<r_width_p1; j++)
         {
             interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1];
         }
@@ -246,7 +154,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
         accum_num[2] += num_sum[2];
     }
 
-    for (size_t i=k+1; i<r_height+1; i++)
+    for (i=k+1; i<r_height+1; i++)
     {
         row_offset = i * r_width_p1;
         int src_offset = (i-1) * r_width;
@@ -257,7 +165,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
          * The interim buffer is of size 1 row
          * inter_sum = prev_inter_sum + cur_pixel_val - prev_k-row_pixel_val
          */
-        for (size_t j=1; j<r_width_p1; j++)
+        for (j=1; j<r_width_p1; j++)
         {
             interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
         }

@@ -22,7 +22,12 @@
 
 #include "config.h"
 #define REFLECT_PAD 0
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
+#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
+                                                        : X)
+#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
+#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
+
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))

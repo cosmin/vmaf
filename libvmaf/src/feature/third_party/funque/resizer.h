@@ -22,11 +22,6 @@
 #define INTER_RESIZE_COEF_SCALE 2048
 #define MAX_ESIZE 16
 
-#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-                                                        : X)
-#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
-
 // enabled by default for funque since resize factor is always 0.5, disabled otherwise
 #define OPTIMISED_COEFF 1
 #define USE_C_VRESIZE 1

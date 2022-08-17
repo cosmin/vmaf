@@ -493,19 +493,17 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
          * prev_inter_sum will have prev rows inter_sum and 
          * The previous k row metric val is not subtracted since it is not available here 
          */
-        for (j=1; j<r_width_p1-8; j++)
+        for (j=1; j<r_width_p1-4; j+=4)
         {
-            int16x8_t x_pad_16x8;
-            int32x4_t interim_32x4_hi, interim_32x4_lo;
-            x_pad_16x8      = vld1q_s16(x_pad + src_offset + j - 1);
-            interim_32x4_lo = vld1q_s32(interim_x + j);
-            interim_32x4_hi = vld1q_s32(interim_x + j + 4);
+            int32x4_t x_pad_32x4;
+            int32x4_t interim_32x4;
 
-            interim_32x4_lo = vaddw_s16(interim_32x4_lo, vget_low_s16(x_pad_16x8));
-            interim_32x4_hi = vaddw_high_s16(interim_32x4_hi, x_pad_16x8);
+            x_pad_32x4       = vld1q_s32(x_pad + src_offset + j - 1);
+            interim_32x4     = vld1q_s32(interim_x + j);
 
-            vst1q_s32(interim_x + j,     interim_32x4_lo);
-            vst1q_s32(interim_x + j + 4, interim_32x4_hi);
+            interim_32x4 = vaddq_s32(interim_32x4, x_pad_32x4);
+
+            vst1q_s32(interim_x + j, interim_32x4);
         }
         for (; j<r_width_p1; j++)
         {
@@ -540,23 +538,19 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
          * The interim buffer is of size 1 row
          * inter_sum = prev_inter_sum + cur_pixel_val - prev_k-row_pixel_val
          */
-        for (j=1; j<r_width_p1-8; j++)
+        for (j=1; j<r_width_p1-4; j+=4)
         {
-            int16x8_t x_pad_16x8, prekh_x_pad_16x8;
-            int32x4_t interim_32x4_hi, interim_32x4_lo;
-            int32x4_t sub_32x4_xhi, sub_32x4_xlo;
-            x_pad_16x8       = vld1q_s16(x_pad + src_offset + j - 1);
-            prekh_x_pad_16x8 = vld1q_s16(x_pad + pre_k_src_offset + j - 1);
-            interim_32x4_lo  = vld1q_s32(interim_x + j);
-            interim_32x4_hi  = vld1q_s32(interim_x + j + 4);
+            int32x4_t x_pad_32x4, prekh_x_pad_32x4;
+            int32x4_t interim_32x4;
+            int32x4_t sub_32x4_x;
+            x_pad_32x4       = vld1q_s32(x_pad + src_offset + j - 1);
+            prekh_x_pad_32x4 = vld1q_s32(x_pad + pre_k_src_offset + j - 1);
+            interim_32x4     = vld1q_s32(interim_x + j);
 
-            sub_32x4_xlo = vsubl_s16(vget_low_s16(x_pad_16x8), vget_low_s16(prekh_x_pad_16x8));
-            sub_32x4_xhi = vsubl_high_s16(x_pad_16x8, prekh_x_pad_16x8);
-            interim_32x4_lo = vaddq_s32(interim_32x4_lo, sub_32x4_xlo);
-            interim_32x4_hi = vaddq_s32(interim_32x4_hi, sub_32x4_xhi);
+            sub_32x4_x   = vsubq_s32(x_pad_32x4, prekh_x_pad_32x4);
+            interim_32x4 = vaddq_s32(interim_32x4, sub_32x4_x);
 
-            vst1q_s32(interim_x + j,     interim_32x4_lo);
-            vst1q_s32(interim_x + j + 4, interim_32x4_hi);
+            vst1q_s32(interim_x + j, interim_32x4);
         }
         for (; j<r_width_p1; j++)
         {
