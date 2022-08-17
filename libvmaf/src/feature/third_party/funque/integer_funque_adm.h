@@ -76,11 +76,6 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
                                      adm_i32_dtype *interim_x, float border_size, double *adm_score_num);
 void div_lookup_generator(int32_t* adm_div_lookup);
 
-static inline int clip(int value, int low, int high)
-{
-    return value < low ? low : (value > high ? high : value);
-}
-
 static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1, 
                                    int64_t *num_sum, adm_i32_dtype *interim_x, 
                                    int32_t *x_pad, int xpad_i, int index, 
@@ -111,19 +106,19 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
 
         pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
         val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        masked_pyr = (adm_i32_dtype)MAX(val, 0);
         num_cube1 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
         num_sum[0] += ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
         
         pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
         val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        masked_pyr = (adm_i32_dtype)MAX(val, 0);
         num_cube2 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
         num_sum[1] += ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
         
         pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
         val = pyr_abs - masking_threshold;
-        masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+        masked_pyr = (adm_i32_dtype)MAX(val, 0);
         num_cube3 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
         num_sum[2] += ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
     }
@@ -141,19 +136,19 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
 
             pyr_abs = abs((adm_i32_dtype)pyr_1.bands[1][index]) * 30;
             val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+            masked_pyr = (adm_i32_dtype)MAX(val, 0);
             num_cube1 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
             num_sum[0] += ((num_cube1 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
             
             pyr_abs = abs((adm_i32_dtype)pyr_1.bands[2][index]) * 30;
             val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+            masked_pyr = (adm_i32_dtype)MAX(val, 0);
             num_cube2 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
             num_sum[1] += ((num_cube2 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
             
             pyr_abs = abs((adm_i32_dtype)pyr_1.bands[3][index]) * 30;
             val = pyr_abs - masking_threshold;
-            masked_pyr = (adm_i32_dtype)clip(val, 0.0, val);
+            masked_pyr = (adm_i32_dtype)MAX(val, 0);
             num_cube3 = (int64_t) masked_pyr * masked_pyr * masked_pyr;
             num_sum[2] += ((num_cube3 + ADM_CUBE_SHIFT_ROUND) >> ADM_CUBE_SHIFT); // reducing precision from 71 to 63
         }
