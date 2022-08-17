@@ -158,7 +158,7 @@ static inline adm_horz_integralsum(int row_offset, int k, size_t r_width_p1,
     }
 }
 
-void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
+void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, int width, int height, 
                                      adm_i32_dtype *interim_x, float border_size, double *adm_score_num)
 {    
@@ -286,17 +286,6 @@ void integer_integral_image_adm_sums(i_dwt2buffers pyr_1, int32_t *x_pad, int k,
         num_band += powf(accum_num[band-1], 1.0/3.0);
     }
     *adm_score_num = num_band + 1e-4;
-}
-
-void integer_dlm_contrast_mask_one_way(i_dwt2buffers pyr_1, int32_t *pyr_2, size_t width, size_t height, float border_size, double *adm_score_num)
-{
-    int k;
-
-    adm_i32_dtype *interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
-
-    integer_integral_image_adm_sums(pyr_1, pyr_2, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
-
-    free(interim_x);
 }
 
 void integer_dlm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
@@ -453,7 +442,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
     adm_i64_dtype num_cube = 0, den_cube = 0;
     double num_band = 0, den_band = 0;
     i_dwt2buffers i_dlm_rest;
-    adm_i32_dtype *i_dlm_add;
+    adm_i32_dtype *i_dlm_add, *interim_x;
 	int border_h = (border_size * height);
     int border_w = (border_size * width);
 	int loop_h, loop_w, dlm_width, dlm_height;
@@ -494,12 +483,13 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
     i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (dlm_height+2) * (dlm_width+2));
-    
+    interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
+
     double row_num, accum_num = 0;
 
     m.integer_funque_dlm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
     
-    integer_dlm_contrast_mask_one_way(i_dlm_rest, i_dlm_add, width, height, border_size, adm_score_num);
+    integer_adm_integralimg_numscore_c(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
 
     *adm_score = (*adm_score_num) / (*adm_score_den);
 
@@ -507,6 +497,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
     {
         free(i_dlm_rest.bands[i]);
     }
+    free(interim_x);
     free(i_dlm_add);
     int ret = 0;
     return ret;
