@@ -77,6 +77,10 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     dlm_height = height - (border_h << 1);
     dlm_width = width - (border_w << 1);
 
+	//The width of i_dlm_add buffer will be extra only if padding is enabled
+    int dlm_add_w = dlm_width  + (REFLECT_PAD << 1);
+    int dlm_add_h = dlm_height + (REFLECT_PAD << 1);
+
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int16x8_t src16x8_rH, src16x8_rV, src16x8_rD, src16x8_dH, src16x8_dV, src16x8_dD;
     int16x4_t src16x8_rH_lo, src16x8_rV_lo, src16x8_rD_lo, src16x8_dH_lo, src16x8_dV_lo;
@@ -132,7 +136,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
         for (j = border_w; j <= loop_w - 8; j += 8)
         {
             index = i * width + j;
-            addIndex = (i + 1 - border_h) * (dlm_width + 2) + j + 1 - border_w;
+            addIndex = (i + REFLECT_PAD - border_h) * (dlm_add_w) + j + REFLECT_PAD - border_w;
             restIndex = (i - border_h) * (dlm_width) + j - border_w;
 
             src16x8_rH = vld1q_s16(refBandH + index);
@@ -341,7 +345,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
         for (; j < loop_w; j++)
         {
             index = i * width + j;
-            addIndex = (i + 1 - border_h) * (dlm_width + 2) + j + 1 - border_w;
+            addIndex = (i + REFLECT_PAD - border_h) * (dlm_add_w) + j + REFLECT_PAD - border_w;
             restIndex = (i - border_h) * (dlm_width) + j - border_w;
             ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
@@ -396,7 +400,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
 
         if (!extra_sample_w)
         {
-            addIndex = (i + 1 - border_h) * (dlm_width + 2);
+            addIndex = (i + 1 - border_h) * (dlm_add_w);
             i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
             i_dlm_add[addIndex + dlm_width + 1] = i_dlm_add[addIndex + dlm_width - 1];
         }
@@ -404,12 +408,12 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
 
     if (!extra_sample_h)
     {
-        int row2Idx = 2 * (dlm_width + 2);
-        int rowLast2Idx = (dlm_height - 1) * (dlm_width + 2);
-        int rowLastPadIdx = (dlm_height + 1) * (dlm_width + 2);
+        int row2Idx = 2 * (dlm_add_w);
+        int rowLast2Idx = (dlm_height - 1) * (dlm_add_w);
+        int rowLastPadIdx = (dlm_height + 1) * (dlm_add_w);
 
-        memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (dlm_width + 2));
-        memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_width + 2));
+        memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (dlm_add_w));
+        memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_add_w));
     }
 
     // Calculating denominator score
@@ -441,7 +445,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
 	from all sides so that size of centre region is defined.
 	
 	*/
-    int x_reflect = (int)((k - stride) / 2);
+    int x_reflect = (int)((k - stride) / 2) * REFLECT_PAD;
 	int border_h = (border_size * height);
     int border_w = (border_size * width);
     int loop_h, loop_w, dlm_width, dlm_height;
@@ -516,16 +520,16 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
      */
     int row_offset = k * r_width_p1;
     xpad_i = r_width + 1;
-    index = 0;
+    //When padding is disabled extra row, col would be available, 
+    //which should not be used for score computation
+    index = (extra_sample_h) * dlm_width + extra_sample_w;
     //The numerator score is not accumulated for the first row
     adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
                             x_pad, xpad_i, index, pyr_1, extra_sample_w);
-    if(!extra_sample_h)
-    {
-        accum_num[0] += num_sum[0];
-        accum_num[1] += num_sum[1];
-        accum_num[2] += num_sum[2];
-    }
+
+    accum_num[0] += num_sum[0];
+    accum_num[1] += num_sum[1];
+    accum_num[2] += num_sum[2];
 
     for (i=k+1; i<r_height+1; i++)
     {
@@ -557,7 +561,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
             interim_x[j] = interim_x[j] + x_pad[src_offset + j - 1] - x_pad[pre_k_src_offset + j - 1];
         }
         xpad_i = (i+1-k)*(r_width) + 1;
-        index = (i-k) * dlm_width;
+        index = (i+extra_sample_h-k) * dlm_width + extra_sample_w;
         //horizontal summation & numerator score accumulation
         num_sum[0] = 0;
         num_sum[1] = 0;
@@ -568,13 +572,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
         accum_num[1] += num_sum[1];
         accum_num[2] += num_sum[2];
     }
-    //Removing the row sum
-    if(extra_sample_h)
-    {
-        accum_num[0] -= num_sum[0];
-        accum_num[1] -= num_sum[1];
-        accum_num[2] -= num_sum[2];
-    }
+
     double num_band = 0;
     for(int band=1; band<4; band++)
     {
