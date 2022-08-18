@@ -425,7 +425,10 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     }
     // compensation for the division by thirty in the numerator
     *adm_score_den = (den_band * 30) + 1e-4;
-
+    
+    free(buf1_adm_div);
+    free(buf2_adm_div);
+    free(buf3_adm_div);
     free(buf_ot_dp);
     free(buf_ot_dp_sq);
     free(buf_ot_mag);
