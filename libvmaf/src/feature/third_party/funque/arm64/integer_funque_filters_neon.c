@@ -342,7 +342,7 @@ static inline void integer_horizontal_filter_neon(spat_fil_inter_dtype *tmp, spa
 
 }
 
-void integer_spatial_filter_neon(uint8_t *src, spat_fil_output_dtype *dst, int width, int height)
+void integer_spatial_filter_neon(void *void_src, spat_fil_output_dtype *dst, int width, int height, int bitdepth)
 {
     const spat_fil_coeff_dtype i_filter_coeffs[21] = {
         -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
@@ -352,7 +352,12 @@ void integer_spatial_filter_neon(uint8_t *src, spat_fil_output_dtype *dst, int w
     int src_px_stride = width;
     int dst_px_stride = width;
 	int width_rem_size = width - (width%16);
-
+    if (bitdepth != 8)
+    {
+        printf("ERROR: arm simd support for spatial filter is only for 8bit contents\n");
+        return;
+    }
+    uint8_t *src = (uint8_t*) void_src;
     spat_fil_inter_dtype *tmp = malloc(src_px_stride * sizeof(spat_fil_inter_dtype));
     spat_fil_inter_dtype imgcoeff;
     spat_fil_inter_dtype *tmp_int = tmp;

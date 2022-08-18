@@ -299,8 +299,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
     // s->modules.resizer_step = step;
     s->resize_module.resizer_step = step;
- #if ARCH_AARCH64
-    s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+#if ARCH_AARCH64
+    if (bpc == 8)
+    {
+        s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+    }
     s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
@@ -310,7 +313,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     // commenting this out temporarily
     // s->modules.resizer_step = step_neon; 
     // s->resize_module.resizer_step = step_neon;
- #endif   
+#endif   
 
     funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
@@ -387,10 +390,10 @@ static int extract(VmafFeatureExtractor *fex,
     // TODO: Move to lookup table for optimization
     int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
 
-    s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+    s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
 
-    s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+    s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT;
