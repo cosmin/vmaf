@@ -16,4 +16,5 @@
  *
  */
 
-void resize(const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);
+void resize(const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight);
+void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth);
