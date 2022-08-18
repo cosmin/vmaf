@@ -21,8 +21,8 @@
 #include <stdint.h>
 
 #include "config.h"
-#define REFLECT_PAD 0
-
+#define ADM_REFLECT_PAD 0
+#define VIF_REFLECT_PAD 1
 // #define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
 //                                                         : X)
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)

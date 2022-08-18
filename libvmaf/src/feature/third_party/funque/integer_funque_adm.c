@@ -80,7 +80,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
 	from all sides so that size of centre region is defined.
 	
 	*/
-    int x_reflect = (int)((k - stride) / 2) * REFLECT_PAD;
+    int x_reflect = (int)((k - stride) / 2) * ADM_REFLECT_PAD;
 	int border_h = (border_size * height);
     int border_w = (border_size * width);
     int loop_h, loop_w, dlm_width, dlm_height;
@@ -91,7 +91,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
 	centre region. currently border_size defines the percentage of pixels to be avoided
 	from all sides so that size of centre region is defined.
 	*/	
-#if REFLECT_PAD
+#if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
 #else
@@ -102,7 +102,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 
-#if !REFLECT_PAD
+#if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
@@ -217,7 +217,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 	centre region. currently border_size defines the percentage of pixels to be avoided
 	from all sides so that size of centre region is defined.
 	*/
-#if REFLECT_PAD
+#if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
 #else
@@ -228,7 +228,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 
-#if !REFLECT_PAD
+#if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
@@ -241,8 +241,8 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 	dlm_width = width - (border_w << 1);
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
-    int dlm_add_w = dlm_width  + (REFLECT_PAD << 1);
-    int dlm_add_h = dlm_height + (REFLECT_PAD << 1);
+    int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
+    int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     for (i = border_h; i < loop_h; i++)
     {
@@ -258,7 +258,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
         {
             index = i * width + j;
             //If padding is enabled the computation of i_dlm_add will be from 1,1 & later padded
-            addIndex = (i + REFLECT_PAD - border_h) * (dlm_add_w) + j + REFLECT_PAD - border_w;
+            addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
 			restIndex = (i - border_h) * (dlm_width) + j - border_w;
             ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
@@ -363,7 +363,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 	*/	
 	
 	// add one sample on the boundary to account for integral image calculation
-#if REFLECT_PAD
+#if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
 #else
@@ -374,7 +374,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 
-#if !REFLECT_PAD
+#if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
@@ -389,7 +389,7 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
     i_dlm_rest.bands[1] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
-    i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (dlm_height+ (REFLECT_PAD<<1)) * (dlm_width+(REFLECT_PAD<<1)));
+    i_dlm_add = (adm_i32_dtype *)malloc(sizeof(adm_i32_dtype) * (dlm_height+ (ADM_REFLECT_PAD<<1)) * (dlm_width+(ADM_REFLECT_PAD<<1)));
     interim_x = (adm_i32_dtype *)malloc((width + K_INTEGRALIMG_ADM) * sizeof(adm_i32_dtype));
 
     double row_num, accum_num = 0;

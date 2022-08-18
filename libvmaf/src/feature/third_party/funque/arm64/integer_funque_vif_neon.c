@@ -40,7 +40,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
     int y_reflect = (int)((kw - stride) / 2);
     size_t vif_width, vif_height;
 
-#if REFLECT_PAD
+#if VIF_REFLECT_PAD
     vif_width  = width;
     vif_height = height;
 #else
@@ -55,7 +55,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
     size_t s_height = (r_height + 1) - kh;
 
     dwt2_dtype* x_pad_t, *y_pad_t;
-#if REFLECT_PAD
+#if VIF_REFLECT_PAD
     x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * x_reflect)) * (vif_height + (2 * x_reflect)));
     y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * y_reflect)) * (vif_height + (2 * y_reflect)));
     integer_reflect_pad(x_t, vif_width, vif_height, x_reflect, x_pad_t);
@@ -374,7 +374,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
     *score = *score_num / *score_den;
 
-#if REFLECT_PAD
+#if VIF_REFLECT_PAD
     free(x_pad_t);
     free(y_pad_t);
 #endif

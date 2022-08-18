@@ -54,7 +54,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     centre region. currently border_size defines the percentage of pixels to be avoided
     from all sides so that size of centre region is defined.
     */
-#if REFLECT_PAD
+#if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
 #else
@@ -65,7 +65,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     border_h -= extra_sample_h;
     border_w -= extra_sample_w;
 
-#if !REFLECT_PAD
+#if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
@@ -78,8 +78,8 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     dlm_width = width - (border_w << 1);
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
-    int dlm_add_w = dlm_width  + (REFLECT_PAD << 1);
-    int dlm_add_h = dlm_height + (REFLECT_PAD << 1);
+    int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
+    int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int16x8_t src16x8_rH, src16x8_rV, src16x8_rD, src16x8_dH, src16x8_dV, src16x8_dD;
@@ -136,7 +136,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
         for (j = border_w; j <= loop_w - 8; j += 8)
         {
             index = i * width + j;
-            addIndex = (i + REFLECT_PAD - border_h) * (dlm_add_w) + j + REFLECT_PAD - border_w;
+            addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
             restIndex = (i - border_h) * (dlm_width) + j - border_w;
 
             src16x8_rH = vld1q_s16(refBandH + index);
@@ -345,7 +345,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
         for (; j < loop_w; j++)
         {
             index = i * width + j;
-            addIndex = (i + REFLECT_PAD - border_h) * (dlm_add_w) + j + REFLECT_PAD - border_w;
+            addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
             restIndex = (i - border_h) * (dlm_width) + j - border_w;
             ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
@@ -448,7 +448,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
 	from all sides so that size of centre region is defined.
 	
 	*/
-    int x_reflect = (int)((k - stride) / 2) * REFLECT_PAD;
+    int x_reflect = (int)((k - stride) / 2) * ADM_REFLECT_PAD;
 	int border_h = (border_size * height);
     int border_w = (border_size * width);
     int loop_h, loop_w, dlm_width, dlm_height;
@@ -459,7 +459,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
 	centre region. currently border_size defines the percentage of pixels to be avoided
 	from all sides so that size of centre region is defined.
 	*/	
-#if REFLECT_PAD
+#if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
 #else
@@ -470,7 +470,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
 
-#if !REFLECT_PAD
+#if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
