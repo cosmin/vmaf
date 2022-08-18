@@ -16,7 +16,7 @@
  *
  */
 
-#include "integer_funque_filters.h"
+// #include "integer_funque_filters.h"
 
 #define INTER_RESIZE_COEF_BITS 11
 #define INTER_RESIZE_COEF_SCALE 2048
@@ -26,7 +26,17 @@
 #define OPTIMISED_COEFF 1
 #define USE_C_VRESIZE 1
 
+#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
+                                                        : X)
+#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
+#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
+
+typedef struct ResizerState
+{
+    void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
+}ResizerState;
+
 unsigned char castOp(int val);
 void vresize(const int **src, unsigned char *dst, const short *beta, int width);
 void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
-void resize(ModuleFunqueState m, const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);
+void resize(ResizerState m, const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);

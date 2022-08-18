@@ -23,10 +23,10 @@
 #include "config.h"
 #define REFLECT_PAD 0
 
-#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-                                                        : X)
+// #define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
+//                                                         : X)
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
+// #define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
 
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
@@ -79,7 +79,7 @@ typedef struct ModuleFunqueState
                                            double* score, double* score_num, double* score_den, 
                                            int k, int stride, double sigma_nsq, 
                                            int64_t shift_val, uint32_t* log_18);
-    void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
+    // void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 }ModuleFunqueState;
 
 void integer_spatial_filter(uint8_t *src, spat_fil_output_dtype *dst, int width, int height);

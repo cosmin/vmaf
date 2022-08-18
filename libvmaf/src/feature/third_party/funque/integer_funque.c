@@ -89,6 +89,7 @@ typedef struct IntFunqueState
 
     VmafDictionary *feature_name_dict;
     ModuleFunqueState modules;
+    ResizerState resize_module;
 } IntFunqueState;
 
 static const VmafOption options[] = {
@@ -296,7 +297,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
-    s->modules.resizer_step = step;
+    // s->modules.resizer_step = step;
+    s->resize_module.resizer_step = step;
  #if ARCH_AARCH64
     s->modules.integer_spatial_filter = integer_spatial_filter_neon;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
@@ -307,6 +309,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
     // commenting this out temporarily
     // s->modules.resizer_step = step_neon; 
+    // s->resize_module.resizer_step = step_neon;
  #endif   
 
     funque_log_generate(s->log_18);
@@ -372,8 +375,8 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic->pix_fmt = dist_pic->pix_fmt;
         res_dist_pic->ref = dist_pic->ref;
 
-        resize(s->modules ,ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        resize(s->modules ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        resize(s->resize_module ,ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        resize(s->resize_module ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
     else
     {

@@ -81,6 +81,7 @@ typedef struct FunqueState {
     double max_db;
 
     VmafDictionary *feature_name_dict;
+    ResizerState resize_module;
 } FunqueState;
 
 static const VmafOption options[] = {
@@ -277,6 +278,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->max_db = INFINITY;
     }
 
+    s->resize_module.resizer_step = step;
+
     return 0;
 
 fail:
@@ -333,8 +336,8 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic->pix_fmt = dist_pic->pix_fmt;
         res_dist_pic->ref = dist_pic->ref;
 
-        resize(ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        resize(dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        resize(s->resize_module ,ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        resize(s->resize_module ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
 
     }
     else{

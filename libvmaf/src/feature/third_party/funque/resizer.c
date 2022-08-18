@@ -188,7 +188,7 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
     free(_buffer);
 }
 
-void resize(ModuleFunqueState m, const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight)
+void resize(ResizerState m, const unsigned char *_src, unsigned char *_dst, int iwidth, int iheight, int dwidth, int dheight)
 {
     int depth = 0, cn = 1;
     double inv_scale_x = (double)dwidth / iwidth;
