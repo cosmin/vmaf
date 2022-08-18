@@ -39,6 +39,30 @@ void funque_log_generate(uint32_t* log_18)
     }
 }
 
+void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
+{
+    size_t out_width = width + 2 * reflect;
+    size_t out_height = height + 2 * reflect;
+
+    for (size_t i = reflect; i != (out_height - reflect); i++) {
+
+        for (int j = 0; j != reflect; j++)
+        {
+            dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
+        }
+
+        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(dwt2_dtype) * width);
+
+        for (int j = 0; j != reflect; j++)
+            dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
+    }
+
+    for (int i = 0; i != reflect; i++) {
+        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(dwt2_dtype) * out_width);
+        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(dwt2_dtype) * out_width);
+    }
+}
+
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val, uint32_t* log_18)
 {
     int ret = 1;
