@@ -40,3 +40,4 @@ unsigned char castOp(int val);
 void vresize(const int **src, unsigned char *dst, const short *beta, int width);
 void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 void resize(ResizerState m, const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);
+void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth);
