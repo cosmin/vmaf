@@ -104,7 +104,7 @@ void hbd_hresize(const unsigned short **src, int **dst, int count,
     }
 }
 
-unsigned short hbd_castOp(int val, int bitdepth)
+unsigned short hbd_castOp(int64_t val, int bitdepth)
 {
     int bits = 22;
     int SHIFT = bits;
@@ -123,7 +123,7 @@ void hbd_vresize(const int **src, unsigned short *dst, const short *beta, int wi
     const int *S0 = src[0], *S1 = src[1], *S2 = src[2], *S3 = src[3];
 
     for (int x = 0; x < width; x++)
-        dst[x] = hbd_castOp(S0[x] * b0 + S1[x] * b1 + S2[x] * b2 + S3[x] * b3, bitdepth);
+        dst[x] = hbd_castOp((int64_t)S0[x] * b0 + (int64_t)S1[x] * b1 + (int64_t)S2[x] * b2 + (int64_t)S3[x] * b3, bitdepth);
 }
 
 void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax, int bitdepth)
