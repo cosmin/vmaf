@@ -387,8 +387,7 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    // TODO: Move to lookup table for optimization
-    int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
     s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
@@ -396,7 +395,7 @@ static int extract(VmafFeatureExtractor *fex,
     s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT;
+    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
@@ -439,7 +438,7 @@ static int extract(VmafFeatureExtractor *fex,
                                          adm_score, index);
 
     err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
-                                      pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2, s->adm_div_lookup);
+                                                    pending_div_factor, s->adm_div_lookup);
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
