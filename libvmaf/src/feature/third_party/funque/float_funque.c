@@ -348,9 +348,8 @@ static int extract(VmafFeatureExtractor *fex,
     funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
     funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
 
-    //TODO: Move to lookup table for optimization
-    int bitdepth_pow2 = (int) pow(2, res_ref_pic->bpc) - 1;
-    //TODO: Create a new picture copy function with normalization?
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+
     normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
     normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
