@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "funque_filters.h"
+#include "funque_vif_options.h"
 
 void reflect_pad(const float* src, size_t width, size_t height, int reflect, float* dest)
 {
@@ -131,7 +132,7 @@ void compute_metrics(const double* int_1_x, const double* int_1_y, const double*
     }
 }
 
-int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq)
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq_arg, int vif_level)
 {
     int ret = 1;
 
@@ -180,10 +181,23 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
     double* sv_sq = (double*)malloc(sizeof(double) * s_width * s_height);
     double exp = (double)1e-10;
     int index;
+	
+	double sigma_nsq = sigma_nsq_arg;
+#if VIF_STABILITY
+	double sigma_nsq_base = sigma_nsq_arg / (255.0*255.0);	
+	double sigma_max_inv = 4.0;
+	sigma_nsq = sigma_nsq_base;
+#if USE_DYNAMIC_SIGMA_NSQ
+	sigma_nsq = sigma_nsq_base * (2 << (vif_level + 1));
+#endif
+#endif
+
 
     *score = (double)0;
     *score_num = (double)0;
     *score_den = (double)0;
+	
+	double num_val, den_val;
 
     for (unsigned int i = 0; i < s_height; i++)
     {
@@ -216,8 +230,27 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
             if (sv_sq[index] < exp)
                 sv_sq[index] = exp;
 
-            *score_num += (log2((double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)) + (double)1e-4);
-            *score_den += (log2((double)1 + var_x[index] / sigma_nsq) + (double)1e-4);
+#if VIF_STABILITY
+			num_val = (log2((double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)));
+			den_val = (log2((double)1 + var_x[index] / sigma_nsq));
+
+			if (cov_xy[index] < 0.0f) {
+				num_val = 0.0f;
+			}
+
+			if (var_x[index] < sigma_nsq) {
+				num_val = 1.0f - var_y[index] * sigma_max_inv;
+				den_val = 1.0f;
+			}
+#else
+
+			num_val = (log2((double)1 + g[index] * g[index] * var_x[index] / (sv_sq[index] + sigma_nsq)) + (double)1e-4);
+			den_val = (log2((double)1 + var_x[index] / sigma_nsq) + (double)1e-4);
+
+#endif
+
+			*score_num += num_val
+			*score_den += den_val
         }
     }
 

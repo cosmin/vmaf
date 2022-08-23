@@ -404,7 +404,7 @@ static int extract(VmafFeatureExtractor *fex,
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
     
     err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,
-                                &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0);
+                                &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, 0);
     if (err) return err;
 
     int vifdwt_stride = (s->float_stride+3)/4;
@@ -422,7 +422,7 @@ static int extract(VmafFeatureExtractor *fex,
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
         err = compute_vif_funque(s->ref_dwt2out.bands[vif_level], s->dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
-                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0);
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, vif_level);
         if (err) return err;
     }
 
