@@ -65,8 +65,8 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
     y_pad_t = y_t;
 #endif
 
-    int32_t int_1_x, int_1_y;
-    int64_t int_2_x, int_2_y, int_x_y;
+    // int32_t int_1_x, int_1_y;
+    // int64_t int_2_x, int_2_y, int_x_y;
 
     int64_t exp_t = 1; // using 1 because exp in Q32 format is still 0
     int32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;
@@ -107,13 +107,13 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
         int64x2_t intr2XY0, intr2XY1, intr2XY2, intr2XY3;
         int srcOffset, prekhSrcOffset;
 
-        size_t i = 0, j;
+        int i = 0, j;
 
         //The height loop is broken into 2 parts, 
         //1st loop, prev kh row is not available to subtract during vertical summation
         for (i=1; i<kh+1; i++)
         {
-            int row_offset = i * width_p1;
+            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
 
             /**

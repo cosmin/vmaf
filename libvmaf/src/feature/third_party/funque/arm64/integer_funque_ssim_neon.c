@@ -2,8 +2,9 @@
 #include "../integer_funque_filters.h"
 #include <arm_neon.h>
 #include <math.h>
+#include <stdlib.h>
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+// #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 static inline int16_t ssim_get_best_i16_from_u64(uint64_t temp, int *power)
 {
@@ -17,8 +18,8 @@ static inline int16_t ssim_get_best_i16_from_u64(uint64_t temp, int *power)
 int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
 {
     int ret = 1;
-    size_t width = ref->width;
-    size_t height = ref->height;
+    int width = ref->width;
+    int height = ref->height;
 
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x, var_y, cov_xy, var_x_band0, var_y_band0, cov_xy_band0;

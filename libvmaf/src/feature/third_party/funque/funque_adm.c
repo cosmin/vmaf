@@ -19,6 +19,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

@@ -28,7 +28,7 @@ void hresize_neon(const unsigned char **src, int **dst, int count,
                   const int *xofs, const short *alpha,
                   int swidth, int dwidth, int cn, int xmin, int xmax)
 {
-    int first_col_count = 0;
+    // int first_col_count = 0;
     uint8x8_t src1_8x8, src2_8x8, src3_8x8;
     int simd_loop = (xmax / 8) * 8;
     int num_pix = 8;

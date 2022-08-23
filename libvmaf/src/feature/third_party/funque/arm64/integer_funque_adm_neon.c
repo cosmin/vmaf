@@ -47,7 +47,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
     int64_t col0_ref_cube[3] = {0};
     int loop_h, loop_w, dlm_width, dlm_height;
     int extra_sample_h = 0, extra_sample_w = 0;
-    adm_i64_dtype den_cube[3];
+    adm_i64_dtype den_cube[3] = {0};
 
     /**
      DLM has the configurability of computing the metric only for the
@@ -79,7 +79,7 @@ void integer_adm_decouple_neon(i_dwt2buffers ref, i_dwt2buffers dist,
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
     int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
-    int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
+    // int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int16x8_t src16x8_rH, src16x8_rV, src16x8_rD, src16x8_dH, src16x8_dV, src16x8_dD;
@@ -439,7 +439,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
                             float border_size, double *adm_score_num)
 {
     int i, j, index;
-    adm_i32_dtype pyr_abs;
+    // adm_i32_dtype pyr_abs;
     int64_t num_sum[3] = {0};
     double accum_num[3] = {0};
 	/**
@@ -451,7 +451,8 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
     int x_reflect = (int)((k - stride) / 2) * ADM_REFLECT_PAD;
 	int border_h = (border_size * height);
     int border_w = (border_size * width);
-    int loop_h, loop_w, dlm_width, dlm_height;
+    // int loop_h, loop_w;
+    int dlm_width, dlm_height;
 	int extra_sample_h = 0, extra_sample_w = 0;
 	
 	/**
@@ -476,15 +477,15 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
     border_w = MAX(1,border_w);
 #endif
 	
-    loop_h = height - border_h;
-    loop_w = width - border_w;
+    // loop_h = height - border_h;
+    // loop_w = width - border_w;
 	
 	dlm_height = height - (border_h << 1);
 	dlm_width = width - (border_w << 1);
     
-    size_t r_width = dlm_width + (2 * x_reflect);
-    size_t r_height = dlm_height + (2 * x_reflect);
-    size_t r_width_p1 = r_width + 1;
+    int r_width = dlm_width + (2 * x_reflect);
+    int r_height = dlm_height + (2 * x_reflect);
+    int r_width_p1 = r_width + 1;
     int xpad_i;
 
     memset(interim_x, 0, r_width_p1 * sizeof(adm_i32_dtype));
@@ -521,7 +522,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
      * The integral score is used from kxk offset of 2D array
      * Hence horizontal summation of 1st k rows are not used, hence that compuattion is avoided
      */
-    int row_offset = k * r_width_p1;
+    // int row_offset = k * r_width_p1;
     xpad_i = r_width + 1;
     //When padding is disabled extra row, col would be available, 
     //which should not be used for score computation
@@ -536,7 +537,7 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
 
     for (i=k+1; i<r_height+1; i++)
     {
-        row_offset = i * r_width_p1;
+        // row_offset = i * r_width_p1;
         int src_offset = (i-1) * r_width;
         int pre_k_src_offset = (i-1-k) * r_width;
         /**
