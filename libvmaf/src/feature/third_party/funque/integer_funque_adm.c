@@ -42,30 +42,6 @@ void div_lookup_generator(int32_t *adm_div_lookup)
     }
 }
 
-void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t height, int reflect, adm_u16_dtype *dest)
-{
-    size_t out_width = width + 2 * reflect;
-    size_t out_height = height + 2 * reflect;
-    
-    for (size_t i = reflect; i != (out_height - reflect); i++)
-    {
-        for (int j = 0; j != reflect; j++)
-        {
-          dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
-        }
-        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(adm_u16_dtype) * width);
-    
-        for (int j = 0; j != reflect; j++)
-            dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
-    }
-    
-    for (int i = 0; i != reflect; i++)
-    {
-        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(adm_u16_dtype) * out_width);
-        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(adm_u16_dtype) * out_width);
-    }
-}
-
 void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, int width, int height, 
                                      adm_i32_dtype *interim_x, float border_size, double *adm_score_num)

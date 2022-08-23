@@ -64,7 +64,6 @@ typedef struct u_adm_buffers
 #endif
 #define COS_1DEG_SQ cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0)
 
-void integer_reflect_pad_adm(const adm_u16_dtype *src, size_t width, size_t height, int reflect, adm_u16_dtype *dest);
 int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers ref, i_dwt2buffers dist, double *adm_score, 
                                double *adm_score_num, double *adm_score_den, size_t width, size_t height, 
                                float border_size, int16_t shift_val, int32_t* adm_div_lookup);
