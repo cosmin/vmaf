@@ -18,6 +18,7 @@
 #ifndef FEATURE_INTFUNQUE_VIF_H_
 #define FEATURE_INTFUNQUE_VIF_H_
 
+#include <assert.h>
 #define VIF_COMPUTE_METRIC_R_SHIFT 6
 
 void funque_log_generate(uint32_t* log_18);
@@ -26,34 +27,14 @@ void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int
 
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq, int64_t shift_val, uint32_t* log_18);
 
-FORCE_INLINE inline uint32_t get_best_18bitsfixed_opt_64(uint64_t temp, int *x)
+static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
 {
+    assert(temp >= 0x40000);
     int k = __builtin_clzll(temp);
-
-    if (k > 46) 
-    {
-        k -= 46;
-        temp = temp << k;
-        *x = k;
-
-    }
-    else if (k < 45) 
-    {
-        k = 46 - k;
-        temp = temp >> k;
-        *x = -k;
-    }
-    else
-    {
-        *x = 0;
-        if (temp >> 18)
-        {
-            temp = temp >> 1;
-            *x = -1;
-        }
-    }
-
-    return (uint32_t)temp;
+    k = 46 - k;
+    temp = temp >> k;
+    *power = k;
+    return (uint32_t) temp;
 }
 
 /**
@@ -106,10 +87,10 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     int64_t num_den_t = n2;
     int x1, x2;
 
-    uint32_t log_in_num_1 = get_best_18bitsfixed_opt_64((uint64_t)num_t, &x1);
-    uint32_t log_in_num_2 = get_best_18bitsfixed_opt_64((uint64_t)num_den_t, &x2);
+    uint32_t log_in_num_1 = get_best_u18_from_u64((uint64_t)num_t, &x1);
+    uint32_t log_in_num_2 = get_best_u18_from_u64((uint64_t)num_den_t, &x2);
     int32_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
-    int32_t temp_power_num = -x1 + x2; 
+    int32_t temp_power_num = x1 - x2; 
     *score_num_t += temp_numerator;
     *num_power += temp_power_num;
 
@@ -117,10 +98,10 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     uint32_t d2 = (sigma_nsq_t);
     int y1, y2;
 
-    uint32_t log_in_den_1 = get_best_18bitsfixed_opt_64((uint64_t)d1, &y1);
-    uint32_t log_in_den_2 = get_best_18bitsfixed_opt_64((uint64_t)d2, &y2);
+    uint32_t log_in_den_1 = get_best_u18_from_u64((uint64_t)d1, &y1);
+    uint32_t log_in_den_2 = get_best_u18_from_u64((uint64_t)d2, &y2);
     int32_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
-    int32_t temp_power_den = -y1 + y2;
+    int32_t temp_power_den = y1 - y2;
     *score_den_t += temp_denominator;
     *den_power += temp_power_den;
 }
