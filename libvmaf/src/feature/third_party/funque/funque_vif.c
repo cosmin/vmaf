@@ -249,8 +249,8 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
 
 #endif
 
-			*score_num += num_val
-			*score_den += den_val
+			*score_num += num_val;
+			*score_den += den_val;
         }
     }
 
