@@ -197,14 +197,14 @@ void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs,
 
 void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth)
 {
-    int depth = 0, cn = 1;
+    // int depth = 0;
+    int cn = 1;
     double inv_scale_x = (double)dwidth / iwidth;
-    double inv_scale_y = (double)dheight / iheight;
 
     int ksize = 4, ksize2;
     ksize2 = ksize / 2;
 
-    int xmin = 0, xmax = dwidth, width = dwidth * cn;
+    int xmin = 0, xmax = dwidth;
 
 #if OPTIMISED_COEFF
     const short ibeta[] = {-192, 1216, 1216, -192};
@@ -231,8 +231,9 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
         }
     }
 #else
-
+    double inv_scale_y = (double)dheight / iheight;
     double scale_x = 1. / inv_scale_x, scale_y = 1. / inv_scale_y;
+    width = dwidth * cn;
 
     int iscale_x = (int)scale_x;
     int iscale_y = (int)scale_y;

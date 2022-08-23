@@ -40,9 +40,9 @@ static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
 /**
  * This function accumulates the numerator and denominator values & their powers 
  */
-static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
+static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
                              int64_t int_2_x, int64_t int_2_y, int64_t int_x_y, 
-                             int16_t knorm_fact, int16_t knorm_shift, int k_norm, 
+                             int16_t knorm_fact, int16_t knorm_shift,  
                              int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
@@ -106,8 +106,8 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 
 //This function does summation of horizontal intermediate_vertical_sums & then 
 //numerator denominator score calculations are done
-static inline vif_horz_integralsum(int kw, int width_p1, 
-                                   int16_t knorm_fact, int16_t knorm_shift, int k_norm, 
+static inline void vif_horz_integralsum(int kw, int width_p1, 
+                                   int16_t knorm_fact, int16_t knorm_shift, 
                                    int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
@@ -128,9 +128,9 @@ static inline vif_horz_integralsum(int kw, int width_p1,
      * metric_sum = prev_col_metric_sum + interim_metric_vertical_sum
      * The previous kw col interim metric sum is not subtracted since it is not available here
      */
-    for (size_t j=1; j<kw+1; j++)
+    for (int j=1; j<kw+1; j++)
     {
-        int j_minus1 = j-1;
+        // int j_minus1 = j-1;
         int_2_x = interim_2_x[j] + int_2_x;
         int_1_x = interim_1_x[j] + int_1_x;
         
@@ -145,14 +145,14 @@ static inline vif_horz_integralsum(int kw, int width_p1,
      * hence calling vif_stats_calc for kw column separately 
      */
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                    knorm_fact, knorm_shift, k_norm, 
+                    knorm_fact, knorm_shift, 
                     exp, sigma_nsq, log_18,
                     score_num, num_power, score_den, den_power);
 
     //Similar to prev loop, but previous kw col interim metric sum is subtracted
-    for (size_t j=kw+1; j<width_p1; j++)
+    for (int j=kw+1; j<width_p1; j++)
     {
-        int j_minus1 = j-1;
+        // int j_minus1 = j-1;
         int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];
         int_1_x = interim_1_x[j] + int_1_x - interim_1_x[j - kw];
         
@@ -162,7 +162,7 @@ static inline vif_horz_integralsum(int kw, int width_p1,
         int_x_y = interim_x_y[j] + int_x_y - interim_x_y[j - kw];
 
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
-                        knorm_fact, knorm_shift, k_norm, 
+                        knorm_fact, knorm_shift, 
                         exp, sigma_nsq, log_18,
                         score_num, num_power, score_den, den_power);
     }

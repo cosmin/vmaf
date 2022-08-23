@@ -38,8 +38,8 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
 {
     int ret = 1;
 
-    size_t width = ref->width;
-    size_t height = ref->height;
+    int width = ref->width;
+    int height = ref->height;
 
     /**
      * C1 is constant is added to ref^2, dist^2, 

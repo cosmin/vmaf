@@ -100,8 +100,8 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     y_pad_t = y_t;
 #endif
 
-    int32_t int_1_x, int_1_y;
-    int64_t int_2_x, int_2_y, int_x_y;
+    // int32_t int_1_x, int_1_y;
+    // int64_t int_2_x, int_2_y, int_x_y;
 
     int64_t exp_t = 1; // using 1 because exp in Q32 format is still 0
     int32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;
@@ -132,13 +132,13 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         memset(interim_1_y, 0, width_p1 * sizeof(int32_t));
         memset(interim_x_y, 0, width_p1 * sizeof(int64_t));
 
-        size_t i = 0;
+        int i = 0;
 
         //The height loop is broken into 2 parts, 
         //1st loop, prev kh row is not available to subtract during vertical summation
         for (i=1; i<kh+1; i++)
         {
-            int row_offset = i * width_p1;
+            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
 
             /**
@@ -151,7 +151,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
              * cur_metric_val can be srcx or srcy or srcxx or srcyy or srcxy
              * The previous kh row metric val is not subtracted since it is not available here 
             */
-            for (size_t j=1; j<width_p1; j++)
+            for (int j=1; j<width_p1; j++)
             {
                 int j_minus1 = j-1;
                 dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
@@ -174,7 +174,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
-        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                              exp_t, sigma_nsq_t, log_18,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
@@ -183,7 +183,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         //2nd loop, core loop 
         for(; i<height_p1; i++)
         {
-            int row_offset = i * width_p1;
+            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
             int pre_kh_src_offset = (i-1-kh) * r_width;
             /**
@@ -192,7 +192,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
              * The interim buffer is of size 1 row
              * inter_sum = prev_inter_sum + cur_metric_val - prev_kh-row_metric_val
             */
-            for (size_t j=1; j<width_p1; j++)
+            for (int j=1; j<width_p1; j++)
             {
                 int j_minus1 = j-1;
                 dwt2_dtype src_x_val = x_pad_t[src_offset + j_minus1];
@@ -217,7 +217,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
             }
 
             //horizontal summation and score compuations
-            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
                                  exp_t, sigma_nsq_t, log_18,
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,

@@ -342,12 +342,12 @@ fail:
     return -ENOMEM;
 }
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+// #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-static double convert_to_db(double score, double max_db)
-{
-    return MIN(-10. * log10(1 - score), max_db);
-}
+// static double convert_to_db(double score, double max_db)
+// {
+//     return MIN(-10. * log10(1 - score), max_db);
+// }
 
 static int extract(VmafFeatureExtractor *fex,
                    VmafPicture *ref_pic, VmafPicture *ref_pic_90,
@@ -439,7 +439,7 @@ static int extract(VmafFeatureExtractor *fex,
     double adm_score, adm_score_num, adm_score_den;
     double ssim_score;
 
-    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, (int16_t) pending_div_factor, s->adm_div_lookup);
+    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
     if (err)
         return err;
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
