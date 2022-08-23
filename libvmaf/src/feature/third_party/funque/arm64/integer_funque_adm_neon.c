@@ -527,8 +527,8 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
     //which should not be used for score computation
     index = (extra_sample_h) * dlm_width + extra_sample_w;
     //The numerator score is not accumulated for the first row
-    adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
-                            x_pad, xpad_i, index, pyr_1, extra_sample_w);
+    adm_horz_integralsum(k, r_width_p1, num_sum, interim_x, 
+                            x_pad, xpad_i, index, pyr_1);
 
     accum_num[0] += num_sum[0];
     accum_num[1] += num_sum[1];
@@ -569,8 +569,8 @@ void integer_adm_integralimg_numscore_neon(i_dwt2buffers pyr_1, int32_t *x_pad, 
         num_sum[0] = 0;
         num_sum[1] = 0;
         num_sum[2] = 0;
-        adm_horz_integralsum(row_offset, k, r_width_p1, num_sum, interim_x, 
-                                x_pad, xpad_i, index, pyr_1, extra_sample_w);
+        adm_horz_integralsum(k, r_width_p1, num_sum, interim_x, 
+                                x_pad, xpad_i, index, pyr_1);
         accum_num[0] += num_sum[0];
         accum_num[1] += num_sum[1];
         accum_num[2] += num_sum[2];

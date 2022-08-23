@@ -218,7 +218,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
-        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,
                              exp_t, sigma_nsq_t, log_18,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
@@ -350,7 +350,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 
 
             //horizontal summation and score compuations
-            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, k_norm, 
+            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                                  exp_t, sigma_nsq_t, log_18,
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,

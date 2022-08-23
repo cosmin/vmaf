@@ -36,6 +36,11 @@
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
+static inline float clip(float value, float low, float high)
+{
+  return value < low ? low : (value > high ? high : value);
+}
+
 #ifdef __SSE2__
 #ifdef ADM_OPT_RECIP_DIVISION
 
@@ -46,11 +51,6 @@
 //   float xi = _mm_cvtss_f32(_mm_rcp_ss(_mm_load_ss(&x)));
 //   return xi + xi * (1.0f - x * xi);
 // }
-
-static inline float clip(float value, float low, float high)
-{
-  return value < low ? low : (value > high ? high : value);
-}
 
 #define DIVS(n, d) ((n)*rcp_s(d))
 #endif // ADM_OPT_RECIP_DIVISION
