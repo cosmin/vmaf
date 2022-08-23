@@ -23,10 +23,8 @@
 #include "config.h"
 #define ADM_REFLECT_PAD 0
 #define VIF_REFLECT_PAD 1
-// #define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-//                                                         : X)
+
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-// #define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
 
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9

@@ -300,12 +300,12 @@ fail:
     return -ENOMEM;
 }
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+// #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-static double convert_to_db(double score, double max_db)
-{
-    return MIN(-10. * log10(1 - score), max_db);
-}
+// static double convert_to_db(double score, double max_db)
+// {
+//     return MIN(-10. * log10(1 - score), max_db);
+// }
 
 static int extract(VmafFeatureExtractor *fex,
                    VmafPicture *ref_pic, VmafPicture *ref_pic_90,

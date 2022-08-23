@@ -30,8 +30,8 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
 
     int n_levels = 1;
 
-    size_t width = ref->width;
-    size_t height = ref->height;
+    int width = ref->width;
+    int height = ref->height;
 
     float C1 = (K1 * max_val) * (K1 * max_val);
     float C2 = (K2 * max_val) * (K2 * max_val);

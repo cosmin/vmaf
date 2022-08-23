@@ -22,7 +22,7 @@
 #include "integer_funque_filters.h"
 #include "integer_funque_ssim.h"
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+// #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 {
