@@ -43,7 +43,7 @@ static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
 static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
                              int64_t int_2_x, int64_t int_2_y, int64_t int_x_y, 
                              int16_t knorm_fact, int16_t knorm_shift, int k_norm, 
-                             int16_t exp_t, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
 {
@@ -53,19 +53,19 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     int32_t var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
     int32_t cov_xy = (int_x_y - (((int64_t) mx * my * knorm_fact) >> knorm_shift)) >> VIF_COMPUTE_METRIC_R_SHIFT;
 
-    if (var_x < exp_t)
+    if (var_x < exp)
     {
         var_x = 0;
         cov_xy = 0;
     }
     
-    if (var_y < exp_t)
+    if (var_y < exp)
     {
         var_y = 0;
         cov_xy = 0;
     }
     int32_t g_num = cov_xy;
-    int32_t g_den = var_x + exp_t*k_norm;
+    int32_t g_den = var_x + exp;
 
     int32_t sv_sq = (var_y - ((int64_t)g_num * cov_xy)/g_den);
 
@@ -76,8 +76,8 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
         g_num = 0;
     }
 
-    if (sv_sq < (exp_t * k_norm))
-        sv_sq = exp_t * k_norm;
+    if (sv_sq < exp)
+        sv_sq = exp;
 
     int64_t p1 = ((int64_t)g_num * g_num)/g_den;
     int32_t p2 = var_x;
@@ -108,7 +108,7 @@ static inline vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 //numerator denominator score calculations are done
 static inline vif_horz_integralsum(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, int k_norm, 
-                                   int16_t exp_t, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -146,7 +146,7 @@ static inline vif_horz_integralsum(int kw, int width_p1,
      */
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift, k_norm, 
-                    exp_t, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_18,
                     score_num, num_power, score_den, den_power);
 
     //Similar to prev loop, but previous kw col interim metric sum is subtracted
@@ -163,7 +163,7 @@ static inline vif_horz_integralsum(int kw, int width_p1,
 
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift, k_norm, 
-                        exp_t, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_18,
                         score_num, num_power, score_den, den_power);
     }
 
