@@ -227,7 +227,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
         //2nd loop, core loop 
         for(; i<height_p1; i++)
         {
-            int row_offset = i * width_p1;
+            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
             int pre_kh_src_offset = (i-1-kh) * r_width;
             /**
