@@ -25,7 +25,7 @@ void funque_log_generate(uint32_t* log_18);
 
 void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest);
 
-int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq, int64_t shift_val, uint32_t* log_18);
+int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq_arg, int64_t shift_val, uint32_t* log_18, int vif_level);
 
 static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
 {
@@ -43,7 +43,7 @@ static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
 static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
                              int64_t int_2_x, int64_t int_2_y, int64_t int_x_y, 
                              int16_t knorm_fact, int16_t knorm_shift,  
-                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18, int64_t shift_val,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
 {
@@ -89,6 +89,20 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     uint32_t log_in_num_2 = get_best_u18_from_u64((uint64_t)n2, &x2);
     int64_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
     int32_t temp_power_num = x1 - x2; 
+	
+#if VIF_STABILITY
+	if(cov_xy < 0)
+	{
+		temp_numerator = 0;
+		temp_power_num = 0;
+	}
+	if (var_x < sigma_nsq)
+	{
+		double sigma_max_inv = 0.0000615; // 4.0/(255*255)
+		temp_numerator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT) - ((int32_t)((var_y * sigma_max_inv)));
+		temp_power_num = 0;
+	}
+#endif
     *score_num += temp_numerator;
     *num_power += temp_power_num;
 
@@ -100,6 +114,12 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     uint32_t log_in_den_2 = get_best_u18_from_u64((uint64_t)d2, &y2);
     int64_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
     int32_t temp_power_den = y1 - y2;
+#if VIF_STABILITY
+	if (var_x < sigma_nsq)
+	{
+		temp_denominator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT);
+	}
+#endif
     *score_den += temp_denominator;
     *den_power += temp_power_den;
 }
@@ -108,7 +128,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 //numerator denominator score calculations are done
 static inline void vif_horz_integralsum(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18, int64_t shift_val,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -146,7 +166,7 @@ static inline void vif_horz_integralsum(int kw, int width_p1,
      */
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift, 
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_18, shift_val,
                     score_num, num_power, score_den, den_power);
 
     //Similar to prev loop, but previous kw col interim metric sum is subtracted
@@ -163,7 +183,7 @@ static inline void vif_horz_integralsum(int kw, int width_p1,
 
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift, 
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_18, shift_val, 
                         score_num, num_power, score_den, den_power);
     }
 

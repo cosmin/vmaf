@@ -27,8 +27,9 @@
 #include "../common/macros.h"
 #include "../integer_funque_vif.h"
 #include "integer_funque_vif_neon.h"
+#include "funque_vif_options.h"
 
-int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq, int64_t shift_val, uint32_t* log_18)
+int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq_arg, int64_t shift_val, uint32_t* log_18, int vif_level)
 {
     int ret = 1;
 
@@ -69,8 +70,14 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
     // int64_t int_2_x, int_2_y, int_x_y;
 
     int64_t exp_t = 1; // using 1 because exp in Q32 format is still 0
-    int32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;
-
+    int32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq_arg*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT;
+#if VIF_STABILITY
+	double sigma_nsq_base = sigma_nsq_arg / (255.0*255.0);	
+#if USE_DYNAMIC_SIGMA_NSQ
+	sigma_nsq_base = sigma_nsq_base * (2 << (vif_level + 1));
+#endif
+	sigma_nsq_t = (int64_t)((int64_t)sigma_nsq_base*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT;
+#endif
     int64_t score_num_t = 0;
     int64_t num_power = 0;
     int64_t score_den_t = 0;
@@ -219,7 +226,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
         vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,
-                             exp_t, sigma_nsq_t, log_18,
+                             exp_t, sigma_nsq_t, log_18, shift_val,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
@@ -351,7 +358,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 
             //horizontal summation and score compuations
             vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
-                                 exp_t, sigma_nsq_t, log_18,
+                                 exp_t, sigma_nsq_t, log_18, shift_val, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
@@ -369,9 +376,13 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 
     double power_double_num = (double)num_power;
     double power_double_den = (double)den_power;
-
+#if VIF_STABILITY
+	*score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num);
+    *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den);
+#else
     *score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num) + add_exp;
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
+#endif
     *score = *score_num / *score_den;
 
 #if VIF_REFLECT_PAD

@@ -75,8 +75,8 @@ typedef struct ModuleFunqueState
     int (*integer_compute_vif_funque)(const dwt2_dtype* x_t, const dwt2_dtype* y_t, 
                                            size_t width, size_t height, 
                                            double* score, double* score_num, double* score_den, 
-                                           int k, int stride, double sigma_nsq, 
-                                           int64_t shift_val, uint32_t* log_18);
+                                           int k, int stride, double sigma_nsq_arg, 
+                                           int64_t shift_val, uint32_t* log_18, int vif_level);
     // void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 }ModuleFunqueState;
 
