@@ -118,7 +118,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 	}
 	if (var_x < sigma_nsq)
 	{
-		double sigma_max_inv = 0.0000615; // 4.0/(255*255)
+		double sigma_max_inv = 4.0;
 		temp_numerator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT) - ((int32_t)((var_y * sigma_max_inv)));
 		temp_power_num = 0;
 	}

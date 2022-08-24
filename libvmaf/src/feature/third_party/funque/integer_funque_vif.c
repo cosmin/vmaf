@@ -246,11 +246,12 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
 #if VIF_STABILITY
 	*score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num);
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den);
+	*score += ((*score_den) == 0.0) ? 1.0 : ((*score_num) / (*score_den));
 #else
     *score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num) + add_exp;
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
-#endif
     *score = *score_num / *score_den;
+#endif
 
 #if VIF_REFLECT_PAD
     free(x_pad_t);

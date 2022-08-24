@@ -254,7 +254,11 @@ int compute_vif_funque(const float* x, const float* y, size_t width, size_t heig
         }
     }
 
+#if VIF_STABILITY
+	*score += ((*score_den) == 0.0) ? 1.0 : ((*score_num) / (*score_den));
+#else
     *score += ((*score_num) / (*score_den));
+#endif
 
     free(x_pad);
     free(y_pad);
