@@ -27,14 +27,34 @@ void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int
 
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq_arg, int64_t shift_val, uint32_t* log_18, int vif_level);
 
-static inline uint32_t get_best_u18_from_u64(uint64_t temp, int *power)
+FORCE_INLINE inline uint32_t get_best_u18_from_u64(uint64_t temp, int *x)
 {
-    assert(temp >= 0x40000);
     int k = __builtin_clzll(temp);
-    k = 46 - k;
-    temp = temp >> k;
-    *power = k;
-    return (uint32_t) temp;
+
+    if (k > 46) 
+    {
+        k -= 46;
+        temp = temp << k;
+        *x = -k;
+
+    }
+    else if (k < 45) 
+    {
+        k = 46 - k;
+        temp = temp >> k;
+        *x = k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 18)
+        {
+            temp = temp >> 1;
+            *x = 1;
+        }
+    }
+
+    return (uint32_t)temp;
 }
 
 /**
@@ -118,6 +138,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 	if (var_x < sigma_nsq)
 	{
 		temp_denominator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT);
+		temp_power_den = 0;
 	}
 #endif
     *score_den += temp_denominator;

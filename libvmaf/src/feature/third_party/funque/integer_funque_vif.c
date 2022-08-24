@@ -111,7 +111,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
 #if USE_DYNAMIC_SIGMA_NSQ
 	sigma_nsq_base = sigma_nsq_base * (2 << (vif_level + 1));
 #endif
-	sigma_nsq_t = (int64_t)((int64_t)sigma_nsq_base*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;
+	sigma_nsq_t = (int64_t)((int64_t)(sigma_nsq_base*shift_val*shift_val*k_norm)) >> VIF_COMPUTE_METRIC_R_SHIFT ;
 #endif
     int64_t score_num_t = 0;
     int64_t num_power = 0;
