@@ -19,7 +19,7 @@
 #ifndef FUNQUE_SSIM_OPTIONS_H_
 #define FUNQUE_SSIM_OPTIONS_H_
 
-#define ENABLE_MINK3POOL 1
+#define ENABLE_MINK3POOL 0
 
 static inline double ssim_clip(double value, double low, double high)
 {
