@@ -402,9 +402,14 @@ static int extract(VmafFeatureExtractor *fex,
                                 ssim_score, index);
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
-    
+
+#if USE_DYNAMIC_SIGMA_NSQ    
     err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,
                                 &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, 0);
+#else
+    err = compute_vif_funque(s->ref_dwt2out.bands[0], s->dist_dwt2out.bands[0], s->ref_dwt2out.width, s->ref_dwt2out.height,
+                                &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0);
+#endif
     if (err) return err;
 
     int vifdwt_stride = (s->float_stride+3)/4;
@@ -421,8 +426,14 @@ static int extract(VmafFeatureExtractor *fex,
         vifdwt_stride = (vifdwt_stride + 1)/2;
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
+#if USE_DYNAMIC_SIGMA_NSQ
         err = compute_vif_funque(s->ref_dwt2out.bands[vif_level], s->dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
                                     &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, vif_level);
+#else
+        err = compute_vif_funque(s->ref_dwt2out.bands[vif_level], s->dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0);
+
+#endif
         if (err) return err;
     }
 

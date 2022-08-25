@@ -132,7 +132,15 @@ void compute_metrics(const double* int_1_x, const double* int_1_y, const double*
     }
 }
 
-int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq_arg, int vif_level)
+#if USE_DYNAMIC_SIGMA_NSQ
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, 
+                        double* score, double* score_num, double* score_den, int k, 
+                        int stride, double sigma_nsq_arg, int vif_level)
+#else
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, 
+                        double* score, double* score_num, double* score_den, int k, 
+                        int stride, double sigma_nsq_arg)
+#endif
 {
     int ret = 1;
 

@@ -16,4 +16,14 @@
  *
  */
 
-int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, double *score, double *score_num, double *score_den, int k, int stride, double sigma_nsq_arg, int vif_level);
+#include "funque_vif_options.h"
+
+#if USE_DYNAMIC_SIGMA_NSQ
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, 
+                        double* score, double* score_num, double* score_den, int k, 
+                        int stride, double sigma_nsq_arg, int vif_level);
+#else
+int compute_vif_funque(const float* x, const float* y, size_t width, size_t height, 
+                        double* score, double* score_num, double* score_den, int k, 
+                        int stride, double sigma_nsq_arg);
+#endif

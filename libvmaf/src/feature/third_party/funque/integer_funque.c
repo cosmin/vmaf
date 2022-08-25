@@ -28,10 +28,10 @@
 #include "feature_name.h"
 #include "mem.h"
 
+#include "funque_vif_options.h"
 #include "integer_funque_filters.h"
 #include "common/macros.h"
 #include "integer_funque_vif.h"
-#include "funque_vif_options.h"
 #include "integer_funque_adm.h"
 #include "funque_adm_options.h"
 #include "integer_funque_motion.h"
@@ -453,8 +453,13 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
 
+#if USE_DYNAMIC_SIGMA_NSQ
     err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18, 0);
+#else
+    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+                    &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
+#endif
     if (err) return err;
 
     int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
@@ -473,8 +478,13 @@ static int extract(VmafFeatureExtractor *fex,
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
 
+#if USE_DYNAMIC_SIGMA_NSQ
         err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
-                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, vif_level);        
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, vif_level); 
+#else
+        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18); 
+#endif       
         if (err) return err;
     }
 

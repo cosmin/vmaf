@@ -22,10 +22,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "funque_vif_options.h"
 #include "integer_funque_filters.h"
 #include "common/macros.h"
 #include "integer_funque_vif.h"
-#include "funque_vif_options.h"
 
 
 // just change the store offset to reduce multiple calculation when getting log value
@@ -64,7 +64,17 @@ void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int
     }
 }
 
-int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, double* score, double* score_num, double* score_den, int k, int stride, double sigma_nsq_arg, int64_t shift_val, uint32_t* log_18, int vif_level)
+#if USE_DYNAMIC_SIGMA_NSQ
+int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
+                                 double* score, double* score_num, double* score_den, 
+                                 int k, int stride, double sigma_nsq_arg, 
+                                 int64_t shift_val, uint32_t* log_18, int vif_level)
+#else
+int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
+                                 double* score, double* score_num, double* score_den, 
+                                 int k, int stride, double sigma_nsq_arg, 
+                                 int64_t shift_val, uint32_t* log_18)
+#endif
 {
     int ret = 1;
 
