@@ -219,6 +219,23 @@ if is_asm_enabled
         platform_specific_cpu_objects += arm64_static_lib.extract_all_objects()
     endif
 
+    if host_machine.cpu_family().startswith('arm') or (host_machine.cpu() != 'arm64')
+        arm32_sources = [
+            funque_feature_dir + 'arm32/integer_funque_ssim_armv7.c',
+            funque_feature_dir + 'arm32/integer_funque_filters_armv7.c',
+            funque_feature_dir + 'arm32/integer_funque_adm_armv7.c',
+        ]
+
+          arm32_static_lib = static_library(
+          'arm_v7',
+          arm32_sources,
+          include_directories : vmaf_base_include,
+          c_args : vmaf_cflags_common + ['-DARCH_ARM']
+        )
+
+        platform_specific_cpu_objects += arm32_static_lib.extract_all_objects()
+    endif
+
     if host_machine.cpu_family().startswith('x86')
       x86_avx2_sources = [
           feature_src_dir + 'common/convolution_avx.c',

@@ -45,6 +45,10 @@
 #include "arm64/integer_funque_adm_neon.h"
 #include "arm64/resizer_neon.h"
 #include "arm64/integer_funque_vif_neon.h"
+#elif ARCH_ARM
+#include "arm32/integer_funque_filters_armv7.h"
+#include "arm32/integer_funque_ssim_armv7.h"
+#include "arm32/integer_funque_adm_armv7.h"
 #endif
 typedef struct IntFunqueState
 {
@@ -314,6 +318,14 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     // commenting this out temporarily
     // s->modules.resizer_step = step_neon; 
     // s->resize_module.resizer_step = step_neon;
+#elif ARCH_ARM
+    if (bpc == 8)
+    {
+        s->modules.integer_spatial_filter = integer_spatial_filter_armv7;
+    }
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_armv7;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_armv7;
+    s->modules.integer_funque_adm_decouple = integer_dlm_decouple_armv7;
 #endif   
 
     funque_log_generate(s->log_18);
