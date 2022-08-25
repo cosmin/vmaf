@@ -76,6 +76,7 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
 #else
     extra_sample_w = 1;
     extra_sample_h = 1;
+#endif
 
 	border_h -= extra_sample_h;
 	border_w -= extra_sample_w;
