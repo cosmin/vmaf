@@ -38,9 +38,15 @@ static void interpolateCubic(float x, float *coeffs)
 }
 #endif
 
+#if OPTIMISED_COEFF
+void hresize(const unsigned char **src, int **dst, int count,
+             const short *alpha,
+             int swidth, int dwidth, int cn, int xmin, int xmax)
+#else
 void hresize(const unsigned char **src, int **dst, int count,
              const int *xofs, const short *alpha,
              int swidth, int dwidth, int cn, int xmin, int xmax)
+#endif
 {
     for (int k = 0; k < count; k++)
     {
@@ -118,7 +124,11 @@ static int clip(int x, int a, int b)
     return x >= a ? (x < b ? x : b - 1) : a;
 }
 
+#if OPTIMISED_COEFF
+void step(const unsigned char *_src, unsigned char *_dst, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int channels, int ksize, int start, int end, int xmin, int xmax)
+#else
 void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax)
+#endif
 {
     int dy, cn = channels;
 
@@ -172,16 +182,22 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
             prev_sy[k] = sy;
         }
 
+        
+
+        // regular c
+#if OPTIMISED_COEFF
+        if (k0 < ksize)
+        {
+            hresize((srows + k0), (rows + k0), ksize - k0, _alpha,
+                    iwidth, dwidth, cn, xmin, xmax);
+        }
+        vresize((const int **)rows, (_dst + dwidth * dy), _beta, dwidth);
+#else
         if (k0 < ksize)
         {
             hresize((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
                     iwidth, dwidth, cn, xmin, xmax);
         }
-
-        // regular c
-#if OPTIMISED_COEFF
-        vresize((const int **)rows, (_dst + dwidth * dy), _beta, dwidth);
-#else
         vresize((const int **)rows, (_dst + dwidth * dy), beta, dwidth);
 #endif
     }
@@ -202,7 +218,6 @@ void resize(ResizerState m, const unsigned char *_src, unsigned char *_dst, int 
     const short ibeta[] = {-192, 1216, 1216, -192};
     const short ialpha[] = {-192, 1216, 1216, -192};
     double scale_x = 1. / inv_scale_x;
-    int *xofs, *yofs;
     float fx;
     int sx;
 
@@ -222,6 +237,7 @@ void resize(ResizerState m, const unsigned char *_src, unsigned char *_dst, int 
             xmax = MIN(xmax, dx);
         }
     }
+    m.resizer_step(_src, _dst, ialpha, ibeta, iwidth, iheight, dwidth, cn, ksize, 0, dheight, xmin, xmax);
 #else
     double inv_scale_y = (double)dheight / iheight;
     double scale_x = 1. / inv_scale_x, scale_y = 1. / inv_scale_y;
@@ -285,7 +301,8 @@ void resize(ResizerState m, const unsigned char *_src, unsigned char *_dst, int 
         for (k = 0; k < ksize; k++)
             ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
     }
+    m.resizer_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
 #endif
     
-    m.resizer_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax);
+    
 }

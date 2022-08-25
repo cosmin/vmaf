@@ -46,9 +46,15 @@ static void interpolateCubic(float x, float *coeffs)
 }
 #endif
 
+#if OPTIMISED_COEFF
+void hbd_hresize(const unsigned short **src, int **dst, int count,
+                 const short *alpha,
+                 int swidth, int dwidth, int cn, int xmin, int xmax)
+#else
 void hbd_hresize(const unsigned short **src, int **dst, int count,
                  const int *xofs, const short *alpha,
                  int swidth, int dwidth, int cn, int xmin, int xmax)
+#endif
 {
     for (int k = 0; k < count; k++)
     {
@@ -126,7 +132,11 @@ void hbd_vresize(const int **src, unsigned short *dst, const short *beta, int wi
         dst[x] = hbd_castOp((int64_t)S0[x] * b0 + (int64_t)S1[x] * b1 + (int64_t)S2[x] * b2 + (int64_t)S3[x] * b3, bitdepth);
 }
 
+#if OPTIMISED_COEFF
+void hbd_step(const unsigned short *_src, unsigned short *_dst, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int channels, int ksize, int start, int end, int xmin, int xmax, int bitdepth)
+#else
 void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax, int bitdepth)
+#endif
 {
     int dy, cn = channels;
 
@@ -180,15 +190,21 @@ void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs,
             prev_sy[k] = sy;
         }
 
+        
+
+#if OPTIMISED_COEFF
+        if (k0 < ksize)
+        {
+            hbd_hresize((srows + k0), (rows + k0), ksize - k0, _alpha,
+                        iwidth, dwidth, cn, xmin, xmax);
+        }
+        hbd_vresize((const int **)rows, (_dst + dwidth * dy), _beta, dwidth, bitdepth);
+#else
         if (k0 < ksize)
         {
             hbd_hresize((srows + k0), (rows + k0), ksize - k0, xofs, _alpha,
                         iwidth, dwidth, cn, xmin, xmax);
         }
-
-#if OPTIMISED_COEFF
-        hbd_vresize((const int **)rows, (_dst + dwidth * dy), _beta, dwidth, bitdepth);
-#else
         hbd_vresize((const int **)rows, (_dst + dwidth * dy), beta, dwidth, bitdepth);
 #endif
     }
@@ -210,7 +226,6 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
     const short ibeta[] = {-192, 1216, 1216, -192};
     const short ialpha[] = {-192, 1216, 1216, -192};
     double scale_x = 1. / inv_scale_x;
-    int *xofs, *yofs;
     float fx;
     int sx;
 
@@ -230,6 +245,8 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
             xmax = MIN(xmax, dx);
         }
     }
+    hbd_step(_src, _dst, ialpha, ibeta, iwidth, iheight, dwidth, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
+
 #else
     double inv_scale_y = (double)dheight / iheight;
     double scale_x = 1. / inv_scale_x, scale_y = 1. / inv_scale_y;
@@ -290,7 +307,7 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
         for (k = 0; k < ksize; k++)
             ibeta[dy * ksize + k] = (short)(cbuf[k] * HBD_INTER_RESIZE_COEF_SCALE);
     }
+    hbd_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
 #endif
 
-    hbd_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
 }
