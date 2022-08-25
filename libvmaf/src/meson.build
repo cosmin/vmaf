@@ -204,6 +204,12 @@ if is_asm_enabled
         arm64_sources = [
           feature_src_dir + 'arm64/vif_neon.c',
           feature_src_dir + 'arm64/adm_neon.c',
+          funque_feature_dir + 'arm64/integer_funque_motion_neon.c',
+          funque_feature_dir + 'arm64/integer_funque_ssim_neon.c',
+          funque_feature_dir + 'arm64/integer_funque_filters_neon.c',
+          funque_feature_dir + 'arm64/integer_funque_adm_neon.c',
+          funque_feature_dir + 'arm64/integer_funque_vif_neon.c',
+          funque_feature_dir + 'arm64/resizer_neon.c',
         ]
 
           arm64_static_lib = static_library(
@@ -214,6 +220,23 @@ if is_asm_enabled
         )
 
         platform_specific_cpu_objects += arm64_static_lib.extract_all_objects()
+    endif
+
+    if host_machine.cpu_family().startswith('arm') and (host_machine.cpu() != 'arm64')
+        arm32_sources = [
+            funque_feature_dir + 'arm32/integer_funque_ssim_armv7.c',
+            funque_feature_dir + 'arm32/integer_funque_filters_armv7.c',
+            funque_feature_dir + 'arm32/integer_funque_adm_armv7.c',
+        ]
+
+          arm32_static_lib = static_library(
+          'arm_v7',
+          arm32_sources,
+          include_directories : vmaf_base_include,
+          c_args : vmaf_cflags_common + ['-DARCH_ARM']
+        )
+
+        platform_specific_cpu_objects += arm32_static_lib.extract_all_objects()
     endif
 
     if host_machine.cpu_family().startswith('x86')
@@ -339,7 +362,8 @@ if funque_fixed_enabled
         funque_feature_dir + 'integer_funque_vif.c',
         funque_feature_dir + 'integer_funque_adm.c',
         funque_feature_dir + 'integer_funque_ssim.c',
-        funque_feature_dir + 'resizer.c'
+        funque_feature_dir + 'resizer.c',
+        funque_feature_dir + 'hbd_resizer.c'
     ]
 endif
 
