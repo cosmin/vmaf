@@ -1,4 +1,3 @@
-#include "../resizer.h"
 
 #if OPTIMISED_COEFF
 void step_neon(const unsigned char *_src, unsigned char *_dst,

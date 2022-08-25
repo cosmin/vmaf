@@ -23,7 +23,7 @@
 #include <string.h>
 #include <arm_neon.h>
 
-#include "funque_vif_options.h"
+#include "../funque_vif_options.h"
 #include "../integer_funque_filters.h"
 #include "../common/macros.h"
 #include "../integer_funque_vif.h"

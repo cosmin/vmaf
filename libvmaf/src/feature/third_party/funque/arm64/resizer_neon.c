@@ -22,6 +22,7 @@
 #include <string.h>
 #include <arm_neon.h>
 #include <time.h>
+#include "../resizer.h"
 #include "resizer_neon.h"
 
 #if OPTIMISED_COEFF
