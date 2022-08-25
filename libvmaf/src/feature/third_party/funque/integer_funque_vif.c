@@ -101,6 +101,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     size_t s_height = (r_height + 1) - kh;
 
     dwt2_dtype* x_pad_t, *y_pad_t;
+
 #if VIF_REFLECT_PAD
     x_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * x_reflect)) * (vif_height + (2 * x_reflect)));
     y_pad_t = (dwt2_dtype*)malloc(sizeof(dwt2_dtype*) * (vif_width + (2 * y_reflect)) * (vif_height + (2 * y_reflect)));
@@ -155,7 +156,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         //1st loop, prev kh row is not available to subtract during vertical summation
         for (i=1; i<kh+1; i++)
         {
-            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
 
             /**
@@ -200,7 +200,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         //2nd loop, core loop 
         for(; i<height_p1; i++)
         {
-            // int row_offset = i * width_p1;
             int src_offset = (i-1) * r_width;
             int pre_kh_src_offset = (i-1-kh) * r_width;
             /**
@@ -253,6 +252,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
 
     double power_double_num = (double)num_power;
     double power_double_den = (double)den_power;
+
 #if VIF_STABILITY
 	*score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num);
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den);
