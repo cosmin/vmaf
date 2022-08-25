@@ -219,7 +219,7 @@ if is_asm_enabled
         platform_specific_cpu_objects += arm64_static_lib.extract_all_objects()
     endif
 
-    if host_machine.cpu_family().startswith('arm') or (host_machine.cpu() != 'arm64')
+    if host_machine.cpu_family().startswith('arm') and (host_machine.cpu() != 'arm64')
         arm32_sources = [
             funque_feature_dir + 'arm32/integer_funque_ssim_armv7.c',
             funque_feature_dir + 'arm32/integer_funque_filters_armv7.c',
