@@ -28,14 +28,28 @@
 #include "feature_name.h"
 #include "mem.h"
 
-#include "integer_funque_filters.h"
-#include "integer_funque_vif.h"
 #include "funque_vif_options.h"
+#include "integer_funque_filters.h"
+#include "common/macros.h"
+#include "integer_funque_vif.h"
 #include "integer_funque_adm.h"
 #include "funque_adm_options.h"
 #include "integer_funque_motion.h"
 #include "integer_funque_ssim.h"
 #include "resizer.h"
+
+#if ARCH_AARCH64
+#include "arm64/integer_funque_filters_neon.h"
+#include "arm64/integer_funque_ssim_neon.h"
+#include "arm64/integer_funque_motion_neon.h"
+#include "arm64/integer_funque_adm_neon.h"
+#include "arm64/resizer_neon.h"
+#include "arm64/integer_funque_vif_neon.h"
+#elif ARCH_ARM
+#include "arm32/integer_funque_filters_armv7.h"
+#include "arm32/integer_funque_ssim_armv7.h"
+#include "arm32/integer_funque_adm_armv7.h"
+#endif
 
 typedef struct IntFunqueState
 {
@@ -79,6 +93,10 @@ typedef struct IntFunqueState
     double max_db;
 
     VmafDictionary *feature_name_dict;
+
+    ModuleFunqueState modules;
+    ResizerState resize_module;
+
 } IntFunqueState;
 
 static const VmafOption options[] = {
@@ -235,10 +253,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     if (s->enable_resize)
     {
-        s->res_ref_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h, 32);
+        int bitdepth_factor = (bpc == 8 ? 1 : 2);
+        s->res_ref_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h * bitdepth_factor, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        s->res_dist_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h, 32);
+        s->res_dist_pic.data[0] = aligned_malloc(s->i_dwt2_stride * h * bitdepth_factor, 32);
+
         if (!s->res_dist_pic.data[0])
             goto fail;
     }
@@ -278,6 +298,40 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     {
         s->max_db = INFINITY;
     }
+
+    s->modules.integer_spatial_filter = integer_spatial_filter;
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
+    s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+    s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+    s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
+    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+    // s->modules.resizer_step = step;
+    s->resize_module.resizer_step = step;
+#if ARCH_AARCH64
+    if (bpc == 8)
+    {
+        s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+    }
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
+    s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
+    s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
+    s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
+    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
+    // commenting this out temporarily
+    // s->modules.resizer_step = step_neon; 
+    // s->resize_module.resizer_step = step_neon;
+#elif ARCH_ARM
+    if (bpc == 8)
+    {
+        s->modules.integer_spatial_filter = integer_spatial_filter_armv7;
+    }
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_armv7;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_armv7;
+    s->modules.integer_funque_adm_decouple = integer_dlm_decouple_armv7;
+#endif   
+
     funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
 
@@ -304,12 +358,6 @@ fail:
     return -ENOMEM;
 }
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
-static double convert_to_db(double score, double max_db)
-{
-    return MIN(-10. * log10(1 - score), max_db);
-}
 
 static int extract(VmafFeatureExtractor *fex,
                    VmafPicture *ref_pic, VmafPicture *ref_pic_90,
@@ -341,8 +389,15 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic->pix_fmt = dist_pic->pix_fmt;
         res_dist_pic->ref = dist_pic->ref;
 
-        resize(ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        resize(dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        if (ref_pic->bpc == 8)
+            resize(s->resize_module ,ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        else
+            hbd_resize((unsigned short *)ref_pic->data[0], (unsigned short *)res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0], ref_pic->bpc);
+        
+        if (dist_pic->bpc == 8)
+            resize(s->resize_module ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        else
+            hbd_resize((unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], ref_pic->bpc);
     }
     else
     {
@@ -350,15 +405,16 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    // TODO: Move to lookup table for optimization
-    int bitdepth_pow2 = (int)pow(2, res_ref_pic->bpc) - 1;
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
-    integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
-    integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
-    integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
 
-    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT;
+    s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
+    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+
+    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
+
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
@@ -376,7 +432,8 @@ static int extract(VmafFeatureExtractor *fex,
     {
         double motion_score;
 
-        err |= integer_compute_motion_funque(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
+        err |= integer_compute_motion_funque(s->modules, s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
+
                                              s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
                                              s->i_dwt2_stride, s->i_dwt2_stride,
                                              pending_div_factor,
@@ -394,22 +451,30 @@ static int extract(VmafFeatureExtractor *fex,
     double adm_score, adm_score_num, adm_score_den;
     double ssim_score;
 
-    err = integer_compute_adm_funque(s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, (int16_t) pending_div_factor, s->adm_div_lookup);
+    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
+
     if (err)
         return err;
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
 
-    err = integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
-                                      pow(2, 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT + 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT) * bitdepth_pow2, s->adm_div_lookup);
+    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
+                                                    pending_div_factor, s->adm_div_lookup);
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
 
-    err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+
+#if USE_DYNAMIC_SIGMA_NSQ
+    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+                    &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18, 0);
+#else
+    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
+#endif
+
     if (err) return err;
 
     int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
@@ -428,8 +493,14 @@ static int extract(VmafFeatureExtractor *fex,
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
 
-        err = integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
-                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18);        
+#if USE_DYNAMIC_SIGMA_NSQ
+        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, vif_level); 
+#else
+        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
+                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18); 
+#endif       
+
         if (err) return err;
     }
 
