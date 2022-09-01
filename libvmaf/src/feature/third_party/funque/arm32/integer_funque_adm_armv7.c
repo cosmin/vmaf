@@ -16,7 +16,7 @@ void integer_dlm_decouple_armv7(i_dwt2buffers ref, i_dwt2buffers dist,
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int border_h = (border_size * height);
     int border_w = (border_size * width);
-    int64_t den_sum[3] = {0};
+    double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};
     int loop_h, loop_w, dlm_width, dlm_height;
