@@ -200,14 +200,18 @@ platform_specific_cpu_objects = []
 
 if is_asm_enabled
     if host_machine.cpu_family().startswith('arm64') or host_machine.cpu_family().startswith('aarch64')
-        arm64_sources = [
-            funque_feature_dir + 'arm64/integer_funque_motion_neon.c',
-            funque_feature_dir + 'arm64/integer_funque_ssim_neon.c',
-            funque_feature_dir + 'arm64/integer_funque_filters_neon.c',
-            funque_feature_dir + 'arm64/integer_funque_adm_neon.c',
-            funque_feature_dir + 'arm64/integer_funque_vif_neon.c',
-			funque_feature_dir + 'arm64/resizer_neon.c',
-        ]
+        arm64_sources = []
+
+        if funque_fixed_enabled
+            arm64_sources += [
+                funque_feature_dir + 'arm64/integer_funque_motion_neon.c',
+                funque_feature_dir + 'arm64/integer_funque_ssim_neon.c',
+                funque_feature_dir + 'arm64/integer_funque_filters_neon.c',
+                funque_feature_dir + 'arm64/integer_funque_adm_neon.c',
+                funque_feature_dir + 'arm64/integer_funque_vif_neon.c',
+                funque_feature_dir + 'arm64/resizer_neon.c',
+            ]
+        endif
 
           arm64_static_lib = static_library(
           'arm64_v8',
@@ -220,11 +224,15 @@ if is_asm_enabled
     endif
 
     if host_machine.cpu_family().startswith('arm') and (host_machine.cpu() != 'arm64')
-        arm32_sources = [
-            funque_feature_dir + 'arm32/integer_funque_ssim_armv7.c',
-            funque_feature_dir + 'arm32/integer_funque_filters_armv7.c',
-            funque_feature_dir + 'arm32/integer_funque_adm_armv7.c',
-        ]
+        arm32_sources = []
+
+        if funque_fixed_enabled
+            arm32_sources += [
+                funque_feature_dir + 'arm32/integer_funque_ssim_armv7.c',
+                funque_feature_dir + 'arm32/integer_funque_filters_armv7.c',
+                funque_feature_dir + 'arm32/integer_funque_adm_armv7.c',
+            ]
+        endif
 
           arm32_static_lib = static_library(
           'arm_v7',
