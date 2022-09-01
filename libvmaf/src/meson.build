@@ -200,7 +200,10 @@ platform_specific_cpu_objects = []
 
 if is_asm_enabled
     if host_machine.cpu_family().startswith('arm64') or host_machine.cpu_family().startswith('aarch64')
-        arm64_sources = []
+        arm64_sources = [
+            feature_src_dir + 'arm64/vif_neon.c',
+          	feature_src_dir + 'arm64/adm_neon.c',
+        ]
 
         if funque_fixed_enabled
             arm64_sources += [
