@@ -237,7 +237,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
                              exp_t, sigma_nsq_t, log_18,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
-                             &score_num_t, &num_power, &score_den_t, &den_power);
+                             &score_num_t, &num_power, &score_den_t, &den_power, shift_val, k_norm);
 
         //2nd loop, core loop 
         for(; i<height_p1; i++)
@@ -370,7 +370,7 @@ int integer_compute_vif_funque_neon(const dwt2_dtype* x_t, const dwt2_dtype* y_t
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
-                                 &score_den_t, &den_power);
+                                 &score_den_t, &den_power, shift_val, k_norm);
         }
 
         free(interim_2_x);
