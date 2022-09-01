@@ -33,7 +33,7 @@ is_asm_enabled = get_option('enable_asm') == true
 is_avx512_enabled = get_option('enable_avx512') == true
 
 if is_asm_enabled
-    if host_machine.cpu_family().startswith('arm64') or host_machine.cpu_family().startswith('aarch64')
+    if host_machine.cpu_family().startswith('arm') or host_machine.cpu_family().startswith('aarch')
         cdata.set10('HAVE_ASM', is_asm_enabled)
         cdata.set10('ARCH_AARCH64', host_machine.cpu_family() == 'aarch64' or host_machine.cpu() == 'arm64')
         cdata.set10('ARCH_ARM',     host_machine.cpu_family().startswith('arm') and host_machine.cpu() != 'arm64')
@@ -230,7 +230,7 @@ if is_asm_enabled
           'arm_v7',
           arm32_sources,
           include_directories : vmaf_base_include,
-          c_args : vmaf_cflags_common + ['-DARCH_ARM']
+          c_args : vmaf_cflags_common + ['-DARCH_ARM', '-mfpu=neon']
         )
 
         platform_specific_cpu_objects += arm32_static_lib.extract_all_objects()
