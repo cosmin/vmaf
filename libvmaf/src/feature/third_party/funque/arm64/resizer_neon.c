@@ -153,8 +153,10 @@ void vresize_neon(const int **src, unsigned char *dst, const short *beta, int wi
     int32x4_t dt;
     uint8x8_t dt2;
 
+
 #define BITS 22
     int bits = BITS;
+
     // int32x4_t SHIFT = vdupq_n_s32(bits);
     int DELTA = (1 << (bits - 1));
     // b1_vq = vdupq_n_s32(beta[0]);
@@ -187,12 +189,14 @@ void vresize_neon(const int **src, unsigned char *dst, const short *beta, int wi
         dt = vmaxq_s32(dt, lower);
 
         // shift_right_32x4 = vshrq_n_s32(add_delta, BITS); // 32x4
+
         shift_right_16x4 = vqmovun_s32(dt);                                  // 16x4
         shift_right_16x8 = vcombine_u16(shift_right_16x4, shift_right_16x4); // 16x8
         dt2 = vqmovn_u16(shift_right_16x8);                                  // 8x8
 
         vst1_lane_u32((unsigned int *)(dst + x), vreinterpret_u32_u8(dt2), 0);
     }
+
 #undef BITS
 }
 

@@ -1,5 +1,6 @@
 
 #include <arm_neon.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -432,6 +433,7 @@ void integer_spatial_filter_armv7(void *void_src, spat_fil_output_dtype *dst, in
         }
         /* Horizontal pass. */
         integer_horizontal_filter_armv7(tmp, dst, i_filter_coeffs, width, fwidth, i * dst_px_stride, half_fw);
+
     }
 
     // This is the core loop

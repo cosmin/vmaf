@@ -238,6 +238,7 @@ if is_asm_enabled
           'arm_v7',
           arm32_sources,
           include_directories : vmaf_base_include,
+
           c_args : vmaf_cflags_common + ['-DARCH_ARM', '-mfpu=neon']
         )
 

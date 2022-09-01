@@ -1,5 +1,6 @@
 
 #include "../funque_ssim_options.h"
+
 #include "../integer_funque_filters.h"
 #include <arm_neon.h>
 #include <math.h>
@@ -27,6 +28,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     ssim_inter_dtype map, l_num, l_den, cs_num, cs_den;
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * ((pending_div * pending_div) << (2 - SSIM_INTER_L_SHIFT)));
     ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * ((pending_div * pending_div) >> (SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT - 2)));
+
 #if ENABLE_MINK3POOL
     ssim_accum_dtype rowcube_1minus_map = 0;
     double accumcube_1minus_map = 0;
@@ -36,6 +38,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     ssim_accum_dtype accum_map_sq = 0;
     ssim_accum_dtype map_sq_insum = 0;
 #endif
+
     int index = 0, i, j, k;
     int16_t i16_map_den;
 
@@ -190,6 +193,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             int power_val;
             i16_map_den = ssim_get_best_i16_from_u64((uint64_t)denVal[k], &power_val);
             map = ((numVal[k] >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
+
 #if ENABLE_MINK3POOL
             ssim_accum_dtype const1_minus_map = const_1 - map;
             rowcube_1minus_map += const1_minus_map * const1_minus_map * const1_minus_map;
@@ -207,12 +211,15 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     double ssim_val = 1 - cbrt(accumcube_1minus_map/(width*height))/const_1;
     *score = ssim_clip(ssim_val, 0, 1);
 #else
+
     accum_map_sq = map_sq_insum / (height * width);
     double ssim_mean = (double)accum_map / (height * width);
     double ssim_std;
     ssim_std = sqrt(MAX(0, ((double)accum_map_sq - ssim_mean * ssim_mean)));
     *score = (ssim_std / ssim_mean);
+
 #endif
+
     free(numVal);
     free(denVal);
     ret = 0;

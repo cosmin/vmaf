@@ -95,9 +95,8 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
 #endif
 
     size_t r_width = vif_width + (2 * x_reflect); // after reflect pad
-    size_t r_height = vif_height + (2 * x_reflect);
+    size_t r_height = vif_height + (2 * x_reflect);    
 
-    
 
     dwt2_dtype* x_pad_t, *y_pad_t;
 
@@ -190,6 +189,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
+
 #if VIF_STABILITY
         vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                              exp_t, sigma_nsq_t, log_18,
@@ -202,7 +202,9 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
+
 #endif
+
 
         //2nd loop, core loop 
         for(; i<height_p1; i++)
@@ -275,6 +277,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     size_t s_width = (r_width + 1) - kw;
     size_t s_height = (r_height + 1) - kh;
     double add_exp = 1e-4*s_height*s_width;
+
     *score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num) + add_exp;
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
     *score = *score_num / *score_den;

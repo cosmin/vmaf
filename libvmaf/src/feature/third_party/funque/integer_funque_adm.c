@@ -188,6 +188,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int border_h = (border_size * height);
     int border_w = (border_size * width);
+
 	double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};

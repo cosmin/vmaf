@@ -267,6 +267,8 @@ class VmafFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
             for opt in self.optional_dict2:
                 if opt == 'disable_avx':
                     options['disable_avx'] = self.optional_dict2['disable_avx']
+                elif opt == 'n_threads':
+                    options['n_threads'] = self.optional_dict2['n_threads']
 
         ExternalProgramCaller.call_vmafexec_multi_features(
             features, yuv_type, ref_path, dis_path, w, h, log_file_path,
@@ -440,6 +442,8 @@ class VmafIntegerFeatureExtractor(VmafFeatureExtractor):
             for opt in self.optional_dict2:
                 if opt == 'disable_avx':
                     options['disable_avx'] = self.optional_dict2['disable_avx']
+                elif opt == 'n_threads':
+                    options['n_threads'] = self.optional_dict2['n_threads']
 
         ExternalProgramCaller.call_vmafexec_multi_features(
             features, yuv_type, ref_path, dis_path, w, h, log_file_path,
@@ -526,7 +530,36 @@ class VifFrameDifferenceFeatureExtractor(FeatureExtractor):
         return result
 
 
-class PypsnrFeatureExtractor(FeatureExtractor):
+class PyFeatureExtractorMixin(object):
+
+    @override(FeatureExtractor)
+    def _get_feature_scores(self, asset):
+        """
+        Reads the feature scores from a generated log. Assumes that the log contains the per-frame features, e.g.,
+        {
+            'frame': frm,
+            'feature_1': feature_1,
+            'feature_2': feature_2,
+        }
+        """
+        log_file_path = self._get_log_file_path(asset)
+
+        with open(log_file_path, 'rt') as log_file:
+            log_str = log_file.read()
+            log_dicts = ast.literal_eval(log_str)
+
+        feature_result = dict()
+        frm = 0
+        for log_dict in log_dicts:
+            assert frm == log_dict['frame']
+            for feature in self.ATOM_FEATURES:
+                feature_result.setdefault(self.get_scores_key(feature), []).append(log_dict[feature])
+            frm += 1
+
+        return feature_result
+
+
+class PypsnrFeatureExtractor(PyFeatureExtractorMixin, FeatureExtractor):
 
     TYPE = "Pypsnr_feature"
     VERSION = "1.0"
@@ -603,25 +636,6 @@ class PypsnrFeatureExtractor(FeatureExtractor):
         with open(log_file_path, 'wt') as log_file:
             log_file.write(str(log_dicts))
 
-    @override(FeatureExtractor)
-    def _get_feature_scores(self, asset):
-
-        log_file_path = self._get_log_file_path(asset)
-
-        with open(log_file_path, 'rt') as log_file:
-            log_str = log_file.read()
-            log_dicts = ast.literal_eval(log_str)
-
-        feature_result = dict()
-        frm = 0
-        for log_dict in log_dicts:
-            assert frm == log_dict['frame']
-            for ft in self.ATOM_FEATURES:
-                feature_result.setdefault(self.get_scores_key(ft), []).append(log_dict[ft])
-            frm += 1
-
-        return feature_result
-
 
 class PypsnrMaxdb100FeatureExtractor(PypsnrFeatureExtractor):
 
@@ -663,7 +677,11 @@ class PsnrFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
         h=quality_height
         logger = self.logger
 
-        ExternalProgramCaller.call_vmafexec_single_feature('float_psnr', yuv_type, ref_path, dis_path, w, h, log_file_path, logger)
+        optional_dict2 = self.optional_dict2 if self.optional_dict2 is not None else dict()
+
+        ExternalProgramCaller.call_vmafexec_single_feature(
+            'float_psnr', yuv_type, ref_path, dis_path, w, h,
+            log_file_path, logger, options={**optional_dict2})
 
 
 class MomentFeatureExtractor(FeatureExtractor):
@@ -806,8 +824,11 @@ class SsimFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
         h=quality_height
         logger = self.logger
 
-        ExternalProgramCaller.call_vmafexec_single_feature('float_ssim', yuv_type, ref_path, dis_path, w, h,
-                                                         log_file_path, logger, options={'enable_lcs': True})
+        optional_dict2 = self.optional_dict2 if self.optional_dict2 is not None else dict()
+
+        ExternalProgramCaller.call_vmafexec_single_feature(
+            'float_ssim', yuv_type, ref_path, dis_path, w, h,
+            log_file_path, logger, options={'enable_lcs': True, **optional_dict2})
 
 
 class MsSsimFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
@@ -862,8 +883,11 @@ class MsSsimFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
         h=quality_height
         logger = self.logger
 
-        ExternalProgramCaller.call_vmafexec_single_feature('float_ms_ssim', yuv_type, ref_path, dis_path, w, h,
-                                                         log_file_path, logger, options={'enable_lcs': True})
+        optional_dict2 = self.optional_dict2 if self.optional_dict2 is not None else dict()
+
+        ExternalProgramCaller.call_vmafexec_single_feature(
+            'float_ms_ssim', yuv_type, ref_path, dis_path, w, h,
+            log_file_path, logger, options={'enable_lcs': True, **optional_dict2})
 
 
 class AnsnrFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
@@ -892,4 +916,8 @@ class AnsnrFeatureExtractor(VmafexecFeatureExtractorMixin, FeatureExtractor):
         h=quality_height
         logger = self.logger
 
-        ExternalProgramCaller.call_vmafexec_single_feature('float_ansnr', yuv_type, ref_path, dis_path, w, h, log_file_path, logger)
+        optional_dict2 = self.optional_dict2 if self.optional_dict2 is not None else dict()
+
+        ExternalProgramCaller.call_vmafexec_single_feature(
+            'float_ansnr', yuv_type, ref_path, dis_path, w, h, log_file_path, logger,
+            options={**optional_dict2})

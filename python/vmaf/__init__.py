@@ -26,11 +26,11 @@ except BaseException:
 from . import config
 
 # Path to folder containing this file
-VMAF_LIB_FOLDER = os.path.dirname(os.path.abspath(__file__))
+VMAF_PYTHON_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 # Assuming vmaf source checkout, path to top checked out folder
-VMAF_PROJECT = os.path.abspath(os.path.join(VMAF_LIB_FOLDER, '../..',))
+VMAF_ROOT = os.path.abspath(os.path.join(VMAF_PYTHON_ROOT, '..', '..', ))
 
 
 def run_process(cmd, **kwargs):
@@ -43,7 +43,7 @@ def run_process(cmd, **kwargs):
 
 
 def project_path(relative_path):
-    path = os.path.join(VMAF_PROJECT, relative_path)
+    path = os.path.join(VMAF_ROOT, relative_path)
     return path
 
 
@@ -120,6 +120,9 @@ class ExternalProgramCaller(object):
         if options2[feature] is not None and 'disable_avx' in options2[feature]:
             options2['disable_avx'] = options2[feature]['disable_avx']
             del options2[feature]['disable_avx']
+        if options2[feature] is not None and 'n_threads' in options2[feature]:
+            options2['n_threads'] = options2[feature]['n_threads']
+            del options2[feature]['n_threads']
         return ExternalProgramCaller.call_vmafexec_multi_features(
             [feature], yuv_type, ref_path, dis_path, w, h, log_file_path, logger=logger, options=options2)
 
@@ -151,6 +154,10 @@ class ExternalProgramCaller(object):
             assert isinstance(options['disable_avx'], bool)
             if options['disable_avx'] is True:
                 cmd += ['--cpumask', '-1']
+
+        if options is not None and 'n_threads' in options:
+            assert isinstance(options['n_threads'], int) and options['n_threads'] >= 1
+            cmd += ['--threads', str(options['n_threads'])]
 
         for feature in features:
             if options is None:
@@ -305,3 +312,7 @@ class ExternalProgramCaller(object):
             logger.info(vmafexec_cmd)
 
         run_process(vmafexec_cmd, shell=True)
+
+
+def model_path(*components):
+    return os.path.join(VMAF_PYTHON_ROOT, "model", *components)
