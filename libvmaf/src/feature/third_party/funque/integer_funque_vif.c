@@ -248,8 +248,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         free(interim_x_y);
     }
 
-    double add_exp = 1e-4*s_height*s_width;
-
     double power_double_num = (double)num_power;
     double power_double_den = (double)den_power;
 
@@ -258,6 +256,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den);
 	*score += ((*score_den) == 0.0) ? 1.0 : ((*score_num) / (*score_den));
 #else
+    double add_exp = 1e-4*s_height*s_width;
     *score_num = (((double)score_num_t/(double)(1<<26)) + power_double_num) + add_exp;
     *score_den = (((double)score_den_t/(double)(1<<26)) + power_double_den) + add_exp;
     *score = *score_num / *score_den;
