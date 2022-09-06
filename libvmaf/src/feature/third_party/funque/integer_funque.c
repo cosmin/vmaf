@@ -306,7 +306,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
-    // s->modules.resizer_step = step;
     s->resize_module.resizer_step = step;
 #if ARCH_AARCH64
     if (bpc == 8)
@@ -315,13 +314,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
     s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
-    s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
-    s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
-    // commenting this out temporarily
-    // s->modules.resizer_step = step_neon; 
+    //Commenting this since C was performing better
     // s->resize_module.resizer_step = step_neon;
+    // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
+    // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
 #elif ARCH_ARM
     if (bpc == 8)
     {
