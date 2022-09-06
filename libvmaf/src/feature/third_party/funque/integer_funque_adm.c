@@ -188,7 +188,8 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
     adm_i32_dtype ot_dp, o_mag_sq, t_mag_sq;
     int border_h = (border_size * height);
     int border_w = (border_size * width);
-	int64_t den_sum[3] = {0};
+
+	double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};
     int loop_h, loop_w, dlm_width, dlm_height;
@@ -334,11 +335,6 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 
 int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int32_t *adm_div_lookup)
 {
-    // int i, j, k, index;
-    // adm_i64_dtype num_sum = 0, den_sum = 0;
-    // adm_i32_dtype ref_abs;
-    // adm_i64_dtype num_cube = 0, den_cube = 0;
-    // double num_band = 0, den_band = 0;
     i_dwt2buffers i_dlm_rest;
     adm_i32_dtype *i_dlm_add, *interim_x;
 	int border_h = (border_size * height);
