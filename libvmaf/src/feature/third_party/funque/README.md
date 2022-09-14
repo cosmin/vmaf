@@ -30,13 +30,39 @@ The `funque` models are present in `<vmaf_dir>/model`
 - `funque_integer.json` to extract integer features
 - `funque_float.json` to extract floating-point features
 
-### Configurations in FUNQUE Model file
+### Parameters in FUNQUE Model file
 
 Most of the configurations are similar to that of `libvmaf`. 
 
 The extra configurations used in `funque` are resizing the input frames & different VIF levels.
 - Resizer: Can be configured using `model_dict["feature_opts_dicts"][0]["enable_resize"]` parameter. This has to be either true or false
 - VIF levels: Can be configured using `model_dict["feature_opts_dicts"][0]["vif_levels"]` parameter. Minimum expected value is 2 & maximum expected value is 4
+
+### Features in FUNQUE Model file
+
+The place where feature name are added is same as that of `libvmaf` i.e. at `model_dict["feature_names"]`. 
+
+These feature names will invoke feature extractors. The feature names are different for float and integer. 
+
+Entry of any one feature name will trigger all the other feature extractors of `funque`.
+
+The feature names are as follows:
+- floating-point feature names: 
+    - `FUNQUE_feature_vif_scale0_score`
+    - `FUNQUE_feature_vif_scale1_score` 
+    - `FUNQUE_feature_vif_scale2_score` 
+    - `FUNQUE_feature_vif_scale3_score` 
+    - `FUNQUE_feature_motion_score`
+    - `FUNQUE_feature_adm2_score`
+    - `FUNQUE_float_ssim`
+- integer feature names: 
+    - `FUNQUE_integer_feature_vif_scale0_score`
+    - `FUNQUE_integer_feature_vif_scale1_score`
+    - `FUNQUE_integer_feature_vif_scale2_score`
+    - `FUNQUE_integer_feature_vif_scale3_score`
+    - `FUNQUE_integer_feature_motion_score`
+    - `FUNQUE_integer_feature_adm2_score`
+    - `FUNQUE_integer_feature_ssim`
 
 ## Usage
 
