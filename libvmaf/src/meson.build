@@ -359,7 +359,8 @@ if funque_float_enabled
         funque_feature_dir + 'funque_vif.c',
         funque_feature_dir + 'funque_adm.c',
         funque_feature_dir + 'funque_ssim.c',
-        funque_feature_dir + 'resizer.c'
+        funque_feature_dir + 'resizer.c',
+        funque_feature_dir + 'hbd_resizer.c'
     ]
 endif
 
