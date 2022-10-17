@@ -147,6 +147,271 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
     }
 }
 
+
+void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+{
+    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
+
+    /**
+     * Absolute value of filter coefficients are 1/sqrt(2)
+     * The filter is handled by multiplying square of coefficients in final stage
+     * Hence the value becomes 1/2, and this is handled using shifts
+     * Also extra required out shift is done along with filter shift itself
+     */
+    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
+
+	__m256i filter_shift_256 = _mm256_set1_epi32(filter_shift);
+	__m128i filter_shift_128 = _mm_set1_epi32(filter_shift);	
+	__m256i filter_shift16_256 = _mm256_set1_epi16(filter_shift);
+	__m256i filter_shift_rnd_256 = _mm256_set1_epi32(filter_shift_rnd);
+
+    /**
+     * Last column due to padding the values are left shifted and then right shifted
+     * Hence using updated shifts. Subtracting 1 due to left shift
+     */
+    const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
+
+    dwt2_dtype *band_a = dwt2_dst->bands[0];
+    dwt2_dtype *band_h = dwt2_dst->bands[1];
+    dwt2_dtype *band_v = dwt2_dst->bands[2];
+    dwt2_dtype *band_d = dwt2_dst->bands[3];
+
+    int16_t row_idx0, row_idx1, col_idx0;
+	
+	int row0_offset, row1_offset;
+    
+	int width_div_2 = width >> 1; // without rounding (last value is handle outside)
+	int last_col = width & 1;
+
+    int i, j;
+
+	int width_rem_size = width_div_2 - (width_div_2 % 16);
+	int width_rem_size16 = width_div_2 - (width_div_2 % 16);
+	int width_rem_size8 = width_div_2 - (width_div_2 % 8);
+
+    for (i=0; i < (height+1)/2; ++i)
+    {
+        row_idx0 = 2*i;
+        row_idx1 = 2*i+1;
+        row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
+		row0_offset = (row_idx0)*width;
+		row1_offset = (row_idx1)*width;
+        
+		for(j=0; j< width_rem_size; j+=16)
+		{
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+
+			__m256i src_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0));
+			__m256i src_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0));
+			__m256i src2_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0 + 16));
+			__m256i src2_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0 + 16));
+
+			// Original
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			//F* F (a - b + c - d) - band H  (F*F is 1/2)		
+			//F* F (a + b - c + d) - band V  (F*F is 1/2)
+			//F* F (a - b - c - d) - band D  (F*F is 1/2)
+
+			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 0));
+			__m256i a_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 1));
+			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 0));
+			__m256i b_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 1));
+			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 0));
+			__m256i a2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 1));
+			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 0));
+			__m256i b2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 1));
+
+			__m256i a_p_b_c_p_d_lo = _mm256_add_epi32(a_lo, b_lo);
+			__m256i a_p_b_c_p_d_hi = _mm256_add_epi32(a_hi, b_hi);
+			__m256i a_p_b_c_p_d_2_lo = _mm256_add_epi32(a2_lo, b2_lo);
+			__m256i a_p_b_c_p_d_2_hi = _mm256_add_epi32(a2_hi, b2_hi);
+			__m256i a_m_b_c_m_d_lo = _mm256_sub_epi32(a_lo, b_lo);
+			__m256i a_m_b_c_m_d_hi = _mm256_sub_epi32(a_hi, b_hi);
+			__m256i a_m_b_c_m_d_2_lo = _mm256_sub_epi32(a2_lo, b2_lo);
+			__m256i a_m_b_c_m_d_2_hi = _mm256_sub_epi32(a2_hi, b2_hi);;
+
+			__m256i band_a_256 = _mm256_hadd_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m256i band_a2_256 = _mm256_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m256i band_h_256 = _mm256_hadd_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
+			__m256i band_h2_256 = _mm256_hadd_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
+			__m256i band_v_256 = _mm256_hsub_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m256i band_v2_256 = _mm256_hsub_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m256i band_d_256 = _mm256_hsub_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
+			__m256i band_d2_256 = _mm256_hsub_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
+
+			band_a_256 = _mm256_add_epi32(band_a_256, filter_shift_256);
+			band_a2_256 = _mm256_add_epi32(band_a2_256, filter_shift_256);
+			band_h_256 = _mm256_add_epi32(band_h_256, filter_shift_256);
+			band_h2_256 = _mm256_add_epi32(band_h2_256, filter_shift_256);
+			band_v_256 = _mm256_add_epi32(band_v_256, filter_shift_256);
+			band_v2_256 = _mm256_add_epi32(band_v2_256, filter_shift_256);
+			band_d_256 = _mm256_add_epi32(band_d_256, filter_shift_256);
+			band_d2_256 = _mm256_add_epi32(band_d2_256, filter_shift_256);
+
+			band_a_256 = _mm256_srai_epi32(band_a_256, filter_shift_rnd);
+			band_a2_256 = _mm256_srai_epi32(band_a2_256, filter_shift_rnd);
+			band_h_256 = _mm256_srai_epi32(band_h_256, filter_shift_rnd);
+			band_h2_256 = _mm256_srai_epi32(band_h2_256, filter_shift_rnd);
+			band_v_256 = _mm256_srai_epi32(band_v_256, filter_shift_rnd);
+			band_v2_256 = _mm256_srai_epi32(band_v2_256, filter_shift_rnd);
+			band_d_256 = _mm256_srai_epi32(band_d_256, filter_shift_rnd);
+			band_d2_256 = _mm256_srai_epi32(band_d2_256, filter_shift_rnd);
+
+			band_a_256 = _mm256_packs_epi32(band_a_256, band_a2_256);
+			band_h_256 = _mm256_packs_epi32(band_h_256, band_h2_256);
+			band_v_256 = _mm256_packs_epi32(band_v_256, band_v2_256);
+			band_d_256 = _mm256_packs_epi32(band_d_256, band_d2_256);
+
+			__m256i idx = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
+			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx);
+			band_h_256 = _mm256_permutevar8x32_epi32(band_h_256, idx);
+			band_v_256 = _mm256_permutevar8x32_epi32(band_v_256, idx);
+			band_d_256 = _mm256_permutevar8x32_epi32(band_d_256, idx);
+			
+			_mm256_storeu_si256((__m256i*)(band_a + i * dst_px_stride + j), band_a_256);
+			_mm256_storeu_si256((__m256i*)(band_h + i * dst_px_stride + j), band_h_256);
+			_mm256_storeu_si256((__m256i*)(band_v + i * dst_px_stride + j), band_v_256);
+			_mm256_storeu_si256((__m256i*)(band_d + i * dst_px_stride + j), band_d_256);
+        }
+
+		for(; j< width_rem_size8; j+=8)
+		{
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+
+			__m128i src_a_128 = _mm_loadu_si128((__m128i*)(src + row0_offset + col_idx0));
+			__m128i src_b_128 = _mm_loadu_si128((__m128i*)(src + row1_offset + col_idx0));
+			__m128i src2_a_128 = _mm_loadu_si128((__m128i*)(src + row0_offset + col_idx0 + 8));
+			__m128i src2_b_128 = _mm_loadu_si128((__m128i*)(src + row1_offset + col_idx0 + 8));
+
+			// Original
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			//F* F (a - b + c - d) - band H  (F*F is 1/2)		
+			//F* F (a + b - c + d) - band V  (F*F is 1/2)
+			//F* F (a - b - c - d) - band D  (F*F is 1/2)
+
+			__m128i a_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src_a_128, _mm_setzero_si128()));
+			__m128i a_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src_a_128, _mm_setzero_si128()));
+			__m128i b_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src_b_128, _mm_setzero_si128()));
+			__m128i b_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src_b_128, _mm_setzero_si128()));
+			__m128i a2_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src2_a_128, _mm_setzero_si128()));
+			__m128i a2_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src2_a_128, _mm_setzero_si128()));
+			__m128i b2_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src2_b_128, _mm_setzero_si128()));
+			__m128i b2_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src2_b_128, _mm_setzero_si128()));
+
+			__m128i a_p_b_c_p_d_lo = _mm_add_epi32(a_lo, b_lo);
+			__m128i a_p_b_c_p_d_hi = _mm_add_epi32(a_hi, b_hi);
+			__m128i a_m_b_c_m_d_lo = _mm_sub_epi32(a_lo, b_lo);
+			__m128i a_m_b_c_m_d_hi = _mm_sub_epi32(a_hi, b_hi);
+			__m128i a_p_b_c_p_d_2_lo = _mm_add_epi32(a2_lo, b2_lo);
+			__m128i a_p_b_c_p_d_2_hi = _mm_add_epi32(a2_hi, b2_hi);
+			__m128i a_m_b_c_m_d_2_lo = _mm_sub_epi32(a2_lo, b2_lo);
+			__m128i a_m_b_c_m_d_2_hi = _mm_sub_epi32(a2_hi, b2_hi);
+
+			__m128i band_a_128 = _mm_hadd_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m128i band_h_128 = _mm_hadd_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
+			__m128i band_v_128 = _mm_hsub_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m128i band_d_128 = _mm_hsub_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
+			__m128i band_a2_128 = _mm_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m128i band_h2_128 = _mm_hadd_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
+			__m128i band_v2_128 = _mm_hsub_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m128i band_d2_128 = _mm_hsub_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
+
+			band_a_128 = _mm_add_epi32(band_a_128, filter_shift_128);
+			band_h_128 = _mm_add_epi32(band_h_128, filter_shift_128);
+			band_v_128 = _mm_add_epi32(band_v_128, filter_shift_128);
+			band_d_128 = _mm_add_epi32(band_d_128, filter_shift_128);
+			band_a2_128 = _mm_add_epi32(band_a2_128, filter_shift_128);
+			band_h2_128 = _mm_add_epi32(band_h2_128, filter_shift_128);
+			band_v2_128 = _mm_add_epi32(band_v2_128, filter_shift_128);
+			band_d2_128 = _mm_add_epi32(band_d2_128, filter_shift_128);
+
+			band_a_128 = _mm_srai_epi32(band_a_128, filter_shift_rnd);
+			band_h_128 = _mm_srai_epi32(band_h_128, filter_shift_rnd);
+			band_v_128 = _mm_srai_epi32(band_v_128, filter_shift_rnd);
+			band_d_128 = _mm_srai_epi32(band_d_128, filter_shift_rnd);
+			band_a2_128 = _mm_srai_epi32(band_a2_128, filter_shift_rnd);
+			band_h2_128 = _mm_srai_epi32(band_h2_128, filter_shift_rnd);
+			band_v2_128 = _mm_srai_epi32(band_v2_128, filter_shift_rnd);
+			band_d2_128 = _mm_srai_epi32(band_d2_128, filter_shift_rnd);
+
+			band_a_128 = _mm_packs_epi32(band_a_128, band_a2_128);
+			band_h_128 = _mm_packs_epi32(band_h_128, band_h2_128);
+			band_v_128 = _mm_packs_epi32(band_v_128, band_v2_128);
+			band_d_128 = _mm_packs_epi32(band_d_128, band_d2_128);
+			
+			_mm_storeu_si128((__m128i*)(band_a + i * dst_px_stride + j), band_a_128);
+			_mm_storeu_si128((__m128i*)(band_h + i * dst_px_stride + j), band_h_128);
+			_mm_storeu_si128((__m128i*)(band_v + i * dst_px_stride + j), band_v_128);
+			_mm_storeu_si128((__m128i*)(band_d + i * dst_px_stride + j), band_d_128);
+        }
+
+		for(; j< width_div_2; ++j)
+		{
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+			
+			// a & b 2 values in adjacent rows at the same coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			// c & d are adjacent values to a & b in teh same row
+			spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+			spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+
+			//a + b	& a - b	
+			int32_t src_a_p_b = src_a + src_b;
+			int32_t src_a_m_b = src_a - src_b;
+			
+			//c + d	& c - d
+			int32_t src_c_p_d = src_c + src_d;
+			int32_t src_c_m_d = src_c - src_d;
+
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> filter_shift);
+			
+			//F* F (a - b + c - d) - band H  (F*F is 1/2)
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_m_b + src_c_m_d) + filter_shift_rnd) >> filter_shift);
+			
+			//F* F (a + b - c + d) - band V  (F*F is 1/2)
+            band_v[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_p_b - src_c_p_d) + filter_shift_rnd) >> filter_shift);
+
+			//F* F (a - b - c - d) - band D  (F*F is 1/2)
+            band_d[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_m_b - src_c_m_d) + filter_shift_rnd) >> filter_shift);
+        }
+
+        if(last_col)
+        {
+			col_idx0 = width_div_2 << 1;
+			j = width_div_2;
+			
+			// a & b 2 values in adjacent rows at the last coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+            //F* F (a + b + a + b) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+			
+			//F* F (a - b + a - b) - band H  (F*F is 1/2)
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_m_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+			
+			//F* F (a + b - (a + b)) - band V, Last column V will always be 0            
+            band_v[i*dst_px_stride+j] = 0;
+
+			//F* F (a - b - (a -b)) - band D,  Last column D will always be 0
+            band_d[i*dst_px_stride+j] = 0;
+        }
+    }
+}
+
+
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
@@ -227,6 +492,175 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
         }
     }
 }
+
+
+void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height)
+{
+    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
+
+    /**
+     * Absolute value of filter coefficients are 1/sqrt(2)
+     * The filter is handled by multiplying square of coefficients in final stage
+     * Hence the value becomes 1/2, and this is handled using shifts
+     * Also extra required out shift is done along with filter shift itself
+     */
+    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
+	__m256i filter_shift_256 = _mm256_set1_epi32(filter_shift);
+	__m128i filter_shift_128 = _mm_set1_epi32(filter_shift);	
+
+    /**
+     * Last column due to padding the values are left shifted and then right shifted
+     * Hence using updated shifts. Subtracting 1 due to left shift
+     */
+    const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
+
+    int16_t row_idx0, row_idx1, col_idx0;
+	// int16_t col_idx1;
+	int row0_offset, row1_offset;
+    // int64_t accum;
+	int width_div_2 = width >> 1; // without rounding (last value is handle outside)
+	int last_col = width & 1;
+
+    int i, j;
+
+	int width_rem_size16 = width_div_2 - (width_div_2 % 16);
+	int width_rem_size8 = width_div_2 - (width_div_2 % 8);
+
+    for (i=0; i < (height+1)/2; ++i)
+    {
+        row_idx0 = 2*i;
+        row_idx1 = 2*i+1;
+        row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
+		row0_offset = (row_idx0)*width;
+		row1_offset = (row_idx1)*width;
+        
+		for(j=0; j< width_rem_size16; j+=16)
+		{
+			int col_idx0 = (j << 1);
+
+			__m256i src_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0));
+			__m256i src_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0));
+			__m256i src2_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0 + 16));
+			__m256i src2_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0 + 16));
+
+			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 0));
+			__m256i a_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 1));
+			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 0));
+			__m256i b_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 1));
+			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 0));
+			__m256i a2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 1));
+			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 0));
+			__m256i b2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 1));
+
+			__m256i a_p_b_c_p_d_lo = _mm256_add_epi32(a_lo, b_lo);
+			__m256i a_p_b_c_p_d_hi = _mm256_add_epi32(a_hi, b_hi);
+			__m256i a_p_b_c_p_d_2_lo = _mm256_add_epi32(a2_lo, b2_lo);
+			__m256i a_p_b_c_p_d_2_hi = _mm256_add_epi32(a2_hi, b2_hi);
+
+			__m256i band_a_256 = _mm256_hadd_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m256i band_a2_256 = _mm256_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+
+			band_a_256 = _mm256_add_epi32(band_a_256, filter_shift_256);
+			band_a2_256 = _mm256_add_epi32(band_a2_256, filter_shift_256);
+			band_a_256 = _mm256_srai_epi32(band_a_256, filter_shift_rnd);
+			band_a2_256 = _mm256_srai_epi32(band_a2_256, filter_shift_rnd);
+
+			band_a_256 = _mm256_packs_epi32(band_a_256, band_a2_256);
+
+			__m256i idx = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
+			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx);
+
+			_mm256_storeu_si256((__m256i*)(band_a + i * dst_px_stride + j), band_a_256);
+        }
+
+		for(; j< width_rem_size8; j+=8)
+		{
+			int col_idx0 = (j << 1);
+
+			__m128i src_a_128 = _mm_loadu_si128((__m128i*)(src + row0_offset + col_idx0));
+			__m128i src_b_128 = _mm_loadu_si128((__m128i*)(src + row1_offset + col_idx0));
+			__m128i src2_a_128 = _mm_loadu_si128((__m128i*)(src + row0_offset + col_idx0 + 8));
+			__m128i src2_b_128 = _mm_loadu_si128((__m128i*)(src + row1_offset + col_idx0 + 8));
+
+			// Original
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			//F* F (a - b + c - d) - band H  (F*F is 1/2)		
+			//F* F (a + b - c + d) - band V  (F*F is 1/2)
+			//F* F (a - b - c - d) - band D  (F*F is 1/2)
+
+			__m128i a_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src_a_128, _mm_setzero_si128()));
+			__m128i a_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src_a_128, _mm_setzero_si128()));
+			__m128i b_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src_b_128, _mm_setzero_si128()));
+			__m128i b_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src_b_128, _mm_setzero_si128()));
+			__m128i a2_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src2_a_128, _mm_setzero_si128()));
+			__m128i a2_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src2_a_128, _mm_setzero_si128()));
+			__m128i b2_lo = _mm_cvtepi16_epi32( _mm_unpacklo_epi64(src2_b_128, _mm_setzero_si128()));
+			__m128i b2_hi = _mm_cvtepi16_epi32( _mm_unpackhi_epi64(src2_b_128, _mm_setzero_si128()));
+
+			__m128i a_p_b_c_p_d_lo = _mm_add_epi32(a_lo, b_lo);
+			__m128i a_p_b_c_p_d_hi = _mm_add_epi32(a_hi, b_hi);
+			__m128i a_p_b_c_p_d_2_lo = _mm_add_epi32(a2_lo, b2_lo);
+			__m128i a_p_b_c_p_d_2_hi = _mm_add_epi32(a2_hi, b2_hi);
+
+			__m128i band_a_128 = _mm_hadd_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
+			__m128i band_a2_128 = _mm_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			
+			band_a_128 = _mm_add_epi32(band_a_128, filter_shift_128);
+			band_a2_128 = _mm_add_epi32(band_a2_128, filter_shift_128);
+
+			band_a_128 = _mm_srai_epi32(band_a_128, filter_shift_rnd);
+			band_a2_128 = _mm_srai_epi32(band_a2_128, filter_shift_rnd);
+
+			band_a_128 = _mm_packs_epi32(band_a_128, band_a2_128);
+			
+			_mm_storeu_si128((__m128i*)(band_a + i * dst_px_stride + j), band_a_128);
+        }
+
+		for(; j< width_div_2; ++j)
+		{
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+			
+			// a & b 2 values in adjacent rows at the same coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			// c & d are adjacent values to a & b in teh same row
+			spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+			spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+			
+			//a + b	& a - b	
+			int32_t src_a_p_b = src_a + src_b;
+			// int32_t src_a_m_b = src_a - src_b;
+			
+			//c + d	& c - d
+			int32_t src_c_p_d = src_c + src_d;
+			// int32_t src_c_m_d = src_c - src_d;
+
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) (((src_a_p_b + src_c_p_d) + filter_shift_rnd) >> filter_shift);
+        }
+
+        if(last_col)
+        {
+			col_idx0 = width_div_2 << 1;
+			j = width_div_2;
+			
+			// a & b 2 values in adjacent rows at the last coloumn
+			spat_fil_output_dtype src_a = src[row0_offset+ col_idx0];
+			spat_fil_output_dtype src_b = src[row1_offset+ col_idx0];
+			
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			
+            //F* F (a + b + a + b) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+        }
+    }
+}
+
 
 /**
  * This function applies intermediate horizontal pass filter inside spatial filter

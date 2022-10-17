@@ -301,7 +301,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     //s->modules.integer_spatial_filter = integer_spatial_filter;
     s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
-    s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    //s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
@@ -486,8 +487,10 @@ static int extract(VmafFeatureExtractor *fex,
     for(int vif_level=1; vif_level<s->vif_levels; vif_level++)
     {
         int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts << vif_level))) * bitdepth_pow2;;
-        integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
-        integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+        //integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+        //integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+        integer_funque_vifdwt2_band0_avx2(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+        integer_funque_vifdwt2_band0_avx2(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
         vifdwt_stride = (vifdwt_stride + 1)/2;
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
