@@ -382,6 +382,7 @@ libvmaf_feature_static_lib = static_library(
     libvmaf_feature_sources,
     include_directories : [libvmaf_include, vmaf_include],
     dependencies: [stdatomic_dependency],
+    c_args : ['-mavx', '-mavx2', '-march=native'] + vmaf_cflags_common,
 )
 
 libvmaf_sources = [

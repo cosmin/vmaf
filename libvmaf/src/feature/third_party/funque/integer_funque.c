@@ -299,7 +299,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->max_db = INFINITY;
     }
 
-    s->modules.integer_spatial_filter = integer_spatial_filter;
+    //s->modules.integer_spatial_filter = integer_spatial_filter;
+    s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
