@@ -27,6 +27,21 @@
 #include "integer_funque_filters.h"
 #include <immintrin.h>
 
+#define avx2
+
+//#define mesure_time
+#include <time.h>
+
+#ifdef mesure_time 
+    int cpt_hor = 0;
+    double cpu_time_used, total_time_hor = 0;
+    clock_t vif_start, vif_end;
+    clock_t filter_start, filter_end;
+    clock_t dwt_start, dwt_end;
+    //#define mesure_vif
+    #define mesure_filter
+#endif
+
 #define hor_sum_and_store(addr, r) \
 { \
 	__m128i r4 = _mm_add_epi32(_mm256_castsi256_si128(r), _mm256_extracti128_si256(r, 1)); \
@@ -1782,8 +1797,26 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 			}
 		}
 
+#ifdef mesure_filter     
+    vif_start = clock();
+#endif
+
+#ifdef avx2
         /* Horizontal pass. common for 8bit and hbd cases */
-		integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);		
+		integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#else
+		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#endif
+
+
+#ifdef mesure_filter
+    vif_end = clock();
+    cpt_hor++;
+    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
+    total_time_hor += cpu_time_used;
+    printf("%f sec\n", cpu_time_used);
+#endif
+
     }
     //This is the core loop
     for ( ; i < (height - half_fw); i++){
@@ -2204,8 +2237,13 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 			}
 		}
 
+
+#ifdef avx2
 		/* Horizontal pass. common for 8bit and hbd cases */
         integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#else
+		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#endif
     }
     /**
      * This loop is to handle virtual padding of the bottom border pixels
@@ -2599,12 +2637,19 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 		}
-
+#ifdef avx2
         /* Horizontal pass. common for 8bit and hbd cases */
         integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#else
+  		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+#endif
     }
 
     aligned_free(tmp);
+
+#ifdef mesure_time
+    printf("filter hor Average time %f sec\n", total_time_hor / cpt_hor);
+#endif
 
     return;
 }
