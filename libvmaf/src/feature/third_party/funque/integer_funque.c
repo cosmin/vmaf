@@ -51,10 +51,18 @@
 #include "arm32/integer_funque_adm_armv7.h"
 #endif
 
-#include <immintrin.h>
+#if ARCH_X86
+#include "x86/integer_funque_filters_avx2.h"
+#include "x86/integer_funque_vif_avx2.h"
+#include "x86/integer_funque_ssim_avx2.h"
+#endif
+
+#include "cpu.h"
+
+//#include <immintrin.h>
 
 #define avx2
-#define mesure_time
+//#define mesure_time
 #include <time.h>
 #include <sys/time.h>
 
@@ -328,12 +336,14 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
     s->resize_module.resizer_step = step;
 
-#ifdef avx2
-    s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
-    s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
-    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
-    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
-#endif
+    unsigned flags = vmaf_get_cpu_flags();
+    if (flags & VMAF_X86_CPU_FLAG_AVX2) {
+        s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
+        
+    }
 
 #if ARCH_AARCH64
     if (bpc == 8)

@@ -92,14 +92,8 @@ typedef struct ModuleFunqueState
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth);
 
-void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth);
-
 void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
-void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
-
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
-
-void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
 #endif /* FILTERS_FUNQUE_H_ */

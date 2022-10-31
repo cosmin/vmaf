@@ -15,5 +15,10 @@
  *     limitations under the License.
  *
  */
+#include "../integer_funque_filters.h"
 
-int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
+void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth);
+
+void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+
+void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
