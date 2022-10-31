@@ -55,6 +55,7 @@
 #include "x86/integer_funque_filters_avx2.h"
 #include "x86/integer_funque_vif_avx2.h"
 #include "x86/integer_funque_ssim_avx2.h"
+#include "x86/integer_funque_adm_avx2.h"
 #endif
 
 #include "cpu.h"
@@ -342,7 +343,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
-        
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
     }
 
 #if ARCH_AARCH64
@@ -571,14 +572,17 @@ static int extract(VmafFeatureExtractor *fex,
 #ifdef mesure_dwt2
     vif_start = clock();
 #endif
-
-#ifdef avx2
+    
+    unsigned flags = vmaf_get_cpu_flags();
+    if (flags & VMAF_X86_CPU_FLAG_AVX2) {
         integer_funque_vifdwt2_band0_avx2(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
         integer_funque_vifdwt2_band0_avx2(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
-#else
+    }
+    else {
         integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
         integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
-#endif
+    }
+
 #ifdef mesure_dwt2
     vif_end = clock();
     cpt_dwt2++;

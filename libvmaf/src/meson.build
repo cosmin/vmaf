@@ -263,6 +263,7 @@ if is_asm_enabled
                 funque_feature_dir + 'x86/integer_funque_filters_avx2.c',
                 funque_feature_dir + 'x86/integer_funque_vif_avx2.c',
                 funque_feature_dir + 'x86/integer_funque_ssim_avx2.c',
+                funque_feature_dir + 'x86/integer_funque_adm_avx2.c',
             ]
         endif          
 
