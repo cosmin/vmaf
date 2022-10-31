@@ -54,20 +54,21 @@
 #include <immintrin.h>
 
 #define avx2
-//#define mesure_time
+#define mesure_time
 #include <time.h>
 #include <sys/time.h>
 
 #ifdef mesure_time
-    int cpt = 0, cpt_dwt = 0, cpt_vif = 0, cpt_dwt2 = 0;
-    double cpu_time_used, total_time = 0, total_time_dwt = 0, total_time_vif = 0, total_time_dwt2 = 0;      
+    int cpt = 0, cpt_dwt = 0, cpt_vif = 0, cpt_dwt2 = 0, cpt_ssim = 0;
+    double cpu_time_used, total_time = 0, total_time_ssim = 0, total_time_dwt = 0, total_time_vif = 0, total_time_dwt2 = 0;      
     clock_t vif_start, vif_end;
     clock_t filter_start, filter_end;
     clock_t dwt_start, dwt_end;
-    #define mesure_vif
+    //#define mesure_vif
     //#define mesure_dwt
     //#define mesure_dwt2
     //#define mesure_filter
+    #define mesure_ssim
 #endif
 
 typedef struct IntFunqueState
@@ -331,6 +332,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
 #endif
 
 #if ARCH_AARCH64
@@ -505,10 +507,19 @@ static int extract(VmafFeatureExtractor *fex,
         return err;
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
+#ifdef mesure_ssim     
+    vif_start = clock();
+#endif
 
     err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
                                                     pending_div_factor, s->adm_div_lookup);
-
+#ifdef mesure_ssim
+    vif_end = clock();
+    cpt_ssim++;
+    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
+    total_time_ssim += cpu_time_used;
+    printf("ssim %f sec\n", cpu_time_used);
+#endif
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
 
@@ -613,6 +624,9 @@ static int extract(VmafFeatureExtractor *fex,
 #endif
 #ifdef mesure_dwt2
     printf("dwt2 Average time %f sec\n", total_time_dwt2 / cpt_dwt2);
+#endif
+#ifdef mesure_ssim
+    printf("ssim Average time %f sec\n", total_time_ssim / cpt_ssim);
 #endif
 #endif
 
