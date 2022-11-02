@@ -60,25 +60,8 @@
 
 #include "cpu.h"
 
-//#include <immintrin.h>
-
-#define avx2
-//#define mesure_time
 #include <time.h>
 #include <sys/time.h>
-
-#ifdef mesure_time
-    int cpt = 0, cpt_dwt = 0, cpt_vif = 0, cpt_dwt2 = 0, cpt_ssim = 0;
-    double cpu_time_used, total_time = 0, total_time_ssim = 0, total_time_dwt = 0, total_time_vif = 0, total_time_dwt2 = 0;      
-    clock_t vif_start, vif_end;
-    clock_t filter_start, filter_end;
-    clock_t dwt_start, dwt_end;
-    //#define mesure_vif
-    //#define mesure_dwt
-    //#define mesure_dwt2
-    //#define mesure_filter
-    #define mesure_ssim
-#endif
 
 typedef struct IntFunqueState
 {
@@ -444,33 +427,8 @@ static int extract(VmafFeatureExtractor *fex,
 
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
-#ifdef mesure_filter     
-    vif_start = clock();
-#endif
-
     s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
-    
-#ifdef mesure_filter
-    vif_end = clock();
-    cpt++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time += cpu_time_used;
-    printf("filter %f sec\n", cpu_time_used);
-#endif
-
-#ifdef mesure_dwt    
-    vif_start = clock();
-#endif
-
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-
-#ifdef mesure_dwt
-    vif_end = clock();
-    cpt_dwt++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time_dwt += cpu_time_used;
-    printf("dwt %f sec\n", cpu_time_used);
-#endif
     s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
@@ -518,27 +476,14 @@ static int extract(VmafFeatureExtractor *fex,
         return err;
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
                                          adm_score, index);
-#ifdef mesure_ssim     
-    vif_start = clock();
-#endif
 
     err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
                                                     pending_div_factor, s->adm_div_lookup);
-#ifdef mesure_ssim
-    vif_end = clock();
-    cpt_ssim++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time_ssim += cpu_time_used;
-    printf("ssim %f sec\n", cpu_time_used);
-#endif
+
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
                                          ssim_score, index);
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
-
-#ifdef mesure_vif     
-    vif_start = clock();
-#endif
 
 #if USE_DYNAMIC_SIGMA_NSQ
     err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
@@ -546,14 +491,6 @@ static int extract(VmafFeatureExtractor *fex,
 #else
     err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
-#endif
-
-#ifdef mesure_vif
-    vif_end = clock();
-    cpt_vif++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time_vif += cpu_time_used;
-    printf("vif %f sec\n", cpu_time_used);
 #endif
 
     if (err) return err;
@@ -568,10 +505,6 @@ static int extract(VmafFeatureExtractor *fex,
     for(int vif_level=1; vif_level<s->vif_levels; vif_level++)
     {
         int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts << vif_level))) * bitdepth_pow2;;
-        
-#ifdef mesure_dwt2
-    vif_start = clock();
-#endif
     
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
@@ -583,13 +516,6 @@ static int extract(VmafFeatureExtractor *fex,
         integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
     }
 
-#ifdef mesure_dwt2
-    vif_end = clock();
-    cpt_dwt2++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time_dwt2 += cpu_time_used;
-    printf("dwt2 %f sec\n", cpu_time_used);
-#endif
         vifdwt_stride = (vifdwt_stride + 1)/2;
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
@@ -625,24 +551,6 @@ static int extract(VmafFeatureExtractor *fex,
             vif_score[3], index);
         }
     }
-
-#ifdef mesure_time
-#ifdef mesure_vif
-    printf("vif Average time %f sec\n", total_time_vif / cpt_vif);
-#endif
-#ifdef mesure_filter
-    printf("filter Average time %f sec\n", total_time / cpt);
-#endif
-#ifdef mesure_dwt
-    printf("dwt Average time %f sec\n", total_time_dwt / cpt_dwt);
-#endif
-#ifdef mesure_dwt2
-    printf("dwt2 Average time %f sec\n", total_time_dwt2 / cpt_dwt2);
-#endif
-#ifdef mesure_ssim
-    printf("ssim Average time %f sec\n", total_time_ssim / cpt_ssim);
-#endif
-#endif
 
     return err;
 }

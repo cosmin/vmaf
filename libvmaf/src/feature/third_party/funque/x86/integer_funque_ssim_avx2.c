@@ -161,17 +161,20 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             __m256i cov_xy_b3_hi = _mm256_mullo_epi32(ref_b3_hi, dis_b3_hi);
 
             __m256i var_x_lo = _mm256_add_epi32(var_x_b1_lo, var_x_b2_lo);
-            var_x_lo = _mm256_add_epi32(var_x_lo, var_x_b3_lo);
             __m256i var_x_hi = _mm256_add_epi32(var_x_b1_hi, var_x_b2_hi);
-            var_x_hi = _mm256_add_epi32(var_x_hi, var_x_b3_hi);
             __m256i var_y_lo = _mm256_add_epi32(var_y_b1_lo, var_y_b2_lo);
-            var_y_lo = _mm256_add_epi32(var_y_lo, var_y_b3_lo);
             __m256i var_y_hi = _mm256_add_epi32(var_y_b1_hi, var_y_b2_hi);
-            var_y_hi = _mm256_add_epi32(var_y_hi, var_y_b3_hi);
             __m256i cov_xy_lo = _mm256_add_epi32(cov_xy_b1_lo, cov_xy_b2_lo);
-            cov_xy_lo = _mm256_add_epi32(cov_xy_lo, cov_xy_b3_lo);
             __m256i cov_xy_hi = _mm256_add_epi32(cov_xy_b1_hi, cov_xy_b2_hi);
+            var_x_lo = _mm256_add_epi32(var_x_lo, var_x_b3_lo);
+            var_x_hi = _mm256_add_epi32(var_x_hi, var_x_b3_hi);
+            var_y_lo = _mm256_add_epi32(var_y_lo, var_y_b3_lo);
+            var_y_hi = _mm256_add_epi32(var_y_hi, var_y_b3_hi);
+            cov_xy_lo = _mm256_add_epi32(cov_xy_lo, cov_xy_b3_lo);
             cov_xy_hi = _mm256_add_epi32(cov_xy_hi, cov_xy_b3_hi);
+        
+            __m256i l_den_lo = _mm256_add_epi32(var_x_b0_lo, var_y_b0_lo);
+            __m256i l_den_hi = _mm256_add_epi32(var_x_b0_hi, var_y_b0_hi);
 
             var_x_lo = _mm256_srai_epi32(var_x_lo, SSIM_INTER_VAR_SHIFTS);
             var_x_hi = _mm256_srai_epi32(var_x_hi, SSIM_INTER_VAR_SHIFTS);
@@ -180,24 +183,23 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             cov_xy_lo = _mm256_srai_epi32(cov_xy_lo, SSIM_INTER_VAR_SHIFTS);
             cov_xy_hi = _mm256_srai_epi32(cov_xy_hi, SSIM_INTER_VAR_SHIFTS);
 
+            l_den_lo = _mm256_srai_epi32(l_den_lo, SSIM_INTER_L_SHIFT);
+            l_den_hi = _mm256_srai_epi32(l_den_hi, SSIM_INTER_L_SHIFT);
+
             __m256i l_num_lo = _mm256_add_epi32(cov_xy_b0_lo, C1_256);
             __m256i l_num_hi = _mm256_add_epi32(cov_xy_b0_hi, C1_256);
 
-            __m256i l_den_lo = _mm256_add_epi32(var_x_b0_lo, var_y_b0_lo);
-            __m256i l_den_hi = _mm256_add_epi32(var_x_b0_hi, var_y_b0_hi);
-            l_den_lo = _mm256_srai_epi32(l_den_lo, SSIM_INTER_L_SHIFT);
-            l_den_hi = _mm256_srai_epi32(l_den_hi, SSIM_INTER_L_SHIFT);
-            l_den_lo = _mm256_add_epi32(l_den_lo, C1_256);
-            l_den_hi = _mm256_add_epi32(l_den_hi, C1_256);
-
+            __m256i cs_den_lo = _mm256_add_epi32(var_x_lo, var_y_lo);
+            __m256i cs_den_hi = _mm256_add_epi32(var_x_hi, var_y_hi);
             __m256i cs_num_lo = _mm256_add_epi32(cov_xy_lo, C2_256);
             __m256i cs_num_hi = _mm256_add_epi32(cov_xy_hi, C2_256);
 
-            __m256i cs_den_lo = _mm256_add_epi32(var_x_lo, var_y_lo);
-            __m256i cs_den_hi = _mm256_add_epi32(var_x_hi, var_y_hi);
-
             cs_den_lo = _mm256_srai_epi32(cs_den_lo, SSIM_INTER_CS_SHIFT);
             cs_den_hi = _mm256_srai_epi32(cs_den_hi, SSIM_INTER_CS_SHIFT);
+            
+            l_den_lo = _mm256_add_epi32(l_den_lo, C1_256);
+            l_den_hi = _mm256_add_epi32(l_den_hi, C1_256);
+
             cs_den_lo = _mm256_add_epi32(cs_den_lo, C2_256);
             cs_den_hi = _mm256_add_epi32(cs_den_hi, C2_256);
 

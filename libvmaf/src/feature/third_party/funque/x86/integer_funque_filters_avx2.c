@@ -27,21 +27,6 @@
 #include "../integer_funque_filters.h"
 #include <immintrin.h>
 
-#define avx2
-
-//#define mesure_time
-#include <time.h>
-
-#ifdef mesure_time 
-    int cpt_hor = 0;
-    double cpu_time_used, total_time_hor = 0;
-    clock_t vif_start, vif_end;
-    clock_t filter_start, filter_end;
-    clock_t dwt_start, dwt_end;
-    //#define mesure_vif
-    #define mesure_filter
-#endif
-
 #define hor_sum_and_store(addr, r) \
 { \
 	__m128i r4 = _mm_add_epi32(_mm256_castsi256_si128(r), _mm256_extracti128_si256(r, 1)); \
@@ -102,6 +87,8 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 	int width_rem_size16 = width_div_2 - (width_div_2 % 16);
 	int width_rem_size8 = width_div_2 - (width_div_2 % 8);
 
+	__m256i idx_perm = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
+
     for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
@@ -126,40 +113,40 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 			//F* F (a + b - c + d) - band V  (F*F is 1/2)
 			//F* F (a - b - c - d) - band D  (F*F is 1/2)
 
-			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 0));
+			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src_a_256));
 			__m256i a_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 1));
-			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 0));
+			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src_b_256));
 			__m256i b_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 1));
-			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 0));
+			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src2_a_256));
 			__m256i a2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 1));
-			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 0));
+			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src2_b_256));
 			__m256i b2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 1));
 
 			__m256i a_p_b_c_p_d_lo = _mm256_add_epi32(a_lo, b_lo);
 			__m256i a_p_b_c_p_d_hi = _mm256_add_epi32(a_hi, b_hi);
-			__m256i a_p_b_c_p_d_2_lo = _mm256_add_epi32(a2_lo, b2_lo);
-			__m256i a_p_b_c_p_d_2_hi = _mm256_add_epi32(a2_hi, b2_hi);
 			__m256i a_m_b_c_m_d_lo = _mm256_sub_epi32(a_lo, b_lo);
 			__m256i a_m_b_c_m_d_hi = _mm256_sub_epi32(a_hi, b_hi);
+			__m256i a_p_b_c_p_d_2_lo = _mm256_add_epi32(a2_lo, b2_lo);
+			__m256i a_p_b_c_p_d_2_hi = _mm256_add_epi32(a2_hi, b2_hi);
 			__m256i a_m_b_c_m_d_2_lo = _mm256_sub_epi32(a2_lo, b2_lo);
 			__m256i a_m_b_c_m_d_2_hi = _mm256_sub_epi32(a2_hi, b2_hi);;
 
 			__m256i band_a_256 = _mm256_hadd_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
-			__m256i band_a2_256 = _mm256_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
-			__m256i band_h_256 = _mm256_hadd_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
-			__m256i band_h2_256 = _mm256_hadd_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
 			__m256i band_v_256 = _mm256_hsub_epi32(a_p_b_c_p_d_lo, a_p_b_c_p_d_hi);
-			__m256i band_v2_256 = _mm256_hsub_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m256i band_h_256 = _mm256_hadd_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
 			__m256i band_d_256 = _mm256_hsub_epi32(a_m_b_c_m_d_lo, a_m_b_c_m_d_hi);
+			__m256i band_a2_256 = _mm256_hadd_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m256i band_v2_256 = _mm256_hsub_epi32(a_p_b_c_p_d_2_lo, a_p_b_c_p_d_2_hi);
+			__m256i band_h2_256 = _mm256_hadd_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
 			__m256i band_d2_256 = _mm256_hsub_epi32(a_m_b_c_m_d_2_lo, a_m_b_c_m_d_2_hi);
 
 			band_a_256 = _mm256_add_epi32(band_a_256, filter_shift_256);
-			band_a2_256 = _mm256_add_epi32(band_a2_256, filter_shift_256);
-			band_h_256 = _mm256_add_epi32(band_h_256, filter_shift_256);
-			band_h2_256 = _mm256_add_epi32(band_h2_256, filter_shift_256);
 			band_v_256 = _mm256_add_epi32(band_v_256, filter_shift_256);
-			band_v2_256 = _mm256_add_epi32(band_v2_256, filter_shift_256);
+			band_h_256 = _mm256_add_epi32(band_h_256, filter_shift_256);
 			band_d_256 = _mm256_add_epi32(band_d_256, filter_shift_256);
+			band_a2_256 = _mm256_add_epi32(band_a2_256, filter_shift_256);
+			band_h2_256 = _mm256_add_epi32(band_h2_256, filter_shift_256);
+			band_v2_256 = _mm256_add_epi32(band_v2_256, filter_shift_256);
 			band_d2_256 = _mm256_add_epi32(band_d2_256, filter_shift_256);
 
 			band_a_256 = _mm256_srai_epi32(band_a_256, filter_shift_rnd);
@@ -176,11 +163,10 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 			band_v_256 = _mm256_packs_epi32(band_v_256, band_v2_256);
 			band_d_256 = _mm256_packs_epi32(band_d_256, band_d2_256);
 
-			__m256i idx = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
-			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx);
-			band_h_256 = _mm256_permutevar8x32_epi32(band_h_256, idx);
-			band_v_256 = _mm256_permutevar8x32_epi32(band_v_256, idx);
-			band_d_256 = _mm256_permutevar8x32_epi32(band_d_256, idx);
+			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx_perm);
+			band_h_256 = _mm256_permutevar8x32_epi32(band_h_256, idx_perm);
+			band_v_256 = _mm256_permutevar8x32_epi32(band_v_256, idx_perm);
+			band_d_256 = _mm256_permutevar8x32_epi32(band_d_256, idx_perm);
 			
 			_mm256_storeu_si256((__m256i*)(band_a + i * dst_px_stride + j), band_a_256);
 			_mm256_storeu_si256((__m256i*)(band_h + i * dst_px_stride + j), band_h_256);
@@ -355,8 +341,9 @@ void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrd
 
 	int width_rem_size16 = width_div_2 - (width_div_2 % 16);
 	int width_rem_size8 = width_div_2 - (width_div_2 % 8);
-
-    for (i=0; i < (height+1)/2; ++i)
+	__m256i idx_perm = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
+    
+	for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
         row_idx1 = 2*i+1;
@@ -373,13 +360,13 @@ void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrd
 			__m256i src2_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0 + 16));
 			__m256i src2_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0 + 16));
 
-			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 0));
+			__m256i a_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src_a_256));
 			__m256i a_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_a_256, 1));
-			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 0));
+			__m256i b_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src_b_256));
 			__m256i b_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src_b_256, 1));
-			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 0));
+			__m256i a2_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src2_a_256));
 			__m256i a2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_a_256, 1));
-			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 0));
+			__m256i b2_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(src2_b_256));
 			__m256i b2_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(src2_b_256, 1));
 
 			__m256i a_p_b_c_p_d_lo = _mm256_add_epi32(a_lo, b_lo);
@@ -396,9 +383,7 @@ void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrd
 			band_a2_256 = _mm256_srai_epi32(band_a2_256, filter_shift_rnd);
 
 			band_a_256 = _mm256_packs_epi32(band_a_256, band_a2_256);
-
-			__m256i idx = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
-			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx);
+			band_a_256 = _mm256_permutevar8x32_epi32(band_a_256, idx_perm);
 
 			_mm256_storeu_si256((__m256i*)(band_a + i * dst_px_stride + j), band_a_256);
         }
@@ -581,14 +566,13 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 		for (fj = 0; fj < half_fw; fj+=2){
             jj1 = f_l_j + fj;
             jj2 = f_r_j - fj;
+			__m256i coef0 = _mm256_set1_epi16(i_filter_coeffs[fj]);
+			__m256i coef1 = _mm256_set1_epi16(i_filter_coeffs[fj+1]);
 			
 			__m256i d0 = _mm256_loadu_si256((__m256i*)(tmp + jj1));
 			__m256i d20 = _mm256_loadu_si256((__m256i*)(tmp + jj2));
 			__m256i d1 = _mm256_loadu_si256((__m256i*)(tmp + jj1 + 1));
 			__m256i d19 = _mm256_loadu_si256((__m256i*)(tmp + jj2 - 1));
-
-			__m256i coef0 = _mm256_set1_epi16(i_filter_coeffs[fj]);
-			__m256i coef1 = _mm256_set1_epi16(i_filter_coeffs[fj+1]);
 
 			__m256i d0_20_lo = _mm256_unpacklo_epi16(d0, d20);
 			__m256i d0_20_hi = _mm256_unpackhi_epi16(d0, d20);
@@ -630,14 +614,13 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 		for (fj = 0; fj < half_fw; fj+=2){
             jj1 = f_l_j + fj;
             jj2 = f_r_j - fj;
+			__m128i coef0 = _mm_set1_epi16(i_filter_coeffs[fj]);
+			__m128i coef1 = _mm_set1_epi16(i_filter_coeffs[fj+1]);
 
 			__m128i d0 = _mm_loadu_si128((__m128i*)(tmp + jj1));
 			__m128i d20 = _mm_loadu_si128((__m128i*)(tmp + jj2));
 			__m128i d1 = _mm_loadu_si128((__m128i*)(tmp + jj1 + 1));
 			__m128i d19 = _mm_loadu_si128((__m128i*)(tmp + jj2 - 1));
-
-			__m128i coef0 = _mm_set1_epi16(i_filter_coeffs[fj]);
-			__m128i coef1 = _mm_set1_epi16(i_filter_coeffs[fj+1]);
 
 			__m128i d0_20_lo = _mm_unpacklo_epi16(d0, d20);
 			__m128i d0_20_hi = _mm_unpackhi_epi16(d0, d20);
@@ -855,8 +838,8 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				//This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
 				for (fi = 0; fi <= pro_mir_end; fi++){
 					ii = pro_mir_end - fi;
-					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
 					__m256i d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
 					
@@ -880,8 +863,8 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				for ( ; fi < fwidth; fi++)
 				{
 					ii = diff_i_halffw + fi;
-					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
 					__m256i d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
 
@@ -998,7 +981,7 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				for (fi = 0; fi <= pro_mir_end; fi++){
 
 					ii = pro_mir_end - fi;
-					__m128i d0 = _mm_loadu_si64((__m128i*)(src_8b + ii * src_px_stride + j));
+					__m128i d0 = _mm_loadu_si128((__m128i*)(src_8b + ii * src_px_stride + j));
 					__m128i coef = _mm_set1_epi16(i_filter_coeffs[fi]);
 					__m128i d0_lo = _mm_unpacklo_epi8(d0, _mm_setzero_si128());
 					
@@ -1016,7 +999,7 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				for ( ; fi < fwidth; fi++)
 				{
 					ii = diff_i_halffw + fi;
-					__m128i d0 = _mm_loadu_si64((__m128i*)(src_8b + ii * src_px_stride + j));
+					__m128i d0 = _mm_loadu_si128((__m128i*)(src_8b + ii * src_px_stride + j));
 					__m128i coef = _mm_set1_epi16(i_filter_coeffs[fi]);
 					__m128i d0_lo = _mm_unpacklo_epi8(d0, _mm_setzero_si128());
 
@@ -1280,25 +1263,8 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 			}
 		}
 
-#ifdef mesure_filter     
-    vif_start = clock();
-#endif
-
-#ifdef avx2
         /* Horizontal pass. common for 8bit and hbd cases */
 		integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#else
-		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#endif
-
-
-#ifdef mesure_filter
-    vif_end = clock();
-    cpt_hor++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time_hor += cpu_time_used;
-    printf("%f sec\n", cpu_time_used);
-#endif
 
     }
     //This is the core loop
@@ -1321,13 +1287,12 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 
 					ii1 = f_l_i + fi;
 					ii2 = f_r_i - fi;
-
+					__m256i f0_1 = _mm256_set1_epi32(i32_filter_coeffs2[fi / 2]);
 					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii1 * src_px_stride + j));
 					__m256i d20 = _mm256_loadu_si256((__m256i*)(src_8b + ii2 * src_px_stride + j));
 
 					__m256i d1 = _mm256_loadu_si256((__m256i*)(src_8b + (ii1 + 1) * src_px_stride + j));
 					__m256i d19 = _mm256_loadu_si256((__m256i*)(src_8b + (ii2 - 1) * src_px_stride + j));
-					__m256i f0_1 = _mm256_set1_epi32(i32_filter_coeffs2[fi / 2]);
 
 					__m256i d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
 					__m256i d20_lo = _mm256_unpacklo_epi8(d20, _mm256_setzero_si256());
@@ -1335,13 +1300,13 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 					__m256i d20_hi = _mm256_unpackhi_epi8(d20, _mm256_setzero_si256());
 					
 					__m256i d1_lo = _mm256_unpacklo_epi8(d1, _mm256_setzero_si256());
-					__m256i d1_hi = _mm256_unpackhi_epi8(d1, _mm256_setzero_si256());
 					__m256i d19_lo = _mm256_unpacklo_epi8(d19, _mm256_setzero_si256());
+					__m256i d1_hi = _mm256_unpackhi_epi8(d1, _mm256_setzero_si256());
 					__m256i d19_hi = _mm256_unpackhi_epi8(d19, _mm256_setzero_si256());
 					
 					d0_lo = _mm256_add_epi16(d0_lo, d20_lo);
-					d0_hi = _mm256_add_epi16(d0_hi, d20_hi);
 					d1_lo = _mm256_add_epi16(d1_lo, d19_lo);
+					d0_hi = _mm256_add_epi16(d0_hi, d20_hi);
 					d1_hi = _mm256_add_epi16(d1_hi, d19_hi);
 
 					__m256i l0_20_1_19_0 = _mm256_unpacklo_epi16(d0_lo, d1_lo);
@@ -1720,13 +1685,9 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 			}
 		}
 
-
-#ifdef avx2
 		/* Horizontal pass. common for 8bit and hbd cases */
         integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#else
-		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#endif
+
     }
     /**
      * This loop is to handle virtual padding of the bottom border pixels
@@ -1746,8 +1707,8 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				//Here the normal loop is executed where ii = i - fwidth/2 + fi
 				for (fi = 0; fi < epi_last_i; fi++){
 					ii = diff_i_halffw + fi;
-					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
 					__m256i d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
 
@@ -1771,8 +1732,8 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				for ( ; fi < fwidth; fi++)
 				{
 					ii = epi_mir_i - fi;
-					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					__m256i d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
 					__m256i d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
 					__m256i d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
 
@@ -1872,7 +1833,7 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				//Here the normal loop is executed where ii = i - fwidth/2 + fi
 				for (fi = 0; fi < epi_last_i; fi++){
 					ii = diff_i_halffw + fi;
-					__m128i d0 = _mm_loadu_si64((__m128i*)(src_8b + ii * src_px_stride + j));
+					__m128i d0 = _mm_loadu_si128((__m128i*)(src_8b + ii * src_px_stride + j));
 					__m128i coef = _mm_set1_epi16(i_filter_coeffs[fi]);
 					__m128i d0_lo = _mm_unpacklo_epi8(d0, _mm_setzero_si128());
 
@@ -1890,7 +1851,7 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				for ( ; fi < fwidth; fi++)
 				{
 					ii = epi_mir_i - fi;
-					__m128i d0 = _mm_loadu_si64((__m128i*)(src_8b + ii * src_px_stride + j));
+					__m128i d0 = _mm_loadu_si128((__m128i*)(src_8b + ii * src_px_stride + j));
 					__m128i coef = _mm_set1_epi16(i_filter_coeffs[fi]);
 					__m128i d0_lo = _mm_unpacklo_epi8(d0, _mm_setzero_si128());
 
@@ -2120,19 +2081,11 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 		}
-#ifdef avx2
         /* Horizontal pass. common for 8bit and hbd cases */
         integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#else
-  		integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-#endif
     }
 
     aligned_free(tmp);
-
-#ifdef mesure_time
-    printf("filter hor Average time %f sec\n", total_time_hor / cpt_hor);
-#endif
 
     return;
 }

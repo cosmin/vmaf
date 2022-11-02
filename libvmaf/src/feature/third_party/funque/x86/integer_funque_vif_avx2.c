@@ -29,20 +29,6 @@
 #include "integer_funque_vif_avx2.h"
 #include <immintrin.h>
 
-#include <time.h>
-
-//#define mesure_time
-
-#ifdef mesure_time 
-    int cpt = 0;
-    double cpu_time_used, total_time = 0;      
-    clock_t vif_start, vif_end;
-    clock_t filter_start, filter_end;
-    clock_t dwt_start, dwt_end;
-    #define mesure_vif
-    //#define mesure_time
-#endif
-
 #define shuffle2_and_save(addr, lo, hi) \
 { \
     __m256i first  = _mm256_permute2x128_si256(lo, hi, 0x20); \
@@ -293,9 +279,6 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
-#ifdef mesure_vif     
-    vif_start = clock();
-#endif
 
 #if VIF_STABILITY
         vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift, 
@@ -309,14 +292,6 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
-#endif
-
-#ifdef mesure_vif
-    vif_end = clock();
-    cpt++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time += cpu_time_used;
-    //printf("%f sec\n", cpu_time_used);
 #endif
 
 //2nd loop, core loop 
@@ -502,9 +477,6 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
                 interim_x_y[j] = interim_x_y[j] + src_xy_val - src_xy_prekh_val;
             }
 
-#ifdef mesure_time     
-    vif_start = clock();
-#endif
             //horizontal summation and score compuations
 #if VIF_STABILITY
             vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift,  
@@ -522,13 +494,6 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
                                  &score_den_t, &den_power);
 #endif
 
-#ifdef mesure_time
-    vif_end = clock();
-    cpt++;
-    cpu_time_used = ((double) (vif_end - vif_start)) / CLOCKS_PER_SEC;
-    total_time += cpu_time_used;
-    printf("%f sec\n", cpu_time_used);
-#endif
         }
 
         free(interim_2_x);
@@ -562,12 +527,6 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 #endif
 
     ret = 0;
-
-#ifdef mesure_time
-#ifdef mesure_vif
-    printf("Average time %f sec\n", total_time / cpt);
-#endif
-#endif
 
     return ret;
 }
