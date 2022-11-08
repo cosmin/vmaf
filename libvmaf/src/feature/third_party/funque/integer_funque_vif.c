@@ -28,51 +28,6 @@
 #include "integer_funque_vif.h"
 #include <immintrin.h>
 
-#include <time.h>
-
-
-#define avx2
-//#define mesure_time
-
-#ifdef mesure_time 
-    int cpt = 0;
-    double cpu_time_used, total_time = 0;      
-    clock_t vif_start, vif_end;
-    clock_t filter_start, filter_end;
-    clock_t dwt_start, dwt_end;
-    #define mesure_vif
-    //#define mesure_time
-#endif
-
-#define shuffle2_and_save(addr, lo, hi) \
-{ \
-    __m256i first  = _mm256_permute2x128_si256(lo, hi, 0x20); \
-    __m256i second = _mm256_permute2x128_si256(lo, hi, 0x31); \
-    _mm256_storeu_si256((__m256i*)(addr), first); \
-    _mm256_storeu_si256((__m256i*)(addr + 16), second); \
-}
-
-#define shuffle4_and_save(addr, lolo, lohi, hilo, hihi) \
-{ \
-    __m256i first  = _mm256_permute2x128_si256(lolo, lohi, 0x20); \
-    __m256i second = _mm256_permute2x128_si256(hilo, hihi, 0x20); \
-    __m256i third  = _mm256_permute2x128_si256(lolo, lohi, 0x31); \
-    __m256i fourth = _mm256_permute2x128_si256(hilo, hihi, 0x31); \
-    _mm256_storeu_si256((__m256i*)(addr), first); \
-    _mm256_storeu_si256((__m256i*)(addr + 16), second); \
-    _mm256_storeu_si256((__m256i*)(addr + 32), third); \
-    _mm256_storeu_si256((__m256i*)(addr + 48), fourth); \
-}
-
-#define perm_2x64(a, b, r) \
-{ \
-    __m256i tmp_a = _mm256_permute4x64_epi64(a, 0x03); \
-    __m256i tmp_b = _mm256_permute4x64_epi64(b, 0x90); \
-    tmp_a = _mm256_and_si256(tmp_a, _mm256_set_epi64x(0, 0, 0, 0xFFFFFFFF)); \
-    tmp_b = _mm256_and_si256(tmp_b, _mm256_set_epi64x(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0)); \
-    r = _mm256_add_epi64(tmp_a, tmp_b); \
-}
-
 // just change the store offset to reduce multiple calculation when getting log value
 void funque_log_generate(uint32_t* log_18)
 {

@@ -170,54 +170,52 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
         __m256i interim_xy9_m_xy0 = _mm256_sub_epi64(interim_x_y9_256, interim_x_y0_256);
         __m256i interim_xy13_m_xy4 = _mm256_sub_epi64(interim_x_y13_256, interim_x_y4_256);
 
-        int int_1_x1, int_1_x2, int_1_x3, int_1_x4, int_1_x5, int_1_x6, int_1_x7;
-/*
         int_1_x0 = int_1_x + _mm256_extract_epi32(interim_1x9_m_x0, 0);
-        int int_1_x1 = int_1_x0 + _mm256_extract_epi32(interim_1x9_m_x0, 1);
-        int int_1_x2 = int_1_x1 + _mm256_extract_epi32(interim_1x9_m_x0, 2);
-        int int_1_x3 = int_1_x2 + _mm256_extract_epi32(interim_1x9_m_x0, 3);
-        int int_1_x4 = int_1_x3 + _mm256_extract_epi32(interim_1x9_m_x0, 4);
-        int int_1_x5 = int_1_x4 + _mm256_extract_epi32(interim_1x9_m_x0, 5);
-        int int_1_x6 = int_1_x5 + _mm256_extract_epi32(interim_1x9_m_x0, 6);
-        int int_1_x7 = int_1_x6 + _mm256_extract_epi32(interim_1x9_m_x0, 7);
-*/
-        extract_and_sum(interim_1x9_m_x0, int_1_x, int_1_x0, int_1_x1, int_1_x2, int_1_x3, int_1_x4, \
-        int_1_x5, int_1_x6, int_1_x7);
-
         int_1_y0 = int_1_y + _mm256_extract_epi32(interim_1y9_m_y0, 0);
-        int int_1_y1 = int_1_y0 + _mm256_extract_epi32(interim_1y9_m_y0, 1);
-        int int_1_y2 = int_1_y1 + _mm256_extract_epi32(interim_1y9_m_y0, 2);
-        int int_1_y3 = int_1_y2 + _mm256_extract_epi32(interim_1y9_m_y0, 3);
-        int int_1_y4 = int_1_y3 + _mm256_extract_epi32(interim_1y9_m_y0, 4);
-        int int_1_y5 = int_1_y4 + _mm256_extract_epi32(interim_1y9_m_y0, 5);
-        int int_1_y6 = int_1_y5 + _mm256_extract_epi32(interim_1y9_m_y0, 6);
-        int int_1_y7 = int_1_y6 + _mm256_extract_epi32(interim_1y9_m_y0, 7);
-
         int_2_x0 = int_2_x + _mm256_extract_epi64(interim_2x9_m_x0, 0);
-        int64_t int_2_x1 = int_2_x0 + _mm256_extract_epi64(interim_2x9_m_x0, 1);
-        int64_t int_2_x2 = int_2_x1 + _mm256_extract_epi64(interim_2x9_m_x0, 2);
-        int64_t int_2_x3 = int_2_x2 + _mm256_extract_epi64(interim_2x9_m_x0, 3);
-        int64_t int_2_x4 = int_2_x3 + _mm256_extract_epi64(interim_2x13_m_x4, 0);
-        int64_t int_2_x5 = int_2_x4 + _mm256_extract_epi64(interim_2x13_m_x4, 1);
-        int64_t int_2_x6 = int_2_x5 + _mm256_extract_epi64(interim_2x13_m_x4, 2);
-        int64_t int_2_x7 = int_2_x6 + _mm256_extract_epi64(interim_2x13_m_x4, 3);
-
         int_2_y0 = int_2_y + _mm256_extract_epi64(interim_2y9_m_y0, 0);
-        int64_t int_2_y1 = int_2_y0 + _mm256_extract_epi64(interim_2y9_m_y0, 1);
-        int64_t int_2_y2 = int_2_y1 + _mm256_extract_epi64(interim_2y9_m_y0, 2);
-        int64_t int_2_y3 = int_2_y2 + _mm256_extract_epi64(interim_2y9_m_y0, 3);
-        int64_t int_2_y4 = int_2_y3 + _mm256_extract_epi64(interim_2y13_m_y4, 0);
-        int64_t int_2_y5 = int_2_y4 + _mm256_extract_epi64(interim_2y13_m_y4, 1);
-        int64_t int_2_y6 = int_2_y5 + _mm256_extract_epi64(interim_2y13_m_y4, 2);
-        int64_t int_2_y7 = int_2_y6 + _mm256_extract_epi64(interim_2y13_m_y4, 3);
-
         int_x_y0 = int_x_y + _mm256_extract_epi64(interim_xy9_m_xy0, 0);
+
+        int int_1_x1 = int_1_x0 + _mm256_extract_epi32(interim_1x9_m_x0, 1);
+        int int_1_y1 = int_1_y0 + _mm256_extract_epi32(interim_1y9_m_y0, 1);
+        int64_t int_2_x1 = int_2_x0 + _mm256_extract_epi64(interim_2x9_m_x0, 1);
+        int64_t int_2_y1 = int_2_y0 + _mm256_extract_epi64(interim_2y9_m_y0, 1);
         int64_t int_x_y1 = int_x_y0 + _mm256_extract_epi64(interim_xy9_m_xy0, 1);
+
+        int int_1_x2 = int_1_x1 + _mm256_extract_epi32(interim_1x9_m_x0, 2);
+        int int_1_y2 = int_1_y1 + _mm256_extract_epi32(interim_1y9_m_y0, 2);
+        int64_t int_2_x2 = int_2_x1 + _mm256_extract_epi64(interim_2x9_m_x0, 2);
+        int64_t int_2_y2 = int_2_y1 + _mm256_extract_epi64(interim_2y9_m_y0, 2);
         int64_t int_x_y2 = int_x_y1 + _mm256_extract_epi64(interim_xy9_m_xy0, 2);
+
+        int int_1_x3 = int_1_x2 + _mm256_extract_epi32(interim_1x9_m_x0, 3);
+        int int_1_y3 = int_1_y2 + _mm256_extract_epi32(interim_1y9_m_y0, 3);
+        int64_t int_2_x3 = int_2_x2 + _mm256_extract_epi64(interim_2x9_m_x0, 3);
+        int64_t int_2_y3 = int_2_y2 + _mm256_extract_epi64(interim_2y9_m_y0, 3);
         int64_t int_x_y3 = int_x_y2 + _mm256_extract_epi64(interim_xy9_m_xy0, 3);
+
+        int int_1_x4 = int_1_x3 + _mm256_extract_epi32(interim_1x9_m_x0, 4);
+        int int_1_y4 = int_1_y3 + _mm256_extract_epi32(interim_1y9_m_y0, 4);
+        int64_t int_2_x4 = int_2_x3 + _mm256_extract_epi64(interim_2x13_m_x4, 0);
+        int64_t int_2_y4 = int_2_y3 + _mm256_extract_epi64(interim_2y13_m_y4, 0);
         int64_t int_x_y4 = int_x_y3 + _mm256_extract_epi64(interim_xy13_m_xy4, 0);
+
+        int int_1_x5 = int_1_x4 + _mm256_extract_epi32(interim_1x9_m_x0, 5);
+        int int_1_y5 = int_1_y4 + _mm256_extract_epi32(interim_1y9_m_y0, 5);
+        int64_t int_2_x5 = int_2_x4 + _mm256_extract_epi64(interim_2x13_m_x4, 1);
+        int64_t int_2_y5 = int_2_y4 + _mm256_extract_epi64(interim_2y13_m_y4, 1);
         int64_t int_x_y5 = int_x_y4 + _mm256_extract_epi64(interim_xy13_m_xy4, 1);
+
+        int int_1_x6 = int_1_x5 + _mm256_extract_epi32(interim_1x9_m_x0, 6);
+        int int_1_y6 = int_1_y5 + _mm256_extract_epi32(interim_1y9_m_y0, 6);
+        int64_t int_2_x6 = int_2_x5 + _mm256_extract_epi64(interim_2x13_m_x4, 2);
+        int64_t int_2_y6 = int_2_y5 + _mm256_extract_epi64(interim_2y13_m_y4, 2);
         int64_t int_x_y6 = int_x_y5 + _mm256_extract_epi64(interim_xy13_m_xy4, 2);
+
+        int int_1_x7 = int_1_x6 + _mm256_extract_epi32(interim_1x9_m_x0, 7);
+        int int_1_y7 = int_1_y6 + _mm256_extract_epi32(interim_1y9_m_y0, 7);
+        int64_t int_2_x7 = int_2_x6 + _mm256_extract_epi64(interim_2x13_m_x4, 3);
+        int64_t int_2_y7 = int_2_y6 + _mm256_extract_epi64(interim_2y13_m_y4, 3);
         int64_t int_x_y7 = int_x_y6 + _mm256_extract_epi64(interim_xy13_m_xy4, 3);
 
 #if VIF_STABILITY
