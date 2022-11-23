@@ -49,7 +49,8 @@
     r_64x4_hi = _mm_cvtepi32_epi64(_mm_shuffle_epi32(a_32x8, 0x0E)); \
 }
 
-#define Multiply64Bit_256(ab, cd, res){ \ 
+#define Multiply64Bit_256(ab, cd, res) \
+{ \
     __m256i ac = _mm256_mul_epu32(ab, cd); \
     __m256i b = _mm256_srli_epi64(ab, 32); \
     __m256i bc = _mm256_mul_epu32(b, cd); \
@@ -57,9 +58,11 @@
     __m256i ad = _mm256_mul_epu32(ab, d); \
     __m256i high = _mm256_add_epi64(bc, ad); \
     high = _mm256_slli_epi64(high, 32); \
-    res = _mm256_add_epi64(high, ac); } 
+    res = _mm256_add_epi64(high, ac); \
+} 
 
-#define Multiply64Bit_128(ab, cd, res){ \ 
+#define Multiply64Bit_128(ab, cd, res) \
+{ \
     __m128i ac = _mm_mul_epu32(ab, cd); \
     __m128i b = _mm_srli_epi64(ab, 32); \
     __m128i bc = _mm_mul_epu32(b, cd); \
@@ -67,7 +70,8 @@
     __m128i ad = _mm_mul_epu32(ab, d); \
     __m128i high = _mm_add_epi64(bc, ad); \
     high = _mm_slli_epi64(high, 32); \
-    res = _mm_add_epi64(high, ac); } 
+    res = _mm_add_epi64(high, ac); \
+} 
 
 static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 {
@@ -102,8 +106,6 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
 
     ssim_inter_dtype var_x, var_y, cov_xy;
     ssim_inter_dtype map;
-    ssim_accum_dtype map_num;
-    ssim_accum_dtype map_den;
     int16_t i16_map_den;
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
@@ -119,7 +121,6 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     ssim_accum_dtype map_sq_insum = 0;
 #endif
 
-    __m256i l_sh = _mm256_srli_epi32(_mm256_set1_epi32(2), SSIM_INTER_L_SHIFT);
     __m256i C1_256 = _mm256_set1_epi32(C1);
     __m256i C2_256 = _mm256_set1_epi32(C2);
     __m128i C1_128 = _mm_set1_epi32(C1);

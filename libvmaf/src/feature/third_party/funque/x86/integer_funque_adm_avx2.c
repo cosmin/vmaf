@@ -32,7 +32,6 @@
 #include "../integer_funque_filters.h"
 #include <immintrin.h>
 
-static const int32_t div_Q_factor = 1073741824; // 2^30
 
 #define cvt_1_16x16_to_2_32x8(a_16x16, r_32x8_lo, r_32x8_hi) \
 { \
@@ -154,11 +153,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
     // int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     uint16_t angle_flag_table[16];
-    int32_t *buf1_adm_div = (int32_t *)malloc(8 * sizeof(int32_t *));
-    int32_t *buf2_adm_div = (int32_t *)malloc(8 * sizeof(int32_t *));
-    int32_t *buf3_adm_div = (int32_t *)malloc(8 * sizeof(int32_t *));
 
-    __m256i cos_1deg_sq_256 = _mm256_set1_epi64x(COS_1DEG_SQ);
 	int loop_w_16 = loop_w - ((loop_w - border_w) % 16);
     int loop_w_8 = loop_w - ((loop_w - border_w) % 8);
 
@@ -194,10 +189,10 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
 			restIndex = (i - border_h) * (dlm_width) + j - border_w;
 
-            __m256i ref_b1_256 = _mm256_loadu_si256((__m256*)(ref.bands[1] + index));
-            __m256i dis_b1_256 = _mm256_loadu_si256((__m256*)(dist.bands[1] + index));
-            __m256i ref_b2_256 = _mm256_loadu_si256((__m256*)(ref.bands[2] + index));
-            __m256i dis_b2_256 = _mm256_loadu_si256((__m256*)(dist.bands[2] + index));
+            __m256i ref_b1_256 = _mm256_loadu_si256((__m256i*)(ref.bands[1] + index));
+            __m256i dis_b1_256 = _mm256_loadu_si256((__m256i*)(dist.bands[1] + index));
+            __m256i ref_b2_256 = _mm256_loadu_si256((__m256i*)(ref.bands[2] + index));
+            __m256i dis_b2_256 = _mm256_loadu_si256((__m256i*)(dist.bands[2] + index));
 
             __m256i ref_b1b2_lo = _mm256_unpacklo_epi16(ref_b1_256, ref_b2_256);
             __m256i ref_b1b2_hi = _mm256_unpackhi_epi16(ref_b1_256, ref_b2_256);
@@ -235,10 +230,8 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             angle_flag_table[5], angle_flag_table[4], angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
             __m256i dlm_add_select = _mm256_mullo_epi16(angle_256, _mm256_set1_epi16(0xFFFF));
             
-            __m256i dis_b3_256 = _mm256_loadu_si256((__m256*)(dist.bands[3] + index));
-            __m256i ref_b3_256 = _mm256_loadu_si256((__m256*)(ref.bands[3] + index));
-
-            __m256i dis_b1_0, dis_b1_8, dis_b2_0, dis_b2_8, dis_b3_0, dis_b3_8;
+            __m256i dis_b3_256 = _mm256_loadu_si256((__m256i*)(dist.bands[3] + index));
+            __m256i ref_b3_256 = _mm256_loadu_si256((__m256i*)(ref.bands[3] + index));
 
             __m256i adm_div_b1_lo, adm_div_b1_hi, adm_div_b2_lo, adm_div_b2_hi, adm_div_b3_lo, adm_div_b3_hi;
 
@@ -501,9 +494,9 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m256i dist_m_dlm_rest_b3 = _mm256_abs_epi16(_mm256_sub_epi16(dis_b3_256, dlm_rest_b3_256));            
             dlm_add_256 = _mm256_adds_epu16(dlm_add_256, dist_m_dlm_rest_b3);
 
-            _mm256_storeu_si256((__m256*)(i_dlm_rest.bands[1] + restIndex), dlm_rest_b1_256);
-            _mm256_storeu_si256((__m256*)(i_dlm_rest.bands[2] + restIndex), dlm_rest_b2_256);
-            _mm256_storeu_si256((__m256*)(i_dlm_rest.bands[3] + restIndex), dlm_rest_b3_256);
+            _mm256_storeu_si256((__m256i*)(i_dlm_rest.bands[1] + restIndex), dlm_rest_b1_256);
+            _mm256_storeu_si256((__m256i*)(i_dlm_rest.bands[2] + restIndex), dlm_rest_b2_256);
+            _mm256_storeu_si256((__m256i*)(i_dlm_rest.bands[3] + restIndex), dlm_rest_b3_256);
 
             __m256i dlm_add_lo = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(dlm_add_256));
             __m256i dlm_add_hi = _mm256_cvtepu16_epi32(_mm256_extracti128_si256(dlm_add_256, 1));
@@ -515,8 +508,8 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             ref_b3_lo = _mm256_abs_epi32(ref_b3_lo);
             ref_b3_hi = _mm256_abs_epi32(ref_b3_hi);
 
-            _mm256_storeu_si256((__m256*)(i_dlm_add + addIndex), dlm_add_lo);
-            _mm256_storeu_si256((__m256*)(i_dlm_add + addIndex + 8), dlm_add_hi);
+            _mm256_storeu_si256((__m256i*)(i_dlm_add + addIndex), dlm_add_lo);
+            _mm256_storeu_si256((__m256i*)(i_dlm_add + addIndex + 8), dlm_add_hi);
 
             __m256i ref_b_ref_b1_lo = _mm256_mullo_epi32(ref_b1_lo, ref_b1_lo);
             __m256i ref_b_ref_b1_hi = _mm256_mullo_epi32(ref_b1_hi, ref_b1_hi);
@@ -580,10 +573,10 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
 			restIndex = (i - border_h) * (dlm_width) + j - border_w;
 
-            __m128i ref_b1_128 = _mm_loadu_si128((__m128*)(ref.bands[1] + index));
-            __m128i dis_b1_128 = _mm_loadu_si128((__m128*)(dist.bands[1] + index));
-            __m128i ref_b2_128 = _mm_loadu_si128((__m128*)(ref.bands[2] + index));
-            __m128i dis_b2_128 = _mm_loadu_si128((__m128*)(dist.bands[2] + index));
+            __m128i ref_b1_128 = _mm_loadu_si128((__m128i*)(ref.bands[1] + index));
+            __m128i dis_b1_128 = _mm_loadu_si128((__m128i*)(dist.bands[1] + index));
+            __m128i ref_b2_128 = _mm_loadu_si128((__m128i*)(ref.bands[2] + index));
+            __m128i dis_b2_128 = _mm_loadu_si128((__m128i*)(dist.bands[2] + index));
 
             //printf("ref_b1: ");print_128_epi16(ref_b1_128);
             //printf("ref_b2: ");print_128_epi16(ref_b2_128);
@@ -619,10 +612,9 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
                                                 angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
             __m128i dlm_add_select = _mm_mullo_epi16(angle_128, _mm_set1_epi16(0xFFFF));
             
-            __m128i dis_b3_128 = _mm_loadu_si128((__m128*)(dist.bands[3] + index));
-            __m128i ref_b3_128 = _mm_loadu_si128((__m128*)(ref.bands[3] + index));
+            __m128i dis_b3_128 = _mm_loadu_si128((__m128i*)(dist.bands[3] + index));
+            __m128i ref_b3_128 = _mm_loadu_si128((__m128i*)(ref.bands[3] + index));
 
-            __m128i dis_b1_0, dis_b1_8, dis_b2_0, dis_b2_8, dis_b3_0, dis_b3_8;
             __m128i adm_div_b1_lo, adm_div_b1_hi, adm_div_b2_lo, adm_div_b2_hi, adm_div_b3_lo, adm_div_b3_hi;
 
             // 0 2 1 3
@@ -882,9 +874,9 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i dist_m_dlm_rest_b3 = _mm_abs_epi16(_mm_sub_epi16(dis_b3_128, dlm_rest_b3_256));            
             dlm_add_256 = _mm_adds_epu16(dlm_add_256, dist_m_dlm_rest_b3);
 
-            _mm_storeu_si128((__m128*)(i_dlm_rest.bands[1] + restIndex), dlm_rest_b1_256);
-            _mm_storeu_si128((__m128*)(i_dlm_rest.bands[2] + restIndex), dlm_rest_b2_256);
-            _mm_storeu_si128((__m128*)(i_dlm_rest.bands[3] + restIndex), dlm_rest_b3_256);
+            _mm_storeu_si128((__m128i*)(i_dlm_rest.bands[1] + restIndex), dlm_rest_b1_256);
+            _mm_storeu_si128((__m128i*)(i_dlm_rest.bands[2] + restIndex), dlm_rest_b2_256);
+            _mm_storeu_si128((__m128i*)(i_dlm_rest.bands[3] + restIndex), dlm_rest_b3_256);
 
             __m128i dlm_add_lo = _mm_cvtepu16_epi32(dlm_add_256);
             __m128i dlm_add_hi = _mm_cvtepu16_epi32(_mm_shuffle_epi32(dlm_add_256, 0x0E));
@@ -896,8 +888,8 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             ref_b3_lo = _mm_abs_epi32(ref_b3_lo);
             ref_b3_hi = _mm_abs_epi32(ref_b3_hi);
 
-            _mm_storeu_si128((__m128*)(i_dlm_add + addIndex), dlm_add_lo);
-            _mm_storeu_si128((__m128*)(i_dlm_add + addIndex + 4), dlm_add_hi);
+            _mm_storeu_si128((__m128i*)(i_dlm_add + addIndex), dlm_add_lo);
+            _mm_storeu_si128((__m128i*)(i_dlm_add + addIndex + 4), dlm_add_hi);
 
             __m128i ref_b_ref_b1_lo = _mm_mullo_epi32(ref_b1_lo, ref_b1_lo);
             __m128i ref_b_ref_b1_hi = _mm_mullo_epi32(ref_b1_hi, ref_b1_hi);

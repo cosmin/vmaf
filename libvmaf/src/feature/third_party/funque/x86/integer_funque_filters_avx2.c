@@ -59,8 +59,6 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 
 	__m256i filter_shift_256 = _mm256_set1_epi32(filter_shift);
 	__m128i filter_shift_128 = _mm_set1_epi32(filter_shift);	
-	__m256i filter_shift16_256 = _mm256_set1_epi16(filter_shift);
-	__m256i filter_shift_rnd_256 = _mm256_set1_epi32(filter_shift_rnd);
 
     /**
      * Last column due to padding the values are left shifted and then right shifted
@@ -84,7 +82,6 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
     int i, j;
 
 	int width_rem_size = width_div_2 - (width_div_2 % 16);
-	int width_rem_size16 = width_div_2 - (width_div_2 % 16);
 	int width_rem_size8 = width_div_2 - (width_div_2 % 8);
 
 	__m256i idx_perm = _mm256_set_epi32(7, 3, 6, 2, 5, 1, 4, 0);
@@ -100,7 +97,6 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 		for(j=0; j< width_rem_size; j+=16)
 		{
 			int col_idx0 = (j << 1);
-			int col_idx1 = (j << 1) + 1;
 
 			__m256i src_a_256 = _mm256_loadu_si256((__m256i*)(src + row0_offset + col_idx0));
 			__m256i src_b_256 = _mm256_loadu_si256((__m256i*)(src + row1_offset + col_idx0));
@@ -177,7 +173,6 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 		for(; j< width_rem_size8; j+=8)
 		{
 			int col_idx0 = (j << 1);
-			int col_idx1 = (j << 1) + 1;
 
 			__m128i src_a_128 = _mm_loadu_si128((__m128i*)(src + row0_offset + col_idx0));
 			__m128i src_b_128 = _mm_loadu_si128((__m128i*)(src + row1_offset + col_idx0));
@@ -480,7 +475,7 @@ void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrd
 
 static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
 {
-    int j, fj, jj, jj1, jj2;
+    int j, fj, jj1, jj2;
     __m256i mul0_lo, mul0_hi, mul1_lo, mul1_hi, res0, res4, res8, res12;
 	__m256i tmp0_lo, tmp0_hi, tmp1_lo, tmp1_hi;
 
@@ -491,7 +486,7 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
         14498, 4677, -66, -1547, -1798, -1669, -1452, -1239, -1054, -900, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
-
+	(void)fwidth;
 	res0 = res4 = res8 = res12 = _mm256_setzero_si256();
 	__m256i d0 = _mm256_load_si256((__m256i*)(tmp));
 	__m256i d1 = _mm256_load_si256((__m256i*)(tmp + 16));
@@ -679,7 +674,6 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 	d0 = _mm256_loadu_si256((__m256i*)(tmp + j - 6));
 	d1 = _mm256_loadu_si256((__m256i*)(tmp + j - 22));
 
-	int i = j;
 	for (; j < (width - 6); j++)
 	{
 		int fi0 = half_filter_table_w + width - half_fw - j - 6;
@@ -758,16 +752,16 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 
 	// For madd version
 	const spat_fil_accum_dtype i32_filter_coeffs2[11] = {
-        -900 + (-1054 << 16) + (1 << 16),
-		-1239 + (-1452 << 16) + (1 << 16),
-		-1669 + (-1798 << 16) + (1 << 16),
-		-1547 + (-66 << 16) + (1 << 16),
+        -900 + (spat_fil_accum_dtype)(((unsigned int)-1054) << 16) + (1 << 16),
+		-1239 + (spat_fil_accum_dtype)(((unsigned int)-1452) << 16) + (1 << 16),
+		-1669 + (spat_fil_accum_dtype)(((unsigned int)-1798) << 16) + (1 << 16),
+		-1547 + (spat_fil_accum_dtype)(((unsigned int)-66) << 16) + (1 << 16),
 		4677 + (14498 << 16) /* + (1 << 16) */,
 		21495 + (14498 << 16) /* + (1 << 16) */,
-		4677 + (-66 << 16) /* + (1 << 16) */,
-		-1547 + (-1798 << 16) + (1 << 16),
-		-1669 + (-1452 << 16) + (1 << 16),
-		-1239 + (-1054 << 16) + (1 << 16),
+		4677 + (spat_fil_accum_dtype)(((unsigned int)-66) << 16) /* + (1 << 16) */,
+		-1547 + (spat_fil_accum_dtype)(((unsigned int)-1798) << 16) + (1 << 16),
+		-1669 + (spat_fil_accum_dtype)(((unsigned int)-1452) << 16) + (1 << 16),
+		-1239 + (spat_fil_accum_dtype)(((unsigned int)-1054) << 16) + (1 << 16),
 		-900 + (1 << 16)
     };
 
