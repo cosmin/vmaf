@@ -126,8 +126,8 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     __m128i C1_128 = _mm_set1_epi32(C1);
     __m128i C2_128 = _mm_set1_epi32(C2);
 
-    int64_t *numVal = (int64_t *)malloc(width * sizeof(int64_t *));
-    int64_t *denVal = (int64_t *)malloc(width * sizeof(int64_t *));
+    int64_t *numVal = (int64_t *)malloc(width * sizeof(int64_t));
+    int64_t *denVal = (int64_t *)malloc(width * sizeof(int64_t));
 
 	int width_rem_size16 = width - (width % 16);
     int width_rem_size8 = width - (width % 8);

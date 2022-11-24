@@ -1000,15 +1000,16 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
         den_row_sum[0] = 0;
         den_row_sum[1] = 0;
         den_row_sum[2] = 0;
-
+#if ADM_REFLECT_PAD
         if(!extra_sample_w)
 		{
 			addIndex = (i + 1 - border_h) * (dlm_add_w);
 			i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
 			i_dlm_add[addIndex + dlm_width + 1] = i_dlm_add[addIndex + dlm_width - 1];
 		}
+#endif
     }
-
+#if ADM_REFLECT_PAD
 	if(!extra_sample_h)
 	{
 		int row2Idx = 2 * (dlm_add_w);
@@ -1019,7 +1020,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
 
 		memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_width+2));
 	}
-    
+#endif 
     //Calculating denominator score
     double den_band = 0;
     for(k=0; k<3; k++)
