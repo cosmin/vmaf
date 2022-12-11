@@ -22,47 +22,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "funque_vif_options.h"
-#include "integer_funque_filters.h"
-#include "common/macros.h"
-#include "integer_funque_vif.h"
+#include "../funque_vif_options.h"
+#include "../integer_funque_filters.h"
+#include "../common/macros.h"
+#include "../integer_funque_vif.h"
+#include "integer_funque_vif_avx2.h"
 #include <immintrin.h>
-
-// just change the store offset to reduce multiple calculation when getting log value
-void funque_log_generate(uint32_t* log_18)
-{
-    uint64_t i;
-    uint64_t start = (unsigned int)pow(2, 17);
-    uint64_t end = (unsigned int)pow(2, 18);
-	for (i = start; i < end; i++)
-    {
-		log_18[i] = (uint32_t)round(log2((double)i) * (1 << 26));
-    }
-}
-
-void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
-{
-    size_t out_width = width + 2 * reflect;
-    size_t out_height = height + 2 * reflect;
-
-    for (size_t i = reflect; i != (out_height - reflect); i++) {
-
-        for (int j = 0; j != reflect; j++)
-        {
-            dest[i * out_width + (reflect - 1 - j)] = src[(i - reflect) * width + j + 1];
-        }
-
-        memcpy(&dest[i * out_width + reflect], &src[(i - reflect) * width], sizeof(dwt2_dtype) * width);
-
-        for (int j = 0; j != reflect; j++)
-            dest[i * out_width + out_width - reflect + j] = dest[i * out_width + out_width - reflect - 2 - j];
-    }
-
-    for (int i = 0; i != reflect; i++) {
-        memcpy(&dest[(reflect - 1) * out_width - i * out_width], &dest[reflect * out_width + (i + 1) * out_width], sizeof(dwt2_dtype) * out_width);
-        memcpy(&dest[(out_height - reflect) * out_width + i * out_width], &dest[(out_height - reflect - 1) * out_width - (i + 1) * out_width], sizeof(dwt2_dtype) * out_width);
-    }
-}
 
 #if USE_DYNAMIC_SIGMA_NSQ
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
@@ -70,7 +35,7 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
                                  int k, int stride, double sigma_nsq_arg, 
                                  int64_t shift_val, uint32_t* log_18, int vif_level)
 #else
-int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
+int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
                                  int64_t shift_val, uint32_t* log_18)
@@ -110,9 +75,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     y_pad_t = y_t;
 #endif
 
-    // int32_t int_1_x, int_1_y;
-    // int64_t int_2_x, int_2_y, int_x_y;
-
     int64_t exp_t = 1; // using 1 because exp in Q32 format is still 0
     int32_t sigma_nsq_t = (int64_t)((int64_t)sigma_nsq_arg*shift_val*shift_val*k_norm) >> VIF_COMPUTE_METRIC_R_SHIFT ;
 #if VIF_STABILITY
@@ -130,16 +92,13 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
     int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
 
-
     {
         int width_p1 = r_width + 1;
         int height_p1 = r_height + 1;
         int64_t *interim_2_x = (int64_t*)malloc(width_p1 * sizeof(int64_t));
         int32_t *interim_1_x = (int32_t*)malloc(width_p1 * sizeof(int32_t));
-        
         int64_t *interim_2_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
         int32_t *interim_1_y = (int32_t*)malloc(width_p1 * sizeof(int32_t));
-        
         int64_t *interim_x_y = (int64_t*)malloc(width_p1 * sizeof(int64_t));
 
         memset(interim_2_x, 0, width_p1 * sizeof(int64_t));
@@ -181,7 +140,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
                 interim_1_y[j] = interim_1_y[j] + src_y_val;
                 interim_2_y[j] = interim_2_y[j] + src_yy_val;
                 interim_x_y[j] = interim_x_y[j] + src_xy_val;
-
             }
         }
         /**
@@ -191,20 +149,18 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
 
 #if VIF_STABILITY
-        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
+        vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift, 
                              exp_t, sigma_nsq_t, log_18,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power, shift_val, k_norm);
 #else
-        vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
+        vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift, 
                              exp_t, sigma_nsq_t, log_18,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
-
 #endif
-
 
         //2nd loop, core loop 
         for(; i<height_p1; i++)
@@ -238,7 +194,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
                 interim_1_y[j] = interim_1_y[j] + src_y_val - src_y_prekh_val;
                 interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
                 interim_x_y[j] = interim_x_y[j] + src_xy_val - src_xy_prekh_val;
-
             }
 
             //horizontal summation and score compuations
