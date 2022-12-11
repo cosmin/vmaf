@@ -255,7 +255,17 @@ if is_asm_enabled
           feature_src_dir + 'x86/vif_avx2.c',
           feature_src_dir + 'x86/adm_avx2.c',
           feature_src_dir + 'x86/cambi_avx2.c',
+          feature_src_dir + 'x86/cambi_avx2.c',
       ]
+
+        if funque_fixed_enabled
+            x86_avx2_sources += [
+                funque_feature_dir + 'x86/integer_funque_filters_avx2.c',
+                funque_feature_dir + 'x86/integer_funque_vif_avx2.c',
+                funque_feature_dir + 'x86/integer_funque_ssim_avx2.c',
+                funque_feature_dir + 'x86/integer_funque_adm_avx2.c',
+            ]
+        endif          
 
       x86_avx2_static_lib = static_library(
           'x86_avx2',

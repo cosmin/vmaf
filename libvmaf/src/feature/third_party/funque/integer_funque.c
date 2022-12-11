@@ -51,6 +51,18 @@
 #include "arm32/integer_funque_adm_armv7.h"
 #endif
 
+#if ARCH_X86
+#include "x86/integer_funque_filters_avx2.h"
+#include "x86/integer_funque_vif_avx2.h"
+#include "x86/integer_funque_ssim_avx2.h"
+#include "x86/integer_funque_adm_avx2.h"
+#endif
+
+#include "cpu.h"
+
+#include <time.h>
+#include <sys/time.h>
+
 typedef struct IntFunqueState
 {
     size_t width_aligned_stride;
@@ -307,6 +319,16 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
     s->resize_module.resizer_step = step;
+
+    unsigned flags = vmaf_get_cpu_flags();
+    if (flags & VMAF_X86_CPU_FLAG_AVX2) {
+        s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
+    }
+
 #if ARCH_AARCH64
     if (bpc == 8)
     {
@@ -407,7 +429,6 @@ static int extract(VmafFeatureExtractor *fex,
 
     s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-
     s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
@@ -464,7 +485,6 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
 
-
 #if USE_DYNAMIC_SIGMA_NSQ
     err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18, 0);
@@ -485,8 +505,17 @@ static int extract(VmafFeatureExtractor *fex,
     for(int vif_level=1; vif_level<s->vif_levels; vif_level++)
     {
         int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts << vif_level))) * bitdepth_pow2;;
+    
+    unsigned flags = vmaf_get_cpu_flags();
+    if (flags & VMAF_X86_CPU_FLAG_AVX2) {
+        integer_funque_vifdwt2_band0_avx2(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+        integer_funque_vifdwt2_band0_avx2(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+    }
+    else {
         integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
         integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
+    }
+
         vifdwt_stride = (vifdwt_stride + 1)/2;
         vifdwt_width = (vifdwt_width + 1)/2;
         vifdwt_height = (vifdwt_height + 1)/2;
