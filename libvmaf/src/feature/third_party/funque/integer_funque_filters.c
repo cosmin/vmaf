@@ -25,6 +25,39 @@
 #include "mem.h"
 #include "offset.h"
 #include "integer_funque_filters.h"
+#include <immintrin.h>
+
+#define avx2
+
+//#define mesure_time
+#include <time.h>
+
+#ifdef mesure_time 
+    int cpt_hor = 0;
+    double cpu_time_used, total_time_hor = 0;
+    clock_t vif_start, vif_end;
+    clock_t filter_start, filter_end;
+    clock_t dwt_start, dwt_end;
+    //#define mesure_vif
+    #define mesure_filter
+#endif
+
+#define hor_sum_and_store(addr, r) \
+{ \
+	__m128i r4 = _mm_add_epi32(_mm256_castsi256_si128(r), _mm256_extracti128_si256(r, 1)); \
+	__m128i r2 = _mm_hadd_epi32(r4, r4); \
+	__m128i r1 = _mm_hadd_epi32(r2, r2); \
+	int r = _mm_cvtsi128_si32(r1); \
+	dst[dst_row_idx + j] = (spat_fil_output_dtype) ((r + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT); \
+}
+
+#define shuffle_and_store(addr, v0, v8) \
+{ \
+	__m256i r0 = _mm256_permute2x128_si256(v0, v8, 0x20); \
+	__m256i r8 = _mm256_permute2x128_si256(v0, v8, 0x31); \
+	_mm256_store_si256((__m256i*)(addr), r0); \
+	_mm256_store_si256((__m256i*)(addr + 16), r8); \
+}
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
@@ -540,4 +573,3 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, in
 
     return;
 }
-
