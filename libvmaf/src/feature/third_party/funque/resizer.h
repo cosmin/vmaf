@@ -15,6 +15,8 @@
  *     limitations under the License.
  *
  */
+#ifndef FEATURE_RESIZER_H_
+#define FEATURE_RESIZER_H_
 
 // #include "integer_funque_filters.h"
 
@@ -49,3 +51,5 @@ void step(const unsigned char *_src, unsigned char *_dst, const int *xofs, const
 #endif
 void resize(ResizerState m, const unsigned char* _src, unsigned char* _dst, int iwidth, int iheight, int dwidth, int dheight);
 void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth);
+
+#endif /* _FEATURE_RESIZER_H_ */

@@ -57,6 +57,7 @@
 #include "x86/integer_funque_ssim_avx2.h"
 #include "x86/integer_funque_adm_avx2.h"
 #include "x86/integer_funque_motion_avx2.h"
+#include "x86/resizer_avx2.h"
 #endif
 
 #include "cpu.h"
@@ -329,6 +330,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
+        s->resize_module.resizer_step = step_avx2;
     }
 
 #if ARCH_AARCH64
@@ -394,7 +396,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     VmafPicture *res_ref_pic = &s->res_ref_pic;
     VmafPicture *res_dist_pic = &s->res_dist_pic;
-
+    unsigned flags = vmaf_get_cpu_flags();
     if (s->enable_resize)
     {
         res_ref_pic->bpc = ref_pic->bpc;
@@ -414,12 +416,22 @@ static int extract(VmafFeatureExtractor *fex,
         if (ref_pic->bpc == 8)
             resize(s->resize_module ,ref_pic->data[0], res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         else
-            hbd_resize((unsigned short *)ref_pic->data[0], (unsigned short *)res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0], ref_pic->bpc);
+        {
+            if (flags & VMAF_X86_CPU_FLAG_AVX2)
+                hbd_resize_avx2((unsigned short *)ref_pic->data[0], (unsigned short *)res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0], ref_pic->bpc);
+            else
+                hbd_resize((unsigned short *)ref_pic->data[0], (unsigned short *)res_ref_pic->data[0], ref_pic->w[0], ref_pic->h[0], res_ref_pic->w[0], res_ref_pic->h[0], ref_pic->bpc);
+        }   
         
         if (dist_pic->bpc == 8)
             resize(s->resize_module ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
         else
-            hbd_resize((unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], ref_pic->bpc);
+        {
+            if (flags & VMAF_X86_CPU_FLAG_AVX2)
+                hbd_resize_avx2((unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], ref_pic->bpc);
+            else
+                hbd_resize((unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], ref_pic->bpc);
+        }
     }
     else
     {
@@ -508,7 +520,7 @@ static int extract(VmafFeatureExtractor *fex,
     {
         int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts << vif_level))) * bitdepth_pow2;;
     
-    unsigned flags = vmaf_get_cpu_flags();
+
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
         integer_funque_vifdwt2_band0_avx2(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
         integer_funque_vifdwt2_band0_avx2(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
