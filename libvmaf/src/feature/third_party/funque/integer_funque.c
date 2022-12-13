@@ -56,6 +56,7 @@
 #include "x86/integer_funque_vif_avx2.h"
 #include "x86/integer_funque_ssim_avx2.h"
 #include "x86/integer_funque_adm_avx2.h"
+#include "x86/integer_funque_motion_avx2.h"
 #endif
 
 #include "cpu.h"
@@ -327,6 +328,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
     }
 
 #if ARCH_AARCH64
