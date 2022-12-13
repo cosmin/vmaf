@@ -80,10 +80,10 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
 
     __m256i interim_1_x_256 = _mm256_loadu_si256((__m256i*)(interim_1_x + 1));
 
+    __m256i interim_1_y_256 = _mm256_loadu_si256((__m256i*)(interim_1_y + 1));
+
     __m256i interim_2_x0_256 = _mm256_loadu_si256((__m256i*)(interim_2_x + 1));
     __m256i interim_2_x4_256 = _mm256_loadu_si256((__m256i*)(interim_2_x + 5));
-
-    __m256i interim_1_y_256 = _mm256_loadu_si256((__m256i*)(interim_1_y + 1));
 
     __m256i interim_2_y0_256 = _mm256_loadu_si256((__m256i*)(interim_2_y + 1));
     __m256i interim_2_y4_256 = _mm256_loadu_si256((__m256i*)(interim_2_y + 5));
@@ -92,34 +92,34 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
     __m256i interim_x_y4_256 = _mm256_loadu_si256((__m256i*)(interim_x_y + 5));
 
     __m128i int_1_x_r4 = _mm_add_epi32(_mm256_castsi256_si128(interim_1_x_256), _mm256_extracti128_si256(interim_1_x_256, 1));
-    __m128i int_1_x_r2 = _mm_hadd_epi32(int_1_x_r4, int_1_x_r4);
-    __m128i int_1_x_r1 = _mm_hadd_epi32(int_1_x_r2, int_1_x_r2);
-    int32_t int_1_x0 = _mm_extract_epi32(int_1_x_r1, 0);
-    int_1_x = interim_1_x[kw] + int_1_x0;
-
     __m128i int_1_y_r4 = _mm_add_epi32(_mm256_castsi256_si128(interim_1_y_256), _mm256_extracti128_si256(interim_1_y_256, 1));
-    __m128i int_1_y_r2 = _mm_hadd_epi32(int_1_y_r4, int_1_y_r4);
-    __m128i int_1_y_r1 = _mm_hadd_epi32(int_1_y_r2, int_1_y_r2);
-    int32_t int_1_y0 = _mm_extract_epi32(int_1_y_r1, 0);
-    int_1_y = interim_1_y[kw] + int_1_y0;
-
     __m256i sum_x04 = _mm256_add_epi64(interim_2_x0_256, interim_2_x4_256);
-    __m128i int_2_x_r2 = _mm_add_epi64(_mm256_castsi256_si128(sum_x04), _mm256_extracti128_si256(sum_x04, 1));
-    __m128i int_2_x_r1 = _mm_add_epi64(int_2_x_r2, _mm_unpackhi_epi64(int_2_x_r2, _mm_setzero_si128()));
-    int64_t int_2_x0 = _mm_extract_epi64(int_2_x_r1, 0);
-    int_2_x = interim_2_x[kw] + int_2_x0;
-
     __m256i sum_y04 = _mm256_add_epi64(interim_2_y0_256, interim_2_y4_256);
-    __m128i int_2_y_r2 = _mm_add_epi64(_mm256_castsi256_si128(sum_y04), _mm256_extracti128_si256(sum_y04, 1));
-    __m128i int_2_y_r1 = _mm_add_epi64(int_2_y_r2, _mm_unpackhi_epi64(int_2_y_r2, _mm_setzero_si128()));
-    int64_t int_2_y0 = _mm_extract_epi64(int_2_y_r1, 0);
-    int_2_y = interim_2_y[kw] + int_2_y0;
-
     __m256i sum_xy04 = _mm256_add_epi64(interim_x_y0_256, interim_x_y4_256);
+
+    __m128i int_1_x_r2 = _mm_hadd_epi32(int_1_x_r4, int_1_x_r4);
+    __m128i int_1_y_r2 = _mm_hadd_epi32(int_1_y_r4, int_1_y_r4);
+    __m128i int_2_x_r2 = _mm_add_epi64(_mm256_castsi256_si128(sum_x04), _mm256_extracti128_si256(sum_x04, 1));
+    __m128i int_2_y_r2 = _mm_add_epi64(_mm256_castsi256_si128(sum_y04), _mm256_extracti128_si256(sum_y04, 1));
     __m128i int_x_y_r2 = _mm_add_epi64(_mm256_castsi256_si128(sum_xy04), _mm256_extracti128_si256(sum_xy04, 1));
+
+    __m128i int_1_x_r1 = _mm_hadd_epi32(int_1_x_r2, int_1_x_r2);
+    __m128i int_1_y_r1 = _mm_hadd_epi32(int_1_y_r2, int_1_y_r2);
+    __m128i int_2_x_r1 = _mm_add_epi64(int_2_x_r2, _mm_unpackhi_epi64(int_2_x_r2, _mm_setzero_si128()));
+    __m128i int_2_y_r1 = _mm_add_epi64(int_2_y_r2, _mm_unpackhi_epi64(int_2_y_r2, _mm_setzero_si128()));
     __m128i int_x_y_r1 = _mm_add_epi64(int_x_y_r2, _mm_unpackhi_epi64(int_x_y_r2, _mm_setzero_si128()));
+
+    int32_t int_1_x0 = _mm_extract_epi32(int_1_x_r1, 0);
+    int32_t int_1_y0 = _mm_extract_epi32(int_1_y_r1, 0);
+    int64_t int_2_x0 = _mm_extract_epi64(int_2_x_r1, 0);
+    int64_t int_2_y0 = _mm_extract_epi64(int_2_y_r1, 0);
     int64_t int_x_y0 = _mm_extract_epi64(int_x_y_r1, 0);
-    int_x_y = interim_x_y[kw] + int_x_y0;
+
+    int_1_x = interim_1_x[kw] + int_1_x0;
+    int_1_y = interim_1_y[kw] + int_1_y0;
+    int_2_x = interim_2_x[kw] + int_2_x0;
+    int_2_y = interim_2_y[kw] + int_2_y0;
+    int_x_y = interim_x_y[kw] + int_x_y0;  
 
     /**
      * The score needs to be calculated for kw column as well,
@@ -142,8 +142,8 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
     __m256i interim_1_x9_256, interim_2_x9_256, interim_2_x13_256, interim_1_y9_256, \
     interim_2_y9_256, interim_2_y13_256, interim_x_y9_256, interim_x_y13_256;
     //Similar to prev loop, but previous kw col interim metric sum is subtracted
-    
-    for (int j=kw+1; j<width_p1_8; j+=8)
+    int j;
+    for (j = kw+1; j<width_p1_8; j+=8)
     {
         interim_1_x9_256 = _mm256_loadu_si256((__m256i*)(interim_1_x + j));
 
@@ -274,7 +274,7 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
     int_x_y = int_x_y7;
     }
 
-    for (int j = width_p1_8; j<width_p1; j++)
+    for (; j<width_p1; j++)
     {
         // int j_minus1 = j-1;
         int_2_x = interim_2_x[j] + int_2_x - interim_2_x[j - kw];

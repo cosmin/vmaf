@@ -198,14 +198,14 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 
             //horizontal summation and score compuations
 #if VIF_STABILITY
-            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
+            vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift,  
                                  exp_t, sigma_nsq_t, log_18, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
                                  &score_den_t, &den_power, shift_val, k_norm);
 #else
-            vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
+            vif_horz_integralsum_avx2(kw, width_p1, knorm_fact, knorm_shift,  
                                  exp_t, sigma_nsq_t, log_18, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,

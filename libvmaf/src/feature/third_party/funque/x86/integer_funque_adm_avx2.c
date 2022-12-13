@@ -578,20 +578,13 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i ref_b2_128 = _mm_loadu_si128((__m128i*)(ref.bands[2] + index));
             __m128i dis_b2_128 = _mm_loadu_si128((__m128i*)(dist.bands[2] + index));
 
-            //printf("ref_b1: ");print_128_epi16(ref_b1_128);
-            //printf("ref_b2: ");print_128_epi16(ref_b2_128);
-
             __m128i ref_b1b2_lo = _mm_unpacklo_epi16(ref_b1_128, ref_b2_128);
             __m128i ref_b1b2_hi = _mm_unpackhi_epi16(ref_b1_128, ref_b2_128);
             __m128i dis_b1b2_lo = _mm_unpacklo_epi16(dis_b1_128, dis_b2_128);
             __m128i dis_b1b2_hi = _mm_unpackhi_epi16(dis_b1_128, dis_b2_128);
 
-            //printf("ref_b1b2: ");print_128_epi16(ref_b1b2_lo);
-
             __m128i ot_dp_lo = _mm_madd_epi16(ref_b1b2_lo, dis_b1b2_lo);
             __m128i ot_dp_hi = _mm_madd_epi16(ref_b1b2_hi, dis_b1b2_hi);
-
-            //printf("ot_dp_lo: ");print_128_epi32(ot_dp_lo);
 
             __m128i o_mag_sq_lo = _mm_madd_epi16(ref_b1b2_lo, ref_b1b2_lo);
             __m128i o_mag_sq_hi = _mm_madd_epi16(ref_b1b2_hi, ref_b1b2_hi);
@@ -636,15 +629,11 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             adm_div_b3_hi = _mm_set_epi32(  adm_div_lookup[ref.bands[3][index + 7] + 32768], adm_div_lookup[ref.bands[3][index + 5] + 32768], \
                                             adm_div_lookup[ref.bands[3][index + 6] + 32768], adm_div_lookup[ref.bands[3][index + 4] + 32768]);
 
-            //printf("dis_b1: ");print_128_epi16(dis_b1_128);
-
             __m128i dis_b1_lo, dis_b1_hi, dis_b2_lo, dis_b2_hi, dis_b3_lo, dis_b3_hi;
             // 0 1 2 3 4 5 6 7 | 8 9 10 11 12 13 14 15
             cvt_1_16x8_to_2_32x4(dis_b1_128, dis_b1_lo, dis_b1_hi);
             cvt_1_16x8_to_2_32x4(dis_b2_128, dis_b2_lo, dis_b2_hi);
             cvt_1_16x8_to_2_32x4(dis_b3_128, dis_b3_lo, dis_b3_hi);
-
-            //printf("dis_b1_lo: ");print_128_epi16(dis_b1_lo);
 
             // 0 2 1 3 | 4 6 5 7
             dis_b1_lo = _mm_shuffle_epi32(dis_b1_lo, 0xD8);
@@ -673,7 +662,6 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i adm_b3_dis_hi8 = _mm_mul_epi32(adm_div_b3_hi, dis_b3_hi);
             __m128i adm_b3_dis_hi9 = _mm_mul_epi32(_mm_srli_epi64(adm_div_b3_hi, 32), _mm_srli_epi64(dis_b3_hi, 32));
  
-
             adm_b1_dis_lo0 = _mm_add_epi64(adm_b1_dis_lo0, add_16384_128);
             adm_b1_dis_lo1 = _mm_add_epi64(adm_b1_dis_lo1, add_16384_128);
             adm_b1_dis_hi8 = _mm_add_epi64(adm_b1_dis_hi8, add_16384_128);
@@ -775,7 +763,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i tmp_k_b2_hi = _mm_shuffle_epi32( adm_b2_dis_hi8, 0x58);
             __m128i tmp_k_b3_lo = _mm_shuffle_epi32( adm_b3_dis_lo0, 0x58);
             __m128i tmp_k_b3_hi = _mm_shuffle_epi32( adm_b3_dis_hi8, 0x58);
-            //tmp_k_b1_lo = _mm_insert_epi64(tmp_k_b1_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b1_dis_lo1, 0x08), 0), 1);
+
             tmp_k_b1_lo = _mm_add_epi32(tmp_k_b1_lo, _mm_shuffle_epi32( adm_b1_dis_lo1, 0x85));
             tmp_k_b1_hi = _mm_add_epi32(tmp_k_b1_hi, _mm_shuffle_epi32( adm_b1_dis_hi9, 0x85));
             tmp_k_b2_lo = _mm_add_epi32(tmp_k_b2_lo, _mm_shuffle_epi32( adm_b2_dis_lo1, 0x85));
@@ -783,12 +771,6 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             tmp_k_b3_lo = _mm_add_epi32(tmp_k_b3_lo, _mm_shuffle_epi32( adm_b3_dis_lo1, 0x85));
             tmp_k_b3_hi = _mm_add_epi32(tmp_k_b3_hi, _mm_shuffle_epi32( adm_b3_dis_hi9, 0x85));
 
-            /*tmp_k_b1_hi = _mm_insert_epi64(tmp_k_b1_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b1_dis_hi9, 0x08), 0), 1);
-            tmp_k_b2_lo = _mm_insert_epi64(tmp_k_b2_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b2_dis_lo1, 0x08), 0), 1);
-            tmp_k_b2_hi = _mm_insert_epi64(tmp_k_b2_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b2_dis_hi9, 0x08), 0), 1);
-            tmp_k_b3_lo = _mm_insert_epi64(tmp_k_b3_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b3_dis_lo1, 0x08), 0), 1);
-            tmp_k_b3_hi = _mm_insert_epi64(tmp_k_b3_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b3_dis_hi9, 0x08), 0), 1);
-*/
             __m128i tmp_k_b1_lo_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b1_lo);
             __m128i tmp_k_b1_hi_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b1_hi);
             __m128i tmp_k_b2_lo_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b2_lo);
