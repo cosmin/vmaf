@@ -23,6 +23,8 @@
 
 #include <immintrin.h>
 
+#include "resizer_avx2.h"
+
 #define shift22_64b_signExt(a, r)\
 { \
     r = _mm256_add_epi64( _mm256_srli_epi64(a, 22) , _mm256_and_si256(a, _mm256_set1_epi64x(0xFFFFFC0000000000)));\
@@ -42,9 +44,9 @@ static const int HBD_MAX_ESIZE_avx2 = 16;
 #define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
 
 // enabled by default for funque since resize factor is always 0.5, disabled otherwise
-#define OPTIMISED_COEFF 1
+//#define OPTIMISED_COEFF 1
 
-#define USE_C_VRESIZE 0
+//#define USE_C_VRESIZE 0
 
 #if !OPTIMISED_COEFF
 static void interpolateCubic(float x, float *coeffs)
@@ -187,8 +189,8 @@ void hbd_hresize_avx2(const unsigned short **src, int **dst, int count,
                 __m256i coef0 = _mm256_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
                 __m256i coef2 = _mm256_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
 
-                __m256i val0_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m256i*)(S + sx - 1)));
-                __m256i val2_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m256i*)(S + sx + 1)));
+                __m256i val0_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m128i*)(S + sx - 1)));
+                __m256i val2_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m128i*)(S + sx + 1)));
                 __m256i mul0_0 = _mm256_mullo_epi32(val0_0, coef0);
                 __m256i mul2_0 = _mm256_mullo_epi32(val2_0, coef2);
 
@@ -349,7 +351,7 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi64(accum_0123_8, 32));
         accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0));
 
-        _mm256_storeu_si256((__m256*)(dst + x), accum_0123_0);
+        _mm256_storeu_si256((__m256i*)(dst + x), accum_0123_0);
     }
     for (; x < width_8; x+=8)
     {
@@ -411,7 +413,7 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi32(accum_0123_4, 16));        
         __m128i accum = _mm256_castsi256_si128(_mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0)));
 
-        _mm_storeu_si128((__m128*)(dst + x), accum);
+        _mm_storeu_si128((__m128i*)(dst + x), accum);
     }
     for (; x < width_4; x+=4)
     {
@@ -473,7 +475,7 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         // 0 1 2 3 x x x x        
         accum_0123_0 = _mm_or_si128(accum_0123_0, _mm_srli_si128(accum_0123_0, 4));
 
-        _mm_storeu_si64((__m128*)(dst + x), accum_0123_0);
+        _mm_storeu_si128((__m128i*)(dst + x), accum_0123_0);
     }
     for (; x < width; x++)
         dst[x] = hbd_castOp_avx2((int64_t)S0[x] * b0 + (int64_t)S1[x] * b1 + (int64_t)S2[x] * b2 + (int64_t)S3[x] * b3, bitdepth);
@@ -557,7 +559,7 @@ void hbd_step_avx2(const unsigned short *_src, unsigned short *_dst, const int *
     }
     free(_buffer);
 }
-
+/*
 void hbd_resize_avx2(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth)
 {
     // int depth = 0;
@@ -658,3 +660,4 @@ void hbd_resize_avx2(const unsigned short *_src, unsigned short *_dst, int iwidt
 #endif
 
 }
+*/

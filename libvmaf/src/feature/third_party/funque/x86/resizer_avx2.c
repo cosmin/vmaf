@@ -54,6 +54,11 @@ void hresize_avx2(const unsigned char **src, int **dst, int count,
     int xmax_16 = xmax - (xmax % 16);
     int xmax_8 = xmax - (xmax % 8);
     int xmax_4 = xmax - (xmax % 4);
+    __m256i coef0 = _mm256_set_epi16(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
+    __m256i coef2 = _mm256_set_epi16(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
+    __m128i coef0_128 = _mm_set_epi16(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
+    __m128i coef2_128 = _mm_set_epi16(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
+    
     for (int k = 0; k < count; k++)
     {
         const unsigned char *S = src[k];
@@ -98,9 +103,6 @@ void hresize_avx2(const unsigned char **src, int **dst, int count,
             {
                 int sx = xofs[dx]; // sx - 2, 4, 6, 8....
 #endif
-                __m256i coef0 = _mm256_set_epi16(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m256i coef2 = _mm256_set_epi16(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m256i val0 = _mm256_loadu_si256((__m256i*)(S + sx - 1));
                 __m256i val2 = _mm256_loadu_si256((__m256i*)(S + sx + 1));
 
@@ -128,9 +130,6 @@ void hresize_avx2(const unsigned char **src, int **dst, int count,
             {
                 int sx = dx * 2;
 
-                __m256i coef0 = _mm256_set_epi16(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m256i coef2 = _mm256_set_epi16(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m128i val0 = _mm_loadu_si128((__m128i*)(S + sx - 1));
                 __m128i val2 = _mm_loadu_si128((__m128i*)(S + sx + 1));
 
@@ -147,17 +146,14 @@ void hresize_avx2(const unsigned char **src, int **dst, int count,
             {
                 int sx = dx * 2;
 
-                __m128i coef0 = _mm_set_epi16(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m128i coef2 = _mm_set_epi16(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m128i val0 = _mm_loadu_si128((__m128i*)(S + sx - 1));
                 __m128i val2 = _mm_loadu_si128((__m128i*)(S + sx + 1));
 
                 __m128i val0_16 = _mm_cvtepu8_epi16(val0);
                 __m128i val2_16 = _mm_cvtepu8_epi16(val2);
 
-                __m128i res0 = _mm_madd_epi16(val0_16, coef0);
-                __m128i res2 = _mm_madd_epi16(val2_16, coef2);
+                __m128i res0 = _mm_madd_epi16(val0_16, coef0_128);
+                __m128i res2 = _mm_madd_epi16(val2_16, coef2_128);
 
                 __m128i res = _mm_add_epi32(res0, res2);
                 _mm_storeu_si128((__m128i*)(D + dx), res);
@@ -179,7 +175,10 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
 {
     int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
     const int *S0 = src[0], *S1 = src[1], *S2 = src[2], *S3 = src[3];
-
+    __m256i sh_64_to_16 =  _mm256_set_epi8((char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, 12, 8, 4, 0, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, 12, 8, 4, 0);
+    __m128i sh_64_to_16_128 =  _mm_set_epi8((char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, (char)128, 12, 8, 4, 0);
+    __m256i perm0 = _mm256_set_epi32(1, 1, 1, 1, 1, 1, 4, 0);
+    __m256i perm8 = _mm256_set_epi32(1, 1, 1, 1, 4, 0, 1, 1);
     int bits = 22;
     __m256i coef0 = _mm256_set1_epi32(beta[0]);
     __m256i coef1 = _mm256_set1_epi32(beta[1]);
@@ -242,13 +241,13 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
         accum_0123_0 = _mm256_add_epi32(accum_0123_0, add_255_0);
         accum_0123_8 = _mm256_add_epi32(accum_0123_8, add_255_8);
 
-        accum_0123_0 = _mm256_shuffle_epi8(accum_0123_0, _mm256_set_epi8(128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0));
-        accum_0123_8 = _mm256_shuffle_epi8(accum_0123_8, _mm256_set_epi8(128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0));
-        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(1, 1, 1, 1, 1, 1, 4, 0));
-        accum_0123_8 = _mm256_permutevar8x32_epi32(accum_0123_8, _mm256_set_epi32(1, 1, 1, 1, 4, 0, 1, 1));
+        accum_0123_0 = _mm256_shuffle_epi8(accum_0123_0, sh_64_to_16);
+        accum_0123_8 = _mm256_shuffle_epi8(accum_0123_8, sh_64_to_16);
+        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, perm0);
+        accum_0123_8 = _mm256_permutevar8x32_epi32(accum_0123_8, perm8);
 
         __m128i accum = _mm256_extracti128_si256(_mm256_or_si256(accum_0123_0, accum_0123_8), 0);
-        _mm_storeu_si128((__m128*)(dst + x), accum);
+        _mm_storeu_si128((__m128i*)(dst + x), accum);
     }
     for (; x < width_8; x+=8)
     {
@@ -276,18 +275,18 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
         accum_0123_0 = _mm256_andnot_si256(gt_255_0, accum_0123_0);
         accum_0123_0 = _mm256_add_epi32(accum_0123_0, add_255_0);
 
-        accum_0123_0 = _mm256_shuffle_epi8(accum_0123_0, _mm256_set_epi8(128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0));
-        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(1, 1, 1, 1, 1, 1, 4, 0));
+        accum_0123_0 = _mm256_shuffle_epi8(accum_0123_0, sh_64_to_16);
+        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, perm0);
 
         __m128i accum = _mm256_castsi256_si128(accum_0123_0);
-        _mm_storeu_si64((__m128*)(dst + x), accum);
+        _mm_storeu_si128((__m128i*)(dst + x), accum);
     }
     for (; x < width_4; x+=4)
     {
-        __m128i src0_0 = _mm_loadu_si128((__m256i*)(S0 + x));
-        __m128i src1_0 = _mm_loadu_si128((__m256i*)(S1 + x));
-        __m128i src2_0 = _mm_loadu_si128((__m256i*)(S2 + x));
-        __m128i src3_0 = _mm_loadu_si128((__m256i*)(S3 + x));
+        __m128i src0_0 = _mm_loadu_si128((__m128i*)(S0 + x));
+        __m128i src1_0 = _mm_loadu_si128((__m128i*)(S1 + x));
+        __m128i src2_0 = _mm_loadu_si128((__m128i*)(S2 + x));
+        __m128i src3_0 = _mm_loadu_si128((__m128i*)(S3 + x));
 
         __m128i mul0_0 = _mm_mullo_epi32(src0_0, coef0_128);
         __m128i mul1_0 = _mm_mullo_epi32(src1_0, coef1_128);
@@ -308,9 +307,9 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
         accum_0123_0 = _mm_andnot_si128(gt_255_0, accum_0123_0);
         accum_0123_0 = _mm_add_epi32(accum_0123_0, add_255_0);
 
-        accum_0123_0 = _mm_shuffle_epi8(accum_0123_0, _mm_set_epi8(128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 12, 8, 4, 0));
+        accum_0123_0 = _mm_shuffle_epi8(accum_0123_0, sh_64_to_16_128);
 
-        _mm_storeu_si64((__m128*)(dst + x), accum_0123_0);  
+        _mm_storeu_si128((__m128i*)(dst + x), accum_0123_0);  
     }
 
     for (; x < width; x++)

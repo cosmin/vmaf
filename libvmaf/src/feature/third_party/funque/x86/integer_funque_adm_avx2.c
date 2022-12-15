@@ -73,7 +73,8 @@
     angle = ((ot_dp_int >= 0) && (((adm_i64_dtype)ot_dp_int * ot_dp_int) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_int * t_mag_int))); \
 }
 
-#define Multiply64Bit_256(ab, cd, res){ \ 
+#define Multiply64Bit_256(ab, cd, res) \
+{ \
     __m256i ac = _mm256_mul_epu32(ab, cd); \
     __m256i b = _mm256_srli_epi64(ab, 32); \
     __m256i bc = _mm256_mul_epu32(b, cd); \
@@ -81,7 +82,8 @@
     __m256i ad = _mm256_mul_epu32(ab, d); \
     __m256i high = _mm256_add_epi64(bc, ad); \
     high = _mm256_slli_epi64(high, 32); \
-    res = _mm256_add_epi64(high, ac); }
+    res = _mm256_add_epi64(high, ac); \
+}
 
 #define shift15_64b_signExt(a, r)\
 { \
@@ -228,7 +230,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m256i angle_256 = _mm256_set_epi16(angle_flag_table[15], angle_flag_table[14], angle_flag_table[13], angle_flag_table[12], \
             angle_flag_table[11], angle_flag_table[10], angle_flag_table[9], angle_flag_table[8], angle_flag_table[7], angle_flag_table[6], \
             angle_flag_table[5], angle_flag_table[4], angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
-            __m256i dlm_add_select = _mm256_mullo_epi16(angle_256, _mm256_set1_epi16(0xFFFF));
+            __m256i dlm_add_select = _mm256_mullo_epi16(angle_256, _mm256_set1_epi16((int16_t)0xFFFF));
             
             __m256i dis_b3_256 = _mm256_loadu_si256((__m256i*)(dist.bands[3] + index));
             __m256i ref_b3_256 = _mm256_loadu_si256((__m256i*)(ref.bands[3] + index));
@@ -603,7 +605,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             
             __m128i angle_128 = _mm_set_epi16(  angle_flag_table[7], angle_flag_table[6], angle_flag_table[5], angle_flag_table[4], \
                                                 angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
-            __m128i dlm_add_select = _mm_mullo_epi16(angle_128, _mm_set1_epi16(0xFFFF));
+            __m128i dlm_add_select = _mm_mullo_epi16(angle_128, _mm_set1_epi16((int16_t)0xFFFF));
             
             __m128i dis_b3_128 = _mm_loadu_si128((__m128i*)(dist.bands[3] + index));
             __m128i ref_b3_128 = _mm_loadu_si128((__m128i*)(ref.bands[3] + index));
@@ -1012,4 +1014,5 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
     }
     // compensation for the division by thirty in the numerator
     *adm_score_den = (den_band * 30) + 1e-4;
+
 }
