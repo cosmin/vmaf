@@ -118,7 +118,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
 	double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};
-    int loop_h, loop_w, dlm_width, dlm_height;
+    int loop_h, loop_w, dlm_width;
 	int extra_sample_h = 0, extra_sample_w = 0;
 
 	adm_i64_dtype den_cube[3] = {0};
@@ -149,13 +149,13 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
 
     loop_h = height - border_h;
     loop_w = width - border_w;
-	
-	dlm_height = height - (border_h << 1);
+#if ADM_REFLECT_PAD
+	int dlm_height = height - (border_h << 1);
+#endif
 	dlm_width = width - (border_w << 1);
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
     int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
-    // int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     uint16_t angle_flag_table[16];
 

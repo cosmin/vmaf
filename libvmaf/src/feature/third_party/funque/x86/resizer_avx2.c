@@ -312,7 +312,7 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
 
         accum_0123_0 = _mm_shuffle_epi8(accum_0123_0, sh_64_to_16_128);
 
-        _mm_maskstore_epi32((__m128i*)(dst + x), _mm_set_epi32(0, 0, 0, 0x80000000), accum_0123_0);
+        _mm_maskstore_epi32((int*)(dst + x), _mm_set_epi32(0, 0, 0, 0x80000000), accum_0123_0);
     }
 
     for (; x < width; x++)
