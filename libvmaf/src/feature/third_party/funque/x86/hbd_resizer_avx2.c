@@ -475,7 +475,7 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         // 0 1 2 3 x x x x        
         accum_0123_0 = _mm_or_si128(accum_0123_0, _mm_srli_si128(accum_0123_0, 4));
 
-        _mm_storeu_si128((__m128i*)(dst + x), accum_0123_0);
+        _mm_storel_epi64((__m128i*)(dst + x), accum_0123_0);
     }
     for (; x < width; x++)
         dst[x] = hbd_castOp_avx2((int64_t)S0[x] * b0 + (int64_t)S1[x] * b1 + (int64_t)S2[x] * b2 + (int64_t)S3[x] * b3, bitdepth);

@@ -279,7 +279,7 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
         accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, perm0);
 
         __m128i accum = _mm256_castsi256_si128(accum_0123_0);
-        _mm_storeu_si128((__m128i*)(dst + x), accum);
+        _mm_storel_epi64((__m128i*)(dst + x), accum);
     }
     for (; x < width_4; x+=4)
     {
@@ -309,7 +309,7 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
 
         accum_0123_0 = _mm_shuffle_epi8(accum_0123_0, sh_64_to_16_128);
 
-        _mm_storeu_si128((__m128i*)(dst + x), accum_0123_0);  
+        _mm_maskstore_epi32((__m128i*)(dst + x), _mm_set_epi32(0, 0, 0, 0x80000000), accum_0123_0);
     }
 
     for (; x < width; x++)
