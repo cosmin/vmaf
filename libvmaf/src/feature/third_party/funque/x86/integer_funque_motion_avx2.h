@@ -19,18 +19,7 @@
  *
  */
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-
-#include <stdlib.h>
-
-#include <string.h>
-#include <math.h>
-
 #include "../integer_funque_filters.h"
-#include "../integer_funque_adm.h"
+#include "../integer_funque_motion.h"
 
-void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist, 
-                          i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
-                          int32_t *adm_div_lookup, float border_size, double *adm_score_den);
+double integer_funque_image_mad_avx2(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);

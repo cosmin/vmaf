@@ -1,3 +1,6 @@
+/*   SPDX-License-Identifier: BSD-3-Clause
+*   Copyright (C) 2022 Intel Corporation.
+*/
 /**
  *
  *  Copyright 2016-2020 Netflix, Inc.
@@ -73,7 +76,8 @@
     angle = ((ot_dp_int >= 0) && (((adm_i64_dtype)ot_dp_int * ot_dp_int) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_int * t_mag_int))); \
 }
 
-#define Multiply64Bit_256(ab, cd, res){ \ 
+#define Multiply64Bit_256(ab, cd, res) \
+{ \
     __m256i ac = _mm256_mul_epu32(ab, cd); \
     __m256i b = _mm256_srli_epi64(ab, 32); \
     __m256i bc = _mm256_mul_epu32(b, cd); \
@@ -81,7 +85,8 @@
     __m256i ad = _mm256_mul_epu32(ab, d); \
     __m256i high = _mm256_add_epi64(bc, ad); \
     high = _mm256_slli_epi64(high, 32); \
-    res = _mm256_add_epi64(high, ac); }
+    res = _mm256_add_epi64(high, ac); \
+}
 
 #define shift15_64b_signExt(a, r)\
 { \
@@ -113,7 +118,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
 	double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};
-    int loop_h, loop_w, dlm_width, dlm_height;
+    int loop_h, loop_w, dlm_width;
 	int extra_sample_h = 0, extra_sample_w = 0;
 
 	adm_i64_dtype den_cube[3] = {0};
@@ -144,13 +149,13 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
 
     loop_h = height - border_h;
     loop_w = width - border_w;
-	
-	dlm_height = height - (border_h << 1);
+#if ADM_REFLECT_PAD
+	int dlm_height = height - (border_h << 1);
+#endif
 	dlm_width = width - (border_w << 1);
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
     int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
-    // int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
     uint16_t angle_flag_table[16];
 
@@ -228,7 +233,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m256i angle_256 = _mm256_set_epi16(angle_flag_table[15], angle_flag_table[14], angle_flag_table[13], angle_flag_table[12], \
             angle_flag_table[11], angle_flag_table[10], angle_flag_table[9], angle_flag_table[8], angle_flag_table[7], angle_flag_table[6], \
             angle_flag_table[5], angle_flag_table[4], angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
-            __m256i dlm_add_select = _mm256_mullo_epi16(angle_256, _mm256_set1_epi16(0xFFFF));
+            __m256i dlm_add_select = _mm256_mullo_epi16(angle_256, _mm256_set1_epi16((int16_t)0xFFFF));
             
             __m256i dis_b3_256 = _mm256_loadu_si256((__m256i*)(dist.bands[3] + index));
             __m256i ref_b3_256 = _mm256_loadu_si256((__m256i*)(ref.bands[3] + index));
@@ -578,20 +583,13 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i ref_b2_128 = _mm_loadu_si128((__m128i*)(ref.bands[2] + index));
             __m128i dis_b2_128 = _mm_loadu_si128((__m128i*)(dist.bands[2] + index));
 
-            //printf("ref_b1: ");print_128_epi16(ref_b1_128);
-            //printf("ref_b2: ");print_128_epi16(ref_b2_128);
-
             __m128i ref_b1b2_lo = _mm_unpacklo_epi16(ref_b1_128, ref_b2_128);
             __m128i ref_b1b2_hi = _mm_unpackhi_epi16(ref_b1_128, ref_b2_128);
             __m128i dis_b1b2_lo = _mm_unpacklo_epi16(dis_b1_128, dis_b2_128);
             __m128i dis_b1b2_hi = _mm_unpackhi_epi16(dis_b1_128, dis_b2_128);
 
-            //printf("ref_b1b2: ");print_128_epi16(ref_b1b2_lo);
-
             __m128i ot_dp_lo = _mm_madd_epi16(ref_b1b2_lo, dis_b1b2_lo);
             __m128i ot_dp_hi = _mm_madd_epi16(ref_b1b2_hi, dis_b1b2_hi);
-
-            //printf("ot_dp_lo: ");print_128_epi32(ot_dp_lo);
 
             __m128i o_mag_sq_lo = _mm_madd_epi16(ref_b1b2_lo, ref_b1b2_lo);
             __m128i o_mag_sq_hi = _mm_madd_epi16(ref_b1b2_hi, ref_b1b2_hi);
@@ -610,7 +608,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             
             __m128i angle_128 = _mm_set_epi16(  angle_flag_table[7], angle_flag_table[6], angle_flag_table[5], angle_flag_table[4], \
                                                 angle_flag_table[3], angle_flag_table[2], angle_flag_table[1], angle_flag_table[0]);
-            __m128i dlm_add_select = _mm_mullo_epi16(angle_128, _mm_set1_epi16(0xFFFF));
+            __m128i dlm_add_select = _mm_mullo_epi16(angle_128, _mm_set1_epi16((int16_t)0xFFFF));
             
             __m128i dis_b3_128 = _mm_loadu_si128((__m128i*)(dist.bands[3] + index));
             __m128i ref_b3_128 = _mm_loadu_si128((__m128i*)(ref.bands[3] + index));
@@ -636,15 +634,11 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             adm_div_b3_hi = _mm_set_epi32(  adm_div_lookup[ref.bands[3][index + 7] + 32768], adm_div_lookup[ref.bands[3][index + 5] + 32768], \
                                             adm_div_lookup[ref.bands[3][index + 6] + 32768], adm_div_lookup[ref.bands[3][index + 4] + 32768]);
 
-            //printf("dis_b1: ");print_128_epi16(dis_b1_128);
-
             __m128i dis_b1_lo, dis_b1_hi, dis_b2_lo, dis_b2_hi, dis_b3_lo, dis_b3_hi;
             // 0 1 2 3 4 5 6 7 | 8 9 10 11 12 13 14 15
             cvt_1_16x8_to_2_32x4(dis_b1_128, dis_b1_lo, dis_b1_hi);
             cvt_1_16x8_to_2_32x4(dis_b2_128, dis_b2_lo, dis_b2_hi);
             cvt_1_16x8_to_2_32x4(dis_b3_128, dis_b3_lo, dis_b3_hi);
-
-            //printf("dis_b1_lo: ");print_128_epi16(dis_b1_lo);
 
             // 0 2 1 3 | 4 6 5 7
             dis_b1_lo = _mm_shuffle_epi32(dis_b1_lo, 0xD8);
@@ -673,7 +667,6 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i adm_b3_dis_hi8 = _mm_mul_epi32(adm_div_b3_hi, dis_b3_hi);
             __m128i adm_b3_dis_hi9 = _mm_mul_epi32(_mm_srli_epi64(adm_div_b3_hi, 32), _mm_srli_epi64(dis_b3_hi, 32));
  
-
             adm_b1_dis_lo0 = _mm_add_epi64(adm_b1_dis_lo0, add_16384_128);
             adm_b1_dis_lo1 = _mm_add_epi64(adm_b1_dis_lo1, add_16384_128);
             adm_b1_dis_hi8 = _mm_add_epi64(adm_b1_dis_hi8, add_16384_128);
@@ -775,7 +768,7 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             __m128i tmp_k_b2_hi = _mm_shuffle_epi32( adm_b2_dis_hi8, 0x58);
             __m128i tmp_k_b3_lo = _mm_shuffle_epi32( adm_b3_dis_lo0, 0x58);
             __m128i tmp_k_b3_hi = _mm_shuffle_epi32( adm_b3_dis_hi8, 0x58);
-            //tmp_k_b1_lo = _mm_insert_epi64(tmp_k_b1_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b1_dis_lo1, 0x08), 0), 1);
+
             tmp_k_b1_lo = _mm_add_epi32(tmp_k_b1_lo, _mm_shuffle_epi32( adm_b1_dis_lo1, 0x85));
             tmp_k_b1_hi = _mm_add_epi32(tmp_k_b1_hi, _mm_shuffle_epi32( adm_b1_dis_hi9, 0x85));
             tmp_k_b2_lo = _mm_add_epi32(tmp_k_b2_lo, _mm_shuffle_epi32( adm_b2_dis_lo1, 0x85));
@@ -783,12 +776,6 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
             tmp_k_b3_lo = _mm_add_epi32(tmp_k_b3_lo, _mm_shuffle_epi32( adm_b3_dis_lo1, 0x85));
             tmp_k_b3_hi = _mm_add_epi32(tmp_k_b3_hi, _mm_shuffle_epi32( adm_b3_dis_hi9, 0x85));
 
-            /*tmp_k_b1_hi = _mm_insert_epi64(tmp_k_b1_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b1_dis_hi9, 0x08), 0), 1);
-            tmp_k_b2_lo = _mm_insert_epi64(tmp_k_b2_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b2_dis_lo1, 0x08), 0), 1);
-            tmp_k_b2_hi = _mm_insert_epi64(tmp_k_b2_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b2_dis_hi9, 0x08), 0), 1);
-            tmp_k_b3_lo = _mm_insert_epi64(tmp_k_b3_lo, _mm_extract_epi64(_mm_shuffle_epi32( adm_b3_dis_lo1, 0x08), 0), 1);
-            tmp_k_b3_hi = _mm_insert_epi64(tmp_k_b3_hi, _mm_extract_epi64(_mm_shuffle_epi32( adm_b3_dis_hi9, 0x08), 0), 1);
-*/
             __m128i tmp_k_b1_lo_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b1_lo);
             __m128i tmp_k_b1_hi_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b1_hi);
             __m128i tmp_k_b2_lo_eqz = _mm_cmpgt_epi32(_mm_setzero_si128(), tmp_k_b2_lo);
@@ -1030,4 +1017,5 @@ void integer_adm_decouple_avx2(i_dwt2buffers ref, i_dwt2buffers dist,
     }
     // compensation for the division by thirty in the numerator
     *adm_score_den = (den_band * 30) + 1e-4;
+
 }
