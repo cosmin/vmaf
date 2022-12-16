@@ -21,18 +21,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-const int HBD_INTER_RESIZE_COEF_SCALE = 2048;
-static const int HBD_MAX_ESIZE = 16;
+#include "resizer.h"
 
-#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
-                                                        : X)
-#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
+//const int HBD_INTER_RESIZE_COEF_SCALE = 2048;
+//static const int HBD_MAX_ESIZE = 16;
+
+//#define CLIP3(X, MIN, MAX) ((X < MIN) ? MIN : (X > MAX) ? MAX \
+//                                                        : X)
+//#define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
+//#define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
 
 // enabled by default for funque since resize factor is always 0.5, disabled otherwise
-#define OPTIMISED_COEFF 1
+//#define OPTIMISED_COEFF 1
 
-#define USE_C_VRESIZE 0
+//#define USE_C_VRESIZE 0
 
 #if !OPTIMISED_COEFF
 static void interpolateCubic(float x, float *coeffs)
@@ -149,7 +151,7 @@ void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs,
     }
     const unsigned short *srows[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int *rows[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    int prev_sy[HBD_MAX_ESIZE];
+    int prev_sy[MAX_ESIZE];
 
     for (int k = 0; k < ksize; k++)
     {
@@ -177,7 +179,7 @@ void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs,
             int sy = hbd_clip(sy0 - ksize2 + 1 + k, 0, iheight);
             for (k1 = MAX(k1, k); k1 < ksize; k1++)
             {
-                if (k1 < HBD_MAX_ESIZE && sy == prev_sy[k1]) // if the sy-th row has been computed already, reuse it.
+                if (k1 < MAX_ESIZE && sy == prev_sy[k1]) // if the sy-th row has been computed already, reuse it.
                 {
                     if (k1 > k)
                         memcpy(rows[k], rows[k1], bufstep * sizeof(rows[0][0]));
@@ -211,7 +213,7 @@ void hbd_step(const unsigned short *_src, unsigned short *_dst, const int *xofs,
     free(_buffer);
 }
 
-void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth)
+void hbd_resize(ResizerState m, const unsigned short *_src, unsigned short *_dst, int iwidth, int iheight, int dwidth, int dheight, int bitdepth)
 {
     // int depth = 0;
     int cn = 1;
@@ -245,12 +247,11 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
             xmax = MIN(xmax, dx);
         }
     }
-    hbd_step(_src, _dst, ialpha, ibeta, iwidth, iheight, dwidth, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
-
+    m.hbd_resizer_step(_src, _dst, ialpha, ibeta, iwidth, iheight, dwidth, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
 #else
     double inv_scale_y = (double)dheight / iheight;
     double scale_x = 1. / inv_scale_x, scale_y = 1. / inv_scale_y;
-    width = dwidth * cn;
+    int width = dwidth * cn;
 
     int iscale_x = (int)scale_x;
     int iscale_y = (int)scale_y;
@@ -290,7 +291,7 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
 
         interpolateCubic(fx, cbuf);
         for (k = 0; k < ksize; k++)
-            ialpha[dx * cn * ksize + k] = (short)(cbuf[k] * HBD_INTER_RESIZE_COEF_SCALE);
+            ialpha[dx * cn * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
         for (; k < cn * ksize; k++)
             ialpha[dx * cn * ksize + k] = ialpha[dx * cn * ksize + k - ksize];
     }
@@ -305,9 +306,9 @@ void hbd_resize(const unsigned short *_src, unsigned short *_dst, int iwidth, in
 
         interpolateCubic(fy, cbuf);
         for (k = 0; k < ksize; k++)
-            ibeta[dy * ksize + k] = (short)(cbuf[k] * HBD_INTER_RESIZE_COEF_SCALE);
+            ibeta[dy * ksize + k] = (short)(cbuf[k] * INTER_RESIZE_COEF_SCALE);
     }
-    hbd_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
+    m.hbd_resizer_step(_src, _dst, xofs, yofs, ialpha, ibeta, iwidth, iheight, dwidth, dheight, cn, ksize, 0, dheight, xmin, xmax, bitdepth);
 #endif
 
 }
