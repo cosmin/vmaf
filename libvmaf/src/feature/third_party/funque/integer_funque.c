@@ -81,6 +81,7 @@ typedef struct IntFunqueState
 
     // funque configurable parameters
     bool enable_resize;
+    bool enable_spatial_csf;
     int vif_levels;
 
     // VIF extra variables
@@ -127,6 +128,15 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
+        .default_val.b = true,
+    },
+    {
+        .name = "enable_spatial_csf",
+        .alias = "gcsf",
+        .help = "enable the global CSF based on spatial filter",
+        .offset = offsetof(IntFunqueState, enable_spatial_csf),
+        .type = VMAF_OPT_TYPE_BOOL,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
         .default_val.b = true,
     },
     {
@@ -437,9 +447,13 @@ static int extract(VmafFeatureExtractor *fex,
 
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
-    s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+    if (s->enable_spatial_csf) {
+        s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+    }
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
+    if (s->enable_spatial_csf) {
+        s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
+    }
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
