@@ -22,7 +22,6 @@
 #include "integer_funque_filters.h"
 #include "integer_funque_ssim.h"
 #include "funque_ssim_options.h"
-#include <immintrin.h>
 
 static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 {
