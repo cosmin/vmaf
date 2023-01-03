@@ -55,6 +55,7 @@ typedef struct FunqueState {
 
     //funque configurable parameters
     bool enable_resize;
+    bool enable_spatial_csf;
     int vif_levels;
 
     //VIF extra variables
@@ -99,6 +100,15 @@ static const VmafOption options[] = {
         .offset = offsetof(FunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = true,
+    },
+    {
+        .name = "enable_spatial_csf",
+        .alias = "gcsf",
+        .help = "enable the global CSF based on spatial filter",
+        .offset = offsetof(FunqueState, enable_spatial_csf),
+        .type = VMAF_OPT_TYPE_BOOL,
+        .default_val.b = true,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
         .name = "vif_levels",
@@ -188,7 +198,6 @@ static const VmafOption options[] = {
         .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
-
     {
         .name = "enable_lcs",
         .help = "enable luminance, contrast and structure intermediate output",
@@ -360,9 +369,13 @@ static int extract(VmafFeatureExtractor *fex,
     normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
     normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    spatial_filter(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+    if (s->enable_spatial_csf) {
+        spatial_filter(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
+    }
     funque_dwt2(s->spat_filter, &s->ref_dwt2out, s->float_stride/2, res_ref_pic->w[0], res_ref_pic->h[0]);
-    spatial_filter(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+    if (s->enable_spatial_csf) {
+        spatial_filter(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+    }
     funque_dwt2(s->spat_filter, &s->dist_dwt2out, s->float_stride/2, res_dist_pic->w[0], res_dist_pic->h[0]);
     
     if(index==0)
