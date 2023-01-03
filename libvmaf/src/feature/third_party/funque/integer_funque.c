@@ -324,6 +324,31 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->resize_module.hbd_resizer_step = hbd_step;
     s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
 
+#if ARCH_AARCH64
+    unsigned flags = vmaf_get_cpu_flags();
+    if (flags & VMAF_ARM_CPU_FLAG_NEON) {
+        if (bpc == 8)
+        {
+            s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+        }
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
+        //Commenting this since C was performing better
+        // s->resize_module.resizer_step = step_neon;
+        // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
+        // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
+    }
+#elif ARCH_ARM
+    if (bpc == 8)
+    {
+        s->modules.integer_spatial_filter = integer_spatial_filter_armv7;
+    }
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_armv7;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_armv7;
+    s->modules.integer_funque_adm_decouple = integer_dlm_decouple_armv7;
+#elif ARCH_X86
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
         s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
@@ -336,29 +361,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
     }
-
-#if ARCH_AARCH64
-    if (bpc == 8)
-    {
-        s->modules.integer_spatial_filter = integer_spatial_filter_neon;
-    }
-    s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
-    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
-    s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
-    s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
-    //Commenting this since C was performing better
-    // s->resize_module.resizer_step = step_neon;
-    // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
-    // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
-#elif ARCH_ARM
-    if (bpc == 8)
-    {
-        s->modules.integer_spatial_filter = integer_spatial_filter_armv7;
-    }
-    s->modules.integer_funque_dwt2 = integer_funque_dwt2_armv7;
-    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_armv7;
-    s->modules.integer_funque_adm_decouple = integer_dlm_decouple_armv7;
-#endif   
+#endif
 
     funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
@@ -400,7 +403,6 @@ static int extract(VmafFeatureExtractor *fex,
 
     VmafPicture *res_ref_pic = &s->res_ref_pic;
     VmafPicture *res_dist_pic = &s->res_dist_pic;
-    unsigned flags = vmaf_get_cpu_flags();
     if (s->enable_resize)
     {
         res_ref_pic->bpc = ref_pic->bpc;
