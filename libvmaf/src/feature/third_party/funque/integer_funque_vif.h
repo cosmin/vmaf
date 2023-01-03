@@ -20,7 +20,6 @@
 
 #include <assert.h>
 #define VIF_COMPUTE_METRIC_R_SHIFT 6
-#include <immintrin.h>
 
 void funque_log_generate(uint32_t* log_18);
 
@@ -36,7 +35,6 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
                                  int64_t shift_val, uint32_t* log_18);
-
 #endif
 
 FORCE_INLINE inline uint32_t get_best_u18_from_u64(uint64_t temp, int *x)

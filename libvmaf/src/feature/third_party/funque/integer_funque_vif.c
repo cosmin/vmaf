@@ -26,7 +26,6 @@
 #include "integer_funque_filters.h"
 #include "common/macros.h"
 #include "integer_funque_vif.h"
-#include <immintrin.h>
 
 // just change the store offset to reduce multiple calculation when getting log value
 void funque_log_generate(uint32_t* log_18)
