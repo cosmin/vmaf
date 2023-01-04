@@ -36,19 +36,8 @@
 /* Enhancement gain imposed on adm, must be >= 1.0, where 1.0 means the gain is completely disabled */
 #define DEFAULT_ADM_ENHN_GAIN_LIMIT (100.0)
 
-/* normalized viewing distance = viewing distance / ref display's physical height */
-#define DEFAULT_ADM_NORM_VIEW_DIST (3.0)
-
-/* reference display height in pixels */
-#define DEFAULT_ADM_REF_DISPLAY_HEIGHT (1080)
-
-/* Contrast sensitivity function */
-enum ADM_CSF_MODE
-{
-    ADM_CSF_MODE_WATSON97 = 0,
-};
-
-/* Default contrast sensitivity function */
-#define DEFAULT_ADM_CSF_MODE (ADM_CSF_MODE_WATSON97)
+#define DEFAULT_ADM_LEVELS 4
+#define MAX_ADM_LEVELS 4
+#define MIN_ADM_LEVELS 1
 
 #endif /* ADM_OPTIONS_H_ */

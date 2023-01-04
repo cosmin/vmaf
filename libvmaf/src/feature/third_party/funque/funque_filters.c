@@ -27,9 +27,9 @@
 #include "offset.h"
 #include "funque_filters.h"
 
-void funque_dwt2(float *src, dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height)
 {
-    int dst_px_stride = dst_stride / sizeof(float);
+    int dst_px_stride = dwt2_dst->stride / sizeof(float);
     float filter_coeff = 1/sqrtf(2);
 
     float *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(float)), MAX_ALIGN);
@@ -197,4 +197,39 @@ void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride
         src += dst_stride / sizeof(float);
     }
     return;
+}
+
+void funque_dwt2_inplace_csf(const dwt2buffers *src, float factors[4], int min_theta, int max_theta)
+{
+    float *src_ptr;
+    float *dst_ptr;
+
+    /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
+    float *angles[4] = { src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+
+    int px_stride = src->stride / sizeof(float);
+
+    /* The computation of the csf values is not required for the regions which lie outside the frame borders */
+    int left = 0;
+    int top = 0;
+    int right = src->width;
+    int bottom = src->height;
+
+    int i, j, theta, src_offset, dst_offset;
+    float dst_val;
+
+    for (theta = min_theta; theta <= max_theta; ++theta) {
+        src_ptr = angles[theta];
+        dst_ptr = angles[theta];
+
+        for (i = top; i < bottom; ++i) {
+            src_offset = i * px_stride;
+            dst_offset = i * px_stride;
+
+            for (j = left; j < right; ++j) {
+                dst_val = factors[theta] * src_ptr[src_offset + j];
+                dst_ptr[dst_offset + j] = dst_val;
+            }
+        }
+    }
 }
