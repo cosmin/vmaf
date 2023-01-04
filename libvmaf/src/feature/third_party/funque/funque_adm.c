@@ -265,11 +265,10 @@ void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers
   free(integral_sum);
 }
 
-int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, int width, int height, float border_size)
+int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, float border_size)
 {
-  // TODO: assert len(pyr_ref) == len(pyr_dist),'Pyramids must be of equal height.'
-
-  // int n_levels = 1;
+  int width = ref.width;
+  int height = ref.height;
   int i, j, k, index;
   double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
   dwt2buffers dlm_rest, dlm_add, pyr_rest;
