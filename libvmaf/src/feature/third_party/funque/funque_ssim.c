@@ -37,19 +37,9 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     float C1 = (K1 * max_val) * (K1 * max_val);
     float C2 = (K2 * max_val) * (K2 * max_val);
 
-   /* float* mu_x = (float*)calloc(width * height, sizeof(float));
-    float* mu_y = (float*)calloc(width * height, sizeof(float));*/
     float* var_x = (float*)calloc(width * height, sizeof(float));
     float* var_y = (float*)calloc(width * height, sizeof(float));
     float* cov_xy = (float*)calloc(width * height, sizeof(float));
-
-    // memset(var_x, 0, width * height * sizeof(var_x[0]));
-    // memset(var_y, 0, width * height * sizeof(var_y[0]));
-    // memset(cov_xy, 0, width * height * sizeof(cov_xy[0]));
-
-    //float* l = (float*)malloc(sizeof(float) * width * height);
-    //float* cs = (float*)malloc(sizeof(float) * width * height);
-    float* map = (float*)malloc(sizeof(float) * width * height);
 
 #if ENABLE_MINK3POOL
     float cube_1minus_map = 0;
@@ -76,17 +66,14 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
                 cov_xy[index] += ref->bands[k][index] * dist->bands[k][index];
             }
 
-            //TODO: Implemenet generic loop for n_levels > 1
-
             var_x[index] /= win_size;
             var_y[index] /= win_size;
             cov_xy[index] /= win_size;
 
             l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
             cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-            map[index] = l * cs;
 #if ENABLE_MINK3POOL
-            cube_1minus_map += pow((1 - map[index]), 3);
+            cube_1minus_map += pow((1 - (l * cs)), 3);
 #else
             sum += (l * cs);
 #endif
@@ -98,23 +85,11 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     *score = ssim_clip(ssim_val, 0, 1);
 #else
     float ssim_mean = sum / (height * width);
-    float sd = 0;
-    for (int i = 0; i < (height * width); i++)
-    {
-        sd += pow(map[i] - ssim_mean, 2);
-    }
-
-    float ssim_std = sqrt(sd / (height * width));
-
-    /*if (strcmp(pool, "mean"))
-        return ssim_mean;
-    else if (strcmp(pool, "cov"))*/
-    *score = (ssim_std / ssim_mean);
+    *score = ssim_mean;
 #endif
     free(var_x);
     free(var_y);
     free(cov_xy);
-    free(map);
 
     ret = 0;
 
