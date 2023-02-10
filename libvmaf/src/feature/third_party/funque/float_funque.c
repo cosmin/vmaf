@@ -54,7 +54,7 @@ typedef struct FunqueState {
     dwt2buffers ref_dwt2out[4];
     dwt2buffers dist_dwt2out[4];
 
-    //funque configurable parameters
+    // funque configurable parameters
     bool enable_resize;
     bool enable_spatial_csf;
     int vif_levels;
@@ -65,7 +65,7 @@ typedef struct FunqueState {
     double norm_view_dist;
     int ref_display_height;
 
-    //VIF extra variables
+    // VIF extra variables
     double vif_enhn_gain_limit;
     double vif_kernelscale;
     
@@ -135,14 +135,14 @@ static const VmafOption options[] = {
         .max = MAX_LEVELS,
     },
     {
-            .name = "ssim_levels",
-            .alias = "ssiml",
-            .help = "Number of DWT levels for SSIM",
-            .offset = offsetof(FunqueState, ssim_levels),
-            .type = VMAF_OPT_TYPE_INT,
-            .default_val.i = DEFAULT_SSIM_LEVELS,
-            .min = MIN_LEVELS,
-            .max = MAX_LEVELS,
+        .name = "ssim_levels",
+        .alias = "ssiml",
+        .help = "Number of DWT levels for SSIM",
+        .offset = offsetof(FunqueState, ssim_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_SSIM_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
     },
     {
         .name = "vif_enhn_gain_limit",
@@ -169,14 +169,14 @@ static const VmafOption options[] = {
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
-            .name = "adm_levels",
-            .alias = "adml",
-            .help = "Number of levels in ADM",
-            .offset = offsetof(FunqueState, adm_levels),
-            .type = VMAF_OPT_TYPE_INT,
-            .default_val.i = DEFAULT_ADM_LEVELS,
-            .min = MIN_ADM_LEVELS,
-            .max = MAX_ADM_LEVELS,
+        .name = "adm_levels",
+        .alias = "adml",
+        .help = "Number of levels in ADM",
+        .offset = offsetof(FunqueState, adm_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_ADM_LEVELS,
+        .min = MIN_ADM_LEVELS,
+        .max = MAX_ADM_LEVELS,
     },
     {
         .name = "adm_enhn_gain_limit",
@@ -327,7 +327,8 @@ static int extract(VmafFeatureExtractor *fex,
         else
             hbd_resize(s->resize_module ,(unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], dist_pic->bpc);
     }
-    else{
+    else
+    {
         res_ref_pic = ref_pic;
         res_dist_pic = dist_pic;
     }
