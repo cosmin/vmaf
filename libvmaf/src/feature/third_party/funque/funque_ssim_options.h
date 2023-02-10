@@ -21,6 +21,8 @@
 
 #define ENABLE_MINK3POOL 1
 
+#define DEFAULT_SSIM_LEVELS 4
+
 static inline double ssim_clip(double value, double low, double high)
 {
   return value < low ? low : (value > high ? high : value);
