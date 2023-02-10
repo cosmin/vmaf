@@ -28,6 +28,7 @@
 #include "feature_name.h"
 #include "mem.h"
 
+#include "funque_global_options.h"
 #include "funque_vif_options.h"
 #include "integer_funque_filters.h"
 #include "common/macros.h"
@@ -36,6 +37,7 @@
 #include "funque_adm_options.h"
 #include "integer_funque_motion.h"
 #include "integer_funque_ssim.h"
+#include "funque_ssim_options.h"
 #include "resizer.h"
 
 #if ARCH_AARCH64
@@ -68,7 +70,6 @@
 typedef struct IntFunqueState
 {
     size_t width_aligned_stride;
-    dwt2_dtype *i_prev_ref_dwt2;
     bool debug;
 
     VmafPicture res_ref_pic;
@@ -83,6 +84,12 @@ typedef struct IntFunqueState
     bool enable_resize;
     bool enable_spatial_csf;
     int vif_levels;
+    int adm_levels;
+    int needed_dwt_levels;
+    int needed_full_dwt_levels;
+    int ssim_levels;
+    double norm_view_dist;
+    int ref_display_height;
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -91,21 +98,8 @@ typedef struct IntFunqueState
 
     // ADM extra variables
     double adm_enhn_gain_limit;
-    double adm_norm_view_dist;
-    int adm_ref_display_height;
     int adm_csf_mode;
 	int32_t adm_div_lookup[65537];
-
-    // motion score extra variables
-    unsigned index;
-    double score;
-    bool motion_force_zero;
-
-    // SSIM extra variables
-    bool enable_lcs;
-    bool enable_db;
-    bool clip_db;
-    double max_db;
 
     VmafDictionary *feature_name_dict;
 
@@ -136,8 +130,30 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
         .default_val.b = true,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+{
+        .name = "norm_view_dist",
+        .alias = "nvd",
+        .help = "normalized viewing distance = viewing distance / ref display's physical height",
+        .offset = offsetof(IntFunqueState, norm_view_dist),
+        .type = VMAF_OPT_TYPE_DOUBLE,
+        .default_val.d = DEFAULT_NORM_VIEW_DIST,
+        .min = 0.75,
+        .max = 24.0,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+{
+        .name = "ref_display_height",
+        .alias = "rdf",
+        .help = "reference display height in pixels",
+        .offset = offsetof(IntFunqueState, ref_display_height),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_REF_DISPLAY_HEIGHT,
+        .min = 1,
+        .max = 4320,
+        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
         .name = "vif_levels",
@@ -146,9 +162,18 @@ static const VmafOption options[] = {
         .offset = offsetof(IntFunqueState, vif_levels),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_VIF_LEVELS,
-        // Update this when the support is added
-        .min = MIN_VIF_LEVELS,
-        .max = MAX_VIF_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
+    {
+        .name = "ssim_levels",
+        .alias = "ssiml",
+        .help = "Number of DWT levels for SSIM",
+        .offset = offsetof(IntFunqueState, ssim_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_SSIM_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
     },
     {
         .name = "vif_enhn_gain_limit",
@@ -175,6 +200,16 @@ static const VmafOption options[] = {
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
+        .name = "adm_levels",
+        .alias = "adml",
+        .help = "Number of levels in ADM",
+        .offset = offsetof(IntFunqueState, adm_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_ADM_LEVELS,
+        .min = MIN_ADM_LEVELS,
+        .max = MAX_ADM_LEVELS,
+    },
+    {
         .name = "adm_enhn_gain_limit",
         .alias = "egl",
         .help = "enhancement gain imposed on adm, must be >= 1.0, "
@@ -187,68 +222,15 @@ static const VmafOption options[] = {
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
-        .name = "adm_norm_view_dist",
-        .alias = "nvd",
-        .help = "normalized viewing distance = viewing distance / ref display's physical height",
-        .offset = offsetof(IntFunqueState, adm_norm_view_dist),
-        .type = VMAF_OPT_TYPE_DOUBLE,
-        .default_val.d = DEFAULT_ADM_NORM_VIEW_DIST,
-        .min = 0.75,
-        .max = 24.0,
-        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
-    },
-    {
-        .name = "adm_ref_display_height",
-        .alias = "rdf",
-        .help = "reference display height in pixels",
-        .offset = offsetof(IntFunqueState, adm_ref_display_height),
-        .type = VMAF_OPT_TYPE_INT,
-        .default_val.i = DEFAULT_ADM_REF_DISPLAY_HEIGHT,
-        .min = 1,
-        .max = 4320,
-        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
-    },
-    {
         .name = "adm_csf_mode",
         .alias = "csf",
         .help = "contrast sensitivity function",
         .offset = offsetof(IntFunqueState, adm_csf_mode),
         .type = VMAF_OPT_TYPE_INT,
-        .default_val.i = DEFAULT_ADM_CSF_MODE,
+        .default_val.i = 0,
         .min = 0,
         .max = 9,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
-    },
-    {
-        .name = "motion_force_zero",
-        .alias = "force_0",
-        .help = "forcing motion score to zero",
-        .offset = offsetof(IntFunqueState, motion_force_zero),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
-        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
-    },
-
-    {
-        .name = "enable_lcs",
-        .help = "enable luminance, contrast and structure intermediate output",
-        .offset = offsetof(IntFunqueState, enable_lcs),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
-    },
-    {
-        .name = "enable_db",
-        .help = "write SSIM values as dB",
-        .offset = offsetof(IntFunqueState, enable_db),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
-    },
-    {
-        .name = "clip_db",
-        .help = "clip dB scores",
-        .offset = offsetof(IntFunqueState, clip_db),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
     },
 
     {0}};
@@ -271,6 +253,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         w = (w + 1) >> 1;
         h = (h + 1) >> 1;
     }
+
+    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), s->ssim_levels);
+    s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
     s->i_dwt2_stride = (s->width_aligned_stride + 3) / 4;
@@ -297,9 +282,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->i_dist_dwt2out.width = (int)(w + 1) / 2;
     s->i_dist_dwt2out.height = (int)(h + 1) / 2;
 
-    s->i_prev_ref_dwt2 = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
-    if (!s->i_prev_ref_dwt2)
-        goto fail;
     // Memory allocation for dwt output bands
     for (unsigned i = 0; i < 4; i++)
     {
@@ -310,17 +292,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->i_dist_dwt2out.bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_dist_dwt2out.height, 32);
         if (!s->i_dist_dwt2out.bands[i])
             goto fail;
-    }
-
-    const unsigned peak = (1 << bpc) - 1;
-    if (s->clip_db)
-    {
-        const double mse = 0.5 / (w * h);
-        s->max_db = ceil(10. * log10(peak * peak / mse));
-    }
-    else
-    {
-        s->max_db = INFINITY;
     }
 
     s->modules.integer_spatial_filter = integer_spatial_filter;
@@ -385,8 +356,6 @@ fail:
         aligned_free(s->res_dist_pic.data[0]);
     if (s->spat_filter)
         aligned_free(s->spat_filter);
-    if (s->i_prev_ref_dwt2)
-        aligned_free(s->i_prev_ref_dwt2);
 
     for (unsigned i = 0; i < 4; i++)
     {
@@ -456,58 +425,31 @@ static int extract(VmafFeatureExtractor *fex,
     }
     s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
-    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
 
+
+    double ssim_score[MAX_LEVELS];
+    double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
+    double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
+
+    double adm_den = 0.0;
+    double adm_num = 0.0;
+
+    double vif_den = 0.0;
+    double vif_num = 0.0;
+
+    int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
-    if (index == 0)
-    {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_integer_feature_motion_score", 0., index);
-        memcpy(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
-               s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
-
-        if (err)
-            return err;
-    }
-    else
-    {
-        double motion_score;
-
-        err |= integer_compute_motion_funque(s->modules, s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
-
-                                             s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
-                                             s->i_dwt2_stride, s->i_dwt2_stride,
-                                             pending_div_factor,
-                                             &motion_score);
-        memcpy(s->i_prev_ref_dwt2, s->i_ref_dwt2out.bands[0],
-               s->i_ref_dwt2out.width * s->i_ref_dwt2out.height * sizeof(dwt2_dtype));
-
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_integer_feature_motion_score", motion_score, index);
-
-        if (err)
-            return err;
-    }
-
-    double adm_score, adm_score_num, adm_score_den;
-    double ssim_score;
-
-    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score, &adm_score_num, &adm_score_den, s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
+    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score[0], &adm_score_num[0], &adm_score_den[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
 
     if (err)
         return err;
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_adm2_score",
-                                         adm_score, index);
 
-    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03,
-                                                    pending_div_factor, s->adm_div_lookup);
+    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+    if (err)
+        return err;
 
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_ssim",
-                                         ssim_score, index);
-
-    double vif_score[MAX_VIF_LEVELS], vif_score_num[MAX_VIF_LEVELS], vif_score_den[MAX_VIF_LEVELS];
 
 #if USE_DYNAMIC_SIGMA_NSQ
     err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
@@ -546,26 +488,81 @@ static int extract(VmafFeatureExtractor *fex,
         if (err) return err;
     }
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
-            vif_score[0], index);
+    double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
+    double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
-            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
-            vif_score[1], index);
-	
-    if (s->vif_levels > 2)
-    {
+                                                   s->feature_name_dict, "FUNQUE_feature_vif_score",
+                                                   vif, index);
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                   s->feature_name_dict, "FUNQUE_feature_vif_scale0_score",
+                                                   vif_score[0], index);
+
+    if (s->vif_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
-            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
-            vif_score[2], index);
-        if (s->vif_levels > 3)
-        {
+                                                       s->feature_name_dict, "FUNQUE_feature_vif_scale1_score",
+                                                       vif_score[1], index);
+
+        if (s->vif_levels > 2) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
-            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
-            vif_score[3], index);
+                                                           s->feature_name_dict, "FUNQUE_feature_vif_scale2_score",
+                                                           vif_score[2], index);
+
+            if (s->vif_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_vif_scale3_score",
+                                                               vif_score[3], index);
+            }
         }
     }
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                   s->feature_name_dict, "FUNQUE_feature_adm_score",
+                                                   adm, index);
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                   s->feature_name_dict, "FUNQUE_feature_adm_scale0_score",
+                                                   adm_score[0], index);
+//    if (s->adm_levels > 1) {
+//
+//        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                       s->feature_name_dict, "FUNQUE_feature_adm_scale1_score",
+//                                                       adm_score[1], index);
+//
+//        if (s->adm_levels > 2) {
+//            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                           s->feature_name_dict, "FUNQUE_feature_adm_scale2_score",
+//                                                           adm_score[2], index);
+//
+//            if (s->adm_levels > 3) {
+//                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                               s->feature_name_dict, "FUNQUE_feature_adm_scale3_score",
+//                                                               adm_score[3], index);
+//            }
+//        }
+//    }
+
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_ssim_scale0_score",
+                                         ssim_score[0], index);
+
+//    if (s->ssim_levels > 1) {
+//        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                       s->feature_name_dict, "FUNQUE_feature_ssim_scale1_score",
+//                                                       ssim_score[1], index);
+//
+//        if (s->ssim_levels > 2) {
+//            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                           s->feature_name_dict, "FUNQUE_feature_ssim_scale2_score",
+//                                                           ssim_score[2], index);
+//
+//            if (s->ssim_levels > 3) {
+//                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+//                                                               s->feature_name_dict, "FUNQUE_feature_ssim_scale3_score",
+//                                                               ssim_score[3], index);
+//            }
+//        }
+//    }
 
     return err;
 }
@@ -579,8 +576,6 @@ static int close(VmafFeatureExtractor *fex)
         aligned_free(s->res_dist_pic.data[0]);
     if (s->spat_filter)
         aligned_free(s->spat_filter);
-    if (s->i_prev_ref_dwt2)
-        aligned_free(s->i_prev_ref_dwt2);
 
     for (unsigned i = 0; i < 4; i++)
     {
