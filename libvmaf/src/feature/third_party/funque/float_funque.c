@@ -19,7 +19,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stddef.h>
-#include <math.h>
 
 // #include "config.h"
 #include "dict.h"
@@ -51,6 +50,7 @@ typedef struct FunqueState {
 
     size_t float_dwt2_stride;
     float *spat_filter;
+    float csf_factors[4][4];
     dwt2buffers ref_dwt2out[4];
     dwt2buffers dist_dwt2out[4];
 
@@ -254,8 +254,18 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
-    s->spat_filter = aligned_malloc(s->float_stride * h, 32);
-    if (!s->spat_filter) goto fail;
+    if (s->enable_spatial_csf) {
+        s->spat_filter = aligned_malloc(s->float_stride * h, 32);
+        if (!s->spat_filter)
+            goto fail;
+    } else {
+        for(int level = 0; level < 4; level++) {
+            s->csf_factors[level][0] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0, s->norm_view_dist, s->ref_display_height);
+            s->csf_factors[level][1] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1, s->norm_view_dist, s->ref_display_height);
+            s->csf_factors[level][2] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2, s->norm_view_dist, s->ref_display_height);
+            s->csf_factors[level][3] = s->csf_factors[level][1]; // same as horizontal
+        }
+    }
 
     int err = 0;
 
@@ -343,12 +353,13 @@ static int extract(VmafFeatureExtractor *fex,
 
     if (s->enable_spatial_csf) {
         spatial_filter(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
-    }
-    funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-    if (s->enable_spatial_csf) {
+        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         spatial_filter(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
+        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+    } else {
+        funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
-    funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
 
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
@@ -359,7 +370,6 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_den = 0.0;
     double vif_num = 0.0;
-    float factors[4];
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
@@ -377,19 +387,14 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if (!s->enable_spatial_csf) {
-            factors[0] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0, s->norm_view_dist, s->ref_display_height);
-            factors[1] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1, s->norm_view_dist, s->ref_display_height);
-            factors[2] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2, s->norm_view_dist, s->ref_display_height);
-            factors[3] = factors[1]; // same as horizontal
-
             if (level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], factors, 0, 3);
-                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], factors, 0, 3);
+                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
+                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);
             } else {
                 // we only need CSF on approx band
-                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], factors, 0, 0);
-                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], factors, 0, 0);
+                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 0);
+                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 0);
             }
         }
 
