@@ -272,9 +272,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             goto fail;
     }
 
-    s->spat_filter = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_output_dtype)) * h, 32);
-    if (!s->spat_filter)
-        goto fail;
+    if (s->enable_spatial_csf) {
+        s->spat_filter = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_output_dtype)) * h, 32);
+        if (!s->spat_filter)
+            goto fail;
+    }
 
     // dwt output dimensions
     s->i_ref_dwt2out.width = (int)(w + 1) / 2;
@@ -418,14 +420,13 @@ static int extract(VmafFeatureExtractor *fex,
 
     if (s->enable_spatial_csf) {
         s->modules.integer_spatial_filter(res_ref_pic->data[0], s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
-    }
-    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    if (s->enable_spatial_csf) {
+        s->modules.integer_funque_dwt2(s->spat_filter, &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
         s->modules.integer_spatial_filter(res_dist_pic->data[0], s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
+        s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    } else {
+        s->modules.integer_funque_dwt2(res_ref_pic->data[0], &s->i_ref_dwt2out, s->i_dwt2_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
+        s->modules.integer_funque_dwt2(res_dist_pic->data[0], &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
     }
-    s->modules.integer_funque_dwt2(s->spat_filter, &s->i_dist_dwt2out, s->i_dwt2_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
-
-
 
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
