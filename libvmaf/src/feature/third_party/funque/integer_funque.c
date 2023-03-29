@@ -357,6 +357,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->resize_module.hbd_resizer_step = hbd_step_avx512;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx512;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
     }
 #endif
 #endif
