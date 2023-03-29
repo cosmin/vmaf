@@ -289,6 +289,8 @@ if is_asm_enabled
         if funque_fixed_enabled
             x86_avx512_sources += [
                 funque_feature_dir + 'x86/integer_funque_filters_avx512.c',
+                funque_feature_dir + 'x86/resizer_avx512.c',
+                funque_feature_dir + 'x86/hbd_resizer_avx512.c',
             ]
         endif 
 

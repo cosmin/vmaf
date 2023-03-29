@@ -62,6 +62,7 @@
 #include "x86/resizer_avx2.h"
 #if HAVE_AVX512
 #include "x86/integer_funque_filters_avx512.h"
+#include "x86/resizer_avx512.h"
 #endif
 #endif
 
@@ -350,6 +351,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #if HAVE_AVX512
     if (flags & VMAF_X86_CPU_FLAG_AVX512) {
         s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+        s->resize_module.resizer_step = step_avx512;
+        s->resize_module.hbd_resizer_step = hbd_step_avx512;
     }
 #endif
 #endif
