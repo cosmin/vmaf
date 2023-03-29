@@ -292,6 +292,7 @@ if is_asm_enabled
                 funque_feature_dir + 'x86/resizer_avx512.c',
                 funque_feature_dir + 'x86/hbd_resizer_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_ssim_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_adm_avx512.c',
             ]
         endif 
 
