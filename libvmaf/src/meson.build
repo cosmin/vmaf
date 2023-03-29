@@ -286,6 +286,12 @@ if is_asm_enabled
             feature_src_dir + 'x86/vif_avx512.c',
         ]
 
+        if funque_fixed_enabled
+            x86_avx512_sources += [
+                funque_feature_dir + 'x86/integer_funque_filters_avx512.c',
+            ]
+        endif 
+
         x86_avx512_static_lib = static_library(
             'x86_avx512',
             x86_avx512_sources,

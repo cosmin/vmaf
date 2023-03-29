@@ -60,6 +60,9 @@
 #include "x86/integer_funque_adm_avx2.h"
 #include "x86/integer_funque_motion_avx2.h"
 #include "x86/resizer_avx2.h"
+#if HAVE_AVX512
+#include "x86/integer_funque_filters_avx512.h"
+#endif
 #endif
 
 #include "cpu.h"
@@ -344,6 +347,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
     }
+#if HAVE_AVX512
+    if (flags & VMAF_X86_CPU_FLAG_AVX512) {
+        s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+    }
+#endif
 #endif
 
     funque_log_generate(s->log_18);
@@ -500,23 +508,23 @@ static int extract(VmafFeatureExtractor *fex,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
                                                    vif_score[0], index);
 
-    if (s->vif_levels > 1) {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
-                                                       vif_score[1], index);
+    // if (s->vif_levels > 1) {
+    //     err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
+    //                                                    vif_score[1], index);
 
-        if (s->vif_levels > 2) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
-                                                           vif_score[2], index);
+    //     if (s->vif_levels > 2) {
+    //         err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                        s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
+    //                                                        vif_score[2], index);
 
-            if (s->vif_levels > 3) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
-                                                               vif_score[3], index);
-            }
-        }
-    }
+    //         if (s->vif_levels > 3) {
+    //             err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
+    //                                                            vif_score[3], index);
+    //         }
+    //     }
+    // }
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_adm_score",
