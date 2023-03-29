@@ -65,6 +65,7 @@
 #include "x86/resizer_avx512.h"
 #include "x86/integer_funque_ssim_avx512.h"
 #include "x86/integer_funque_adm_avx512.h"
+#include "x86/integer_funque_vif_avx512.h"
 #endif
 #endif
 
@@ -359,6 +360,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
     }
 #endif
 #endif
