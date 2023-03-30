@@ -621,7 +621,7 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 
 		for (fj = 0; fj < half_fw; fj+=2){
 			jj1 = f_l_j + fj*2;
-            jj2 = f_r_j + fj + 2;
+
 			__m256i coef0 = _mm256_set1_epi32(i32_filter_coeffs[fj]);
 			__m256i coef1 = _mm256_set1_epi32(i32_filter_coeffs[fj+1]);
 
@@ -688,7 +688,7 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 
 		for (fj = 0; fj < half_fw; fj+=2){
 			jj1 = f_l_j + fj*2;
-            jj2 = f_r_j + fj + 2;
+
 			__m256i coef0 = _mm256_set1_epi32(i32_filter_coeffs[fj]);
 			__m256i coef1 = _mm256_set1_epi32(i32_filter_coeffs[fj+1]);
 
@@ -729,7 +729,7 @@ static inline void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spa
 
 		for (fj = 0; fj < half_fw; fj+=2){
 			jj1 = f_l_j + fj*2;
-            jj2 = f_r_j + fj + 2;
+            
 			__m128i coef0 = _mm_set1_epi32(i32_filter_coeffs[fj]);
 			__m128i coef1 = _mm_set1_epi32(i32_filter_coeffs[fj+1]);
 
