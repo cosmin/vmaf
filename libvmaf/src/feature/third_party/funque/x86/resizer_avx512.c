@@ -67,16 +67,13 @@ void hresize_avx512(const unsigned char **src, int **dst, int count,
 
     __m256i coef0_256 = _mm256_set1_epi32(alpha[0] + (alpha[1] << 16) + (1 << 16));
     __m256i coef2_256 = _mm256_set1_epi32(alpha[2] + (alpha[3] << 16));
-    __m256i zero_256 = _mm256_setzero_si256();
 
     __m128i coef0_128 = _mm_set1_epi32(alpha[0] + (alpha[1] << 16) + (1 << 16));
     __m128i coef2_128 = _mm_set1_epi32(alpha[2] + (alpha[3] << 16));
-    __m128i zero_128 = _mm_setzero_si128();
 
     for (int k = 0; k < count; k++)
     {
         const unsigned char *S = src[k];
-        char prefetch = S[0];
         int *D = dst[k];
         int dx = 0, limit = xmin;
         for (;;)

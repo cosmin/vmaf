@@ -114,8 +114,7 @@ int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y
 
         int width_p1_32 = (width_p1) - ((width_p1) % 32);
         int width_p1_16 = (width_p1) - ((width_p1) % 16);
-        int width_p1_8 = (width_p1) - (width_p1 % 8);
-
+        
         __m512i interim_1_x_512, interim_1_x16_512, interim_1_y_512, interim_1_y16_512, \
         interim_2_x0_512, interim_2_x8_512, interim_2_x16_512, interim_2_x24_512, \
         interim_2_y0_512, interim_2_y8_512, interim_2_y16_512, interim_2_y24_512, \

@@ -466,7 +466,7 @@ static int extract(VmafFeatureExtractor *fex,
     if (err)
         return err;
 
-    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score[0], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
     if (err)
         return err;
 

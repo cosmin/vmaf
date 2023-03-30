@@ -42,70 +42,16 @@
     r_32x8_hi = _mm512_cvtepi16_epi32(_mm512_extracti32x8_epi32(a_16x16, 1)); \
 }
 
-#define cvt_1_32x8_to_2_64x4_512(a_32x8, r_64x4_lo, r_64x4_hi) \
-{ \
-    r_64x4_lo = _mm512_cvtepi32_epi64(_mm512_castsi512_si256(a_32x8)); \
-    r_64x4_hi = _mm512_cvtepi32_epi64(_mm512_extracti32x8_epi32(a_32x8, 1)); \
-}
-
 #define cvt_1_16x16_to_2_32x8_256(a_16x16, r_32x8_lo, r_32x8_hi) \
 { \
     r_32x8_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(a_16x16)); \
     r_32x8_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(a_16x16, 1)); \
 }
 
-#define cvt_1_32x8_to_2_64x4_256(a_32x8, r_64x4_lo, r_64x4_hi) \
-{ \
-    r_64x4_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(a_32x8)); \
-    r_64x4_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(a_32x8, 1)); \
-}
-
 #define cvt_1_16x8_to_2_32x4_256(a_16x16, r_32x8_lo, r_32x8_hi) \
 { \
     r_32x8_lo = _mm_cvtepi16_epi32(a_16x16); \
     r_32x8_hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(a_16x16, 0x0E)); \
-}
-
-#define cvt_1_16x8_to_2_32x4_128(a_32x8, r_64x4_lo, r_64x4_hi) \
-{ \
-    r_64x4_lo = _mm_cvtepi32_epi64(a_32x8); \
-    r_64x4_hi = _mm_cvtepi32_epi64(_mm_shuffle_epi32(a_32x8, 0x0E)); \
-}
-
-#define calc_angle_512(ot_dp, o_mag, t_mag, angle, n) \
-{ \
-    int ot_dp_int = _mm256_extract_epi32(ot_dp, n); \
-    int o_mag_int = _mm256_extract_epi32(o_mag, n); \
-    int t_mag_int = _mm256_extract_epi32(t_mag, n); \
-    angle = ((ot_dp_int >= 0) && (((adm_i64_dtype)ot_dp_int * ot_dp_int) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_int * t_mag_int))); \
-}
-
-#define calc_angle_256(ot_dp, o_mag, t_mag, angle, n) \
-{ \
-    int ot_dp_int = _mm256_extract_epi32(ot_dp, n); \
-    int o_mag_int = _mm256_extract_epi32(o_mag, n); \
-    int t_mag_int = _mm256_extract_epi32(t_mag, n); \
-    angle = ((ot_dp_int >= 0) && (((adm_i64_dtype)ot_dp_int * ot_dp_int) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_int * t_mag_int))); \
-}
-
-#define calc_angle_128(ot_dp, o_mag, t_mag, angle, n) \
-{ \
-    int ot_dp_int = _mm_extract_epi32(ot_dp, n); \
-    int o_mag_int = _mm_extract_epi32(o_mag, n); \
-    int t_mag_int = _mm_extract_epi32(t_mag, n); \
-    angle = ((ot_dp_int >= 0) && (((adm_i64_dtype)ot_dp_int * ot_dp_int) >= COS_1DEG_SQ * ((adm_i64_dtype)o_mag_int * t_mag_int))); \
-}
-
-#define Multiply64Bit_256(ab, cd, res) \
-{ \
-    __m256i ac = _mm256_mul_epu32(ab, cd); \
-    __m256i b = _mm256_srli_epi64(ab, 32); \
-    __m256i bc = _mm256_mul_epu32(b, cd); \
-    __m256i d = _mm256_srli_epi64(cd, 32); \
-    __m256i ad = _mm256_mul_epu32(ab, d); \
-    __m256i high = _mm256_add_epi64(bc, ad); \
-    high = _mm256_slli_epi64(high, 32); \
-    res = _mm256_add_epi64(high, ac); \
 }
 
 #define shift15_64b_signExt_512(a, r)\
@@ -180,8 +126,6 @@ void integer_adm_decouple_avx512(i_dwt2buffers ref, i_dwt2buffers dist,
 
 	//The width of i_dlm_add buffer will be extra only if padding is enabled
     int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
-
-    uint16_t angle_flag_table[32];
 
     int loop_w_32 = loop_w - ((loop_w - border_w) % 32);
 	int loop_w_16 = loop_w - ((loop_w - border_w) % 16);

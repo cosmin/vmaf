@@ -139,7 +139,6 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
 
 #if ENABLE_MINK3POOL
     ssim_accum_dtype rowcube_1minus_map = 0;
-    ssim_accum_dtype test = 0;
     double accumcube_1minus_map = 0;
     const ssim_inter_dtype const_1 = 32768;  //div_Q_factor>>SSIM_SHIFT_DIV
     
@@ -181,7 +180,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
 	int width_rem_size32 = width - (width % 32);
     int width_rem_size16 = width - (width % 16);
     int width_rem_size8 = width - (width % 8);
-    int index = 0, j, k = 0;
+    int index = 0, j;
 
     for (int i = 0; i < height; i++)
     {
@@ -330,7 +329,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             __m256i div_lookup_lo1 = _mm512_i64gather_epi32(map_den_lo1, div_lookup, 4);
             __m256i div_lookup_hi0 = _mm512_i64gather_epi32(map_den_hi0, div_lookup, 4);
             __m256i div_lookup_hi1 = _mm512_i64gather_epi32(map_den_hi1, div_lookup, 4);
-            __m512i map_lo0, map_lo1, map_hi0, map_hi1, map_sq_lo0, map_sq_lo1, map_sq_hi0, map_sq_hi1;
+            __m512i map_lo0, map_lo1, map_hi0, map_hi1;
 
             Multiply64Bit_512(map_num_lo0, _mm512_cvtepi32_epi64(div_lookup_lo0), map_lo0);
             Multiply64Bit_512(map_num_lo1, _mm512_cvtepi32_epi64(div_lookup_lo1), map_lo1);
@@ -365,6 +364,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             rowcube_1minus_map_lo0 = _mm512_add_epi64(rowcube_1minus_map_lo0, rowcube_1minus_map_hi0);
             accum_rowcube_512 = _mm512_add_epi64(accum_rowcube_512, rowcube_1minus_map_lo0);
 #else
+            __m512i map_sq_lo0, map_sq_lo1, map_sq_hi0, map_sq_hi1;
             Multiply64Bit_512(map_lo0, map_lo0, map_sq_lo0);
             Multiply64Bit_512(map_lo1, map_lo1, map_sq_lo1);
             Multiply64Bit_512(map_hi0, map_hi0, map_sq_hi0);
@@ -526,7 +526,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             __m128i div_lookup_lo1 = _mm256_i64gather_epi32(div_lookup, map_den_lo1, 4);
             __m128i div_lookup_hi0 = _mm256_i64gather_epi32(div_lookup, map_den_hi0, 4);
             __m128i div_lookup_hi1 = _mm256_i64gather_epi32(div_lookup, map_den_hi1, 4);
-            __m256i map_lo0, map_lo1, map_hi0, map_hi1, map_sq_lo0, map_sq_lo1, map_sq_hi0, map_sq_hi1;
+            __m256i map_lo0, map_lo1, map_hi0, map_hi1;
 
             Multiply64Bit_256(map_num_lo0, _mm256_cvtepi32_epi64(div_lookup_lo0), map_lo0);
             Multiply64Bit_256(map_num_lo1, _mm256_cvtepi32_epi64(div_lookup_lo1), map_lo1);
@@ -562,6 +562,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             accum_rowcube_256 = _mm256_add_epi64(accum_rowcube_256, rowcube_1minus_map_lo0);
 
 #else
+            __m512i map_sq_lo0, map_sq_lo1, map_sq_hi0, map_sq_hi1;
             Multiply64Bit_256(map_lo0, map_lo0, map_sq_lo0);
             Multiply64Bit_256(map_lo1, map_lo1, map_sq_lo1);
             Multiply64Bit_256(map_hi0, map_hi0, map_sq_hi0);

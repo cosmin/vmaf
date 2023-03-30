@@ -79,20 +79,15 @@ void hbd_hresize_avx512(const unsigned short **src, int **dst, int count,
                  int swidth, int dwidth, int cn, int xmin, int xmax)
 #endif
 {
-    __m512i coef0_512 = _mm512_set1_epi32(alpha[0] + (alpha[1] << 16) + (1 << 16));
-    __m512i coef2_512 = _mm512_set1_epi32(alpha[2] + (alpha[3] << 16));
+    __m512i idx_extract_ab_512 = _mm512_set_epi32(30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0);
+	__m512i idx_extract_cd_512 = _mm512_set_epi32(31, 29, 27, 25, 23, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 1);
 
-    __m256i coef0_256 = _mm256_set1_epi32(alpha[0] + (alpha[1] << 16) + (1 << 16));
-    __m256i coef2_256 = _mm256_set1_epi32(alpha[2] + (alpha[3] << 16));
+    __m512i coef0_512 = _mm512_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
+    __m512i coef2_512 = _mm512_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
 
-    __m128i coef0_128 = _mm_set1_epi32(alpha[0] + (alpha[1] << 16) + (1 << 16));
-    __m128i coef2_128 = _mm_set1_epi32(alpha[2] + (alpha[3] << 16));
-
-    int xmax_64 = xmax - (xmax % 64);
     int xmax_32 = xmax - (xmax % 32);
     int xmax_16 = xmax - (xmax % 16);
     int xmax_8 = xmax - (xmax % 8);
-    int xmax_4 = xmax - (xmax % 4);
     for (int k = 0; k < count; k++)
     {
         const unsigned short *S = src[k];
@@ -129,7 +124,7 @@ void hbd_hresize_avx512(const unsigned short **src, int **dst, int count,
             if (limit == dwidth)
                 break;
 #if OPTIMISED_COEFF
-            for (; dx < xmax_64; dx+=64)
+            for (; dx < xmax_32; dx+=32)
             {
                 int sx = dx * 2;
 #else
@@ -141,45 +136,38 @@ void hbd_hresize_avx512(const unsigned short **src, int **dst, int count,
                 __m512i val2 = _mm512_loadu_si512((__m512i*)(S + sx + 1));
                 __m512i val32 = _mm512_loadu_si512((__m512i*)(S + sx - 1 + 32));
                 __m512i val34 = _mm512_loadu_si512((__m512i*)(S + sx + 1 + 32));
-                __m512i val64 = _mm512_loadu_si512((__m512i*)(S + sx - 1 + 64));
-                __m512i val66 = _mm512_loadu_si512((__m512i*)(S + sx + 1 + 64));
-                __m512i val96 = _mm512_loadu_si512((__m512i*)(S + sx - 1 + 96));
-                __m512i val98 = _mm512_loadu_si512((__m512i*)(S + sx + 1 + 96));
 
-                __m512i res0_0 = _mm512_madd_epi16(val0, coef0_512);
-                __m512i res2_0 = _mm512_madd_epi16(val2, coef2_512);
-                __m512i res0_32 = _mm512_madd_epi16(val32, coef0_512);
-                __m512i res2_32 = _mm512_madd_epi16(val34, coef2_512);
-                __m512i res0_64 = _mm512_madd_epi16(val64, coef0_512);
-                __m512i res2_64 = _mm512_madd_epi16(val66, coef2_512);
-                __m512i res0_96 = _mm512_madd_epi16(val96, coef0_512);
-                __m512i res2_96 = _mm512_madd_epi16(val98, coef2_512);
+                __m512i val0_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val0));
+                __m512i val0_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val0, 1));
+                __m512i val2_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val2));
+                __m512i val2_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val2, 1));
+                __m512i val32_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val32));
+                __m512i val32_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val32, 1));
+                __m512i val34_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val34));
+                __m512i val34_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val34, 1));
 
-                __m512i res_0 = _mm512_add_epi32(res0_0, res2_0);
-                __m512i res_32 = _mm512_add_epi32(res0_32, res2_32);
-                __m512i res_64 = _mm512_add_epi32(res0_64, res2_64);
-                __m512i res_96 = _mm512_add_epi32(res0_96, res2_96);
+                __m512i mul0_lo = _mm512_mullo_epi32(val0_lo, coef0_512);
+                __m512i mul0_hi = _mm512_mullo_epi32(val0_hi, coef0_512);
+                __m512i mul2_lo = _mm512_mullo_epi32(val2_lo, coef2_512);
+                __m512i mul2_hi = _mm512_mullo_epi32(val2_hi, coef2_512);
 
-                _mm512_storeu_si512((__m512i*)(D + dx), res_0);
-                _mm512_storeu_si512((__m512i*)(D + dx + 16), res_32);
-                _mm512_storeu_si512((__m512i*)(D + dx + 32), res_64);
-                _mm512_storeu_si512((__m512i*)(D + dx + 48), res_96);
-            }
-            for (; dx < xmax_32; dx+=32)
-            {
-                int sx = dx * 2;
-                __m512i val0 = _mm512_loadu_si512((__m512i*)(S + sx - 1));
-                __m512i val2 = _mm512_loadu_si512((__m512i*)(S + sx + 1));
-                __m512i val32 = _mm512_loadu_si512((__m512i*)(S + sx - 1 + 32));
-                __m512i val34 = _mm512_loadu_si512((__m512i*)(S + sx + 1 + 32));
+                __m512i mul32_lo = _mm512_mullo_epi32(val32_lo, coef0_512);
+                __m512i mul32_hi = _mm512_mullo_epi32(val32_hi, coef0_512);
+                __m512i mul34_lo = _mm512_mullo_epi32(val34_lo, coef2_512);
+                __m512i mul34_hi = _mm512_mullo_epi32(val34_hi, coef2_512);
 
-                __m512i res0_0 = _mm512_madd_epi16(val0, coef0_512);
-                __m512i res2_0 = _mm512_madd_epi16(val2, coef2_512);
-                __m512i res0_32 = _mm512_madd_epi16(val32, coef0_512);
-                __m512i res2_32 = _mm512_madd_epi16(val34, coef2_512);
+                __m512i ac_bd_0_lo = _mm512_add_epi32(mul0_lo, mul2_lo);
+                __m512i ac_bd_0_hi = _mm512_add_epi32(mul0_hi, mul2_hi);
+                __m512i ac_bd_32_lo = _mm512_add_epi32(mul32_lo, mul34_lo);
+                __m512i ac_bd_32_hi = _mm512_add_epi32(mul32_hi, mul34_hi);
 
-                __m512i res_0 = _mm512_add_epi32(res0_0, res2_0);
-                __m512i res_32 = _mm512_add_epi32(res0_32, res2_32);
+                __m512i ac_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_ab_512, ac_bd_0_hi);
+                __m512i bd_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_cd_512, ac_bd_0_hi);
+                __m512i ac_32 = _mm512_permutex2var_epi32(ac_bd_32_lo, idx_extract_ab_512, ac_bd_32_hi);
+                __m512i bd_32 = _mm512_permutex2var_epi32(ac_bd_32_lo, idx_extract_cd_512, ac_bd_32_hi);
+
+                __m512i res_0 = _mm512_add_epi32(ac_0, bd_0);
+                __m512i res_32 = _mm512_add_epi32(ac_32, bd_32);
 
                 _mm512_storeu_si512((__m512i*)(D + dx), res_0);
                 _mm512_storeu_si512((__m512i*)(D + dx + 16), res_32);
@@ -189,9 +177,25 @@ void hbd_hresize_avx512(const unsigned short **src, int **dst, int count,
                 int sx = dx * 2;
                 __m512i val0 = _mm512_loadu_si512((__m512i*)(S + sx - 1));
                 __m512i val2 = _mm512_loadu_si512((__m512i*)(S + sx + 1));
-                __m512i res0_0 = _mm512_madd_epi16(val0, coef0_512);
-                __m512i res2_0 = _mm512_madd_epi16(val2, coef2_512);
-                __m512i res_0 = _mm512_add_epi32(res0_0, res2_0);
+                
+                __m512i val0_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val0));
+                __m512i val0_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val0, 1));
+                __m512i val2_lo = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(val2));
+                __m512i val2_hi = _mm512_cvtepu16_epi32(_mm512_extracti32x8_epi32(val2, 1));
+
+                __m512i mul0_lo = _mm512_mullo_epi32(val0_lo, coef0_512);
+                __m512i mul0_hi = _mm512_mullo_epi32(val0_hi, coef0_512);
+                __m512i mul2_lo = _mm512_mullo_epi32(val2_lo, coef2_512);
+                __m512i mul2_hi = _mm512_mullo_epi32(val2_hi, coef2_512);
+                
+                __m512i ac_bd_0_lo = _mm512_add_epi32(mul0_lo, mul2_lo);
+                __m512i ac_bd_0_hi = _mm512_add_epi32(mul0_hi, mul2_hi);
+
+                __m512i ac_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_ab_512, ac_bd_0_hi);
+                __m512i bd_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_cd_512, ac_bd_0_hi);
+
+                __m512i res_0 = _mm512_add_epi32(ac_0, bd_0);
+
                 _mm512_storeu_si512((__m512i*)(D + dx), res_0);
             }
             for (; dx < xmax_8; dx+=8)
@@ -199,21 +203,17 @@ void hbd_hresize_avx512(const unsigned short **src, int **dst, int count,
                 int sx = dx * 2;
                 __m256i val0_0 = _mm256_loadu_si256((__m256i*)(S + sx - 1));
                 __m256i val2_0 = _mm256_loadu_si256((__m256i*)(S + sx + 1));
+                __m512i val0 = _mm512_cvtepu16_epi32(val0_0);
+                __m512i val2 = _mm512_cvtepu16_epi32(val2_0);
 
-                __m256i res0_0 = _mm256_madd_epi16(val0_0, coef0_256);
-                __m256i res2_0 = _mm256_madd_epi16(val2_0, coef2_256);
-                __m256i res_0 = _mm256_add_epi32(res0_0, res2_0);
-                _mm256_storeu_si256((__m256i*)(D + dx), res_0);
-            }
-            for (; dx < xmax_4; dx+=4)
-            {
-                int sx = dx * 2;
-                __m128i val0_0 = _mm_loadu_si128((__m128i*)(S + sx - 1));
-                __m128i val2_0 = _mm_loadu_si128((__m128i*)(S + sx + 1));
-                __m128i res0_0 = _mm_madd_epi16(val0_0, coef0_128);
-                __m128i res2_0 = _mm_madd_epi16(val2_0, coef2_128);
-                __m128i res_0 = _mm_add_epi32(res0_0, res2_0);
-                _mm_storeu_si128 ((__m128i*)(D + dx), res_0);                
+                __m512i mul0 = _mm512_mullo_epi32(val0, coef0_512);
+                __m512i mul2 = _mm512_mullo_epi32(val2, coef2_512);
+                __m512i ac_bd_0_lo = _mm512_add_epi32(mul0, mul2);
+                __m512i ac_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_ab_512, ac_bd_0_lo);
+                __m512i bd_0 = _mm512_permutex2var_epi32(ac_bd_0_lo, idx_extract_cd_512, ac_bd_0_lo);
+                __m512i res_0 = _mm512_add_epi32(ac_0, bd_0);
+
+                _mm256_storeu_si256((__m256i*)(D + dx), _mm512_castsi512_si256(res_0));
             }
             for (; dx < xmax; dx++)
             {
@@ -561,7 +561,7 @@ void hbd_step_avx512(const unsigned short *_src, unsigned short *_dst, const int
             prev_sy[k] = sy;
         }
 
-
+        // printf("%d ", dy);
 
 #if OPTIMISED_COEFF
         if (k0 < ksize)

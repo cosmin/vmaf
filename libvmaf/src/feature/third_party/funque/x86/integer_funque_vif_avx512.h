@@ -52,9 +52,8 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
                              int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
-#endif                          ²
+#endif
 {
-    __m512i sigma_32b = _mm512_set1_epi32(sigma_nsq);
     __m512i sigma_512 = _mm512_set1_epi64(sigma_nsq);
     __m512i kf_512 = _mm512_set1_epi64(knorm_fact);
     __m512i exp_512 = _mm512_set1_epi64(exp);
@@ -309,9 +308,8 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
 
     __m512i d1_0 = _mm512_add_epi64(sigma_512, var_x0_512);
     __m512i d1_4 = _mm512_add_epi64(sigma_512, var_x4_512);
-    __m512i d2 = sigma_512;
 
-    __m512i log_in_den_1_0, log_in_den_1_4, log_in_den_2_0, log_in_den_2_4;
+    __m512i log_in_den_1_0, log_in_den_1_4, log_in_den_2_0;
     __m512i y1_0, y1_4, y2_0;
 
     y1_0 = _mm512_lzcnt_epi64(d1_0);
@@ -405,7 +403,6 @@ static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
     int32_t int_1_x, int_1_y;
     int64_t int_2_x, int_2_y, int_x_y;
     int width_p1_16 = (width_p1) - ((width_p1 - kw - 1) % 16);
-    int width_p1_8 = (width_p1) - ((width_p1 - kw - 1) % 8);
     //1st column vals are 0, hence intialising to 0
     int_1_x = 0;
     int_1_y = 0;
