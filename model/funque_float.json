@@ -14,19 +14,24 @@
         "feature_opts_dicts": [
             {
                 "enable_resize": true,
-                "vif_levels": 2
+                "vif_levels": 4
             },
-            {},
-            {},
+            {
+                "adm_levels": 4
+            },
+            {
+                "ssim_levels": 4
+            },
             {},
             {}
         ],
         "feature_names": [
-            "FUNQUE_feature_vif_scale0_score",
-            "FUNQUE_feature_vif_scale1_score",
-            "FUNQUE_feature_motion_score",
-            "FUNQUE_feature_adm2_score",
-            "FUNQUE_float_ssim"
+            "FUNQUE_feature_vif_scale0_score", "FUNQUE_feature_vif_scale1_score",
+            "FUNQUE_feature_vif_scale2_score", "FUNQUE_feature_vif_scale3_score",
+            "FUNQUE_feature_adm_scale0_score","FUNQUE_feature_adm_scale1_score",
+            "FUNQUE_feature_adm_scale2_score","FUNQUE_feature_adm_scale3_score",
+            "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
+            "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score"
         ],
         "slopes": [
             0.013377926421404682,

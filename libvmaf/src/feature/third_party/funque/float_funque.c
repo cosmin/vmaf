@@ -524,15 +524,15 @@ static int close(VmafFeatureExtractor *fex)
 }
 
 static const char *provided_features[] = {
-    "FUNQUE_feature_vif_score",
-    "FUNQUE_feature_vif_scale0", "FUNQUE_feature_vif_scale1_score",
-    "FUNQUE_feature_vif_scale2", "FUNQUE_feature_vif_scale3_score",
 
-    "FUNQUE_feature_adm2_score",
-    "FUNQUE_feature_adm_scale0","FUNQUE_feature_adm_scale1_score",
-    "FUNQUE_feature_adm_scale2","FUNQUE_feature_adm_scale3_score",
+    "FUNQUE_feature_vif_scale0_score", "FUNQUE_feature_vif_scale1_score",
+    "FUNQUE_feature_vif_scale2_score", "FUNQUE_feature_vif_scale3_score",
 
-    "FUNQUE_feature_ssim_score",
+    "FUNQUE_feature_adm_scale0_score","FUNQUE_feature_adm_scale1_score",
+    "FUNQUE_feature_adm_scale2_score","FUNQUE_feature_adm_scale3_score",
+
+    "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
+    "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
 
     NULL
 };
