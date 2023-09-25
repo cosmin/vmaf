@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 VENV=.venv
 .PHONY: all install clean distclean deps
 
@@ -18,11 +19,11 @@ funque-float:
 	$(VENV)/bin/ninja -vC libvmaf/build
 
 funque-integer:
-	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release -Denable_integer_funque=true && \
+	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release -Denable_integer_funque=true -Denable_avx512=true && \
 	$(VENV)/bin/ninja -vC libvmaf/build
 
 funque:
-	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release -Denable_float_funque=true -Denable_integer_funque=true && \
+	$(VENV)/bin/meson setup libvmaf/build libvmaf --buildtype release -Denable_float_funque=true -Denable_integer_funque=true -Denable_avx512=true && \
 	$(VENV)/bin/ninja -vC libvmaf/build
 
 clean:
