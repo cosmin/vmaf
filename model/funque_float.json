@@ -23,7 +23,10 @@
                 "ssim_levels": 4
             },
             {},
-            {}
+            {},
+            {
+                "strred_levels": 4
+            }
         ],
         "feature_names": [
             "FUNQUE_feature_vif_score",
@@ -33,7 +36,10 @@
             "FUNQUE_feature_adm_scale0_score", "FUNQUE_feature_adm_scale1_score",
             "FUNQUE_feature_adm_scale2_score", "FUNQUE_feature_adm_scale3_score",
             "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
-            "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score"
+            "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
+            "FUNQUE_feature_strred_score",
+            "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
+            "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score"
         ],
         "slopes": [
             0.013377926421404682,
@@ -68,7 +74,11 @@
                 "vif_scale0",
                 "vif_scale1",
                 "vif_scale2",
-                "vif_scale3"
+                "vif_scale3",
+                "strred_scale0",
+                "strred_scale1",
+                "strred_scale2",
+                "strred_scale3"
             ]
         },
         "score_clip": [

@@ -39,6 +39,9 @@
 #include "funque_ssim.h"
 #include "resizer.h"
 
+#include "funque_strred.h"
+#include "funque_strred_options.h"
+
 typedef struct FunqueState {
     size_t float_stride;
     float *ref;
@@ -64,6 +67,7 @@ typedef struct FunqueState {
     int ssim_levels;
     double norm_view_dist;
     int ref_display_height;
+    int strred_levels;
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -189,6 +193,16 @@ static const VmafOption options[] = {
         .min = 1.0,
         .max = DEFAULT_ADM_ENHN_GAIN_LIMIT,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+    {
+        .name = "strred_levels",
+        .alias = "strred",
+        .help = "Number of levels in STRRED",
+        .offset = offsetof(FunqueState, strred_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_STRRED_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
     },
 
     { 0 }
@@ -364,6 +378,11 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
+    double strred_score[MAX_LEVELS];
+    double srred_vals[MAX_LEVELS], trred_vals[MAX_LEVELS], strred_vals[MAX_LEVELS];
+    double srred_approx_vals[MAX_LEVELS], trred_approx_vals[MAX_LEVELS], strred_approx_vals[MAX_LEVELS];
+    double spat_vals[MAX_LEVELS], temp_vals[MAX_LEVELS], spat_temp_vals[MAX_LEVELS];
+
 
     double adm_den = 0.0;
     double adm_num = 0.0;
@@ -418,6 +437,13 @@ static int extract(VmafFeatureExtractor *fex,
             #endif
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
+        }
+
+        if (level <= s->strred_levels - 1) {
+
+            err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+                                 &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
+                                 &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, 1, (double)STRRED_SIGMA_NSQ);
         }
 
         if (err) return err;
@@ -499,6 +525,34 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
+    double strred = 0;
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                   s->feature_name_dict, "FUNQUE_feature_strred_score",
+                                                   strred, index);
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+                                                   strred_score[0], index);
+
+    if (s->strred_levels > 1) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                                                       strred_score[1], index);
+
+        if (s->strred_levels > 2) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                                                           strred_score[2], index);
+
+            if (s->strred_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
+                                                               strred_score[3], index);
+            }
+        }
+    }
+
     return err;
 }
 
@@ -534,6 +588,10 @@ static const char *provided_features[] = {
 
     "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
     "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
+
+    "FUNQUE_feature_strred_score",
+    "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
+    "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
 
     NULL
 };
