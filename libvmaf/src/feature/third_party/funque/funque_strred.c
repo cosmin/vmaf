@@ -170,6 +170,113 @@ void rred_entropies_and_scales(const float* x, int block_size, size_t width, siz
     }
 }
 
+void strred_strred_integral_image_2_temporal(const float* src1, const float* src2, size_t width, size_t height, double* sum)
+{
+    for (size_t i = 0; i < (height + 1); ++i)
+    {
+        for (size_t j = 0; j < (width + 1); ++j)
+        {
+            if (i == 0 || j == 0)
+                continue;
+
+            double val = (double)src1[(i - 1) * width + (j - 1)] - (double)src2[(i - 1) * width + (j - 1)];
+            val = (double) val * val;
+
+            if (i >= 1)
+            {
+                val += sum[(i - 1) * (width + 1) + j];
+                if (j >= 1)
+                {
+                    val += sum[i * (width + 1) + j - 1] - sum[(i - 1) * (width + 1) + j - 1];
+                }
+            }
+            else {
+                if (j >= 1)
+                {
+                    val += sum[i * width + j - 1];
+                }
+            }
+            sum[i * (width + 1) + j] = val;
+        }
+    }
+}
+
+void strred_integral_image_temporal(const float* src1, const float* src2,  size_t width, size_t height, double* sum)
+{
+    for (size_t i = 0; i < (height + 1); ++i)
+    {
+        for (size_t j = 0; j < (width + 1); ++j)
+        {
+            if (i == 0 || j == 0)
+                continue;
+
+            double val = (double)src1[(i - 1) * width + (j - 1)] - (double)src2[(i - 1) * width + (j - 1)];
+
+            if (i >= 1)
+            {
+                val += sum[(i - 1) * (width + 1) + j];
+                if (j >= 1)
+                {
+                    val += sum[i * (width + 1) + j - 1] - sum[(i - 1) * (width + 1) + j - 1];
+                }
+            }
+            else {
+                if (j >= 1)
+                {
+                    val += sum[i * width + j - 1];
+                }
+            }
+            sum[i * (width + 1) + j] = val;
+        }
+    }
+}
+
+void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int block_size, size_t width, size_t height, size_t stride, float *entropy, float *scale)
+{
+    float sigma_nsq = STRRED_SIGMA_NSQ;
+    float tol = 1e-10;
+
+    float entr_const;
+
+    if(block_size == 1)
+    {
+        float exp_val = EULERS_CONSTANT;
+        entr_const = log(2 * M_PI * EULERS_CONSTANT);
+        int k = STRRED_WINDOW_SIZE;
+        int k_norm = k * k;
+        int kw = k;
+        int kh = k;
+        int wd, ht;
+        int i, j;
+
+        float* x_pad;
+        float* prev_x_pad;
+
+        int x_reflect = (int)((kw - 1) / 2);
+        int prev_x_reflect = (int)((kw - 1) / 2);
+        x_pad = (float*) malloc (sizeof(float) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+        prev_x_pad = (float*) malloc (sizeof(float) * (width + (2 * prev_x_reflect)) * (height + (2 * prev_x_reflect)));
+
+        strred_reflect_pad(x, width, height, x_reflect, x_pad);
+        strred_reflect_pad(prev_x, width, height, prev_x_reflect, prev_x_pad);
+        size_t r_width = width + (2 * x_reflect);
+        size_t r_height = height + (2 * x_reflect);
+
+
+        double *int_1_x, *int_2_x, *entropies, *scales;
+        double *var_x;
+
+        int_1_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        int_2_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        entropies = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        scales = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+
+        strred_integral_image_temporal(x_pad, prev_x_pad, r_width, r_height, int_1_x);
+        strred_strred_integral_image_2_temporal(x_pad, prev_x_pad, r_width, r_height, int_2_x);
+        strred_compute_entropy_scale(int_1_x, int_2_x, width, height, kw, kh, k_norm, entropies, scales, entr_const);
+
+    }
+}
 
 
 int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_t width, size_t height, 
@@ -182,21 +289,23 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     // For frame 0. The code will not enter strred function in python and will copy the contents to prev pyr
     // Here insert an if condition for the same. If frame != 0 then enter the loop else just copy the contents into prev_frame
     // Need to pass frame number in the caller of the function
-    float *prev_x;
-    float *prev_y;
+    dwt2buffers *prev_ref;
+    dwt2buffers *prev_dist;
     int ret;
 
     float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
     float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
 
-    //if (frame_idx == 0)
+    // Pass frame index to the function argument 
+    //if (frame_idx != 0)
     {
-        prev_x = ref;
-        prev_y = dist;
+        prev_ref = ref;
+        prev_dist = dist;
     }
     //else
     {
         int subband;
+        int compute_temporal;
 
         // TODO: Insert an assert to check whether details ref and details dist are of same length
         int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
@@ -207,20 +316,31 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
         float *details_ref = (float*) malloc (width * height * sizeof(float));
         float *details_dist = (float*) malloc (width * height * sizeof(float));
 
-        double *spat_gsm_ref_details = (double *) malloc (total_subbands * sizeof(double));
+        //double *spat_gsm_ref_details[3] = (double *) malloc (total_subbands * width * height * sizeof(double));
+        //double *spat_gsm_dist_details[3] = (double *) malloc (total_subbands * width * height * sizeof(double));
         float ref_entropy, ref_scale, dist_entropy, dist_scale;
 
-        for(subband = 1; subband < total_subbands; subband++)
+        for(subband = 0; subband < total_subbands; subband++)
         {
             rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
             rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
         }
 
+        //compute_temporal = (prev_ref->bands[0] != 'NULL') ? 1 : 0;
+
+        if(compute_temporal)
+        {
+            rred_entropies_and_scales_temporal(ref->bands[subband], prev_ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
+            rred_entropies_and_scales_temporal(dist->bands[subband], prev_dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
+        }
 
 
+        // Agrregate functions from Ajat
+        // Call the Aggregator function/MACRO and pass entropies, scales to get spat, temp, spat-temporal values
 
-        prev_x = ref;
-        prev_y = dist;
+
+        prev_ref = ref;
+        prev_dist = dist;
     }
 
     ret = 0;

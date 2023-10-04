@@ -13,7 +13,7 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "enable_resize": true,
+                "enable_resize": false,
                 "vif_levels": 4
             },
             {
@@ -75,6 +75,7 @@
                 "vif_scale1",
                 "vif_scale2",
                 "vif_scale3",
+                "strred_score",
                 "strred_scale0",
                 "strred_scale1",
                 "strred_scale2",
