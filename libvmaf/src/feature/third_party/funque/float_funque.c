@@ -48,6 +48,7 @@ typedef struct FunqueState {
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
+    int num_taps;
     size_t float_dwt2_stride;
     float *spat_filter;
     float csf_factors[4][4];
@@ -352,12 +353,15 @@ static int extract(VmafFeatureExtractor *fex,
     normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     if (s->enable_spatial_csf) {
-        spatial_filter(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0]);
-        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        spatial_filter(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0]);
-        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
-    } else {
+        /*assume this is entering the path of FullScaleY Funque Extractor*/
+        //CSF factors are applied to the pictures based on predefined thresholds.
+        s->num_taps = 5;
+        spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->num_taps);
         funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->num_taps);
+        funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+    } else {
+                funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
 
@@ -370,7 +374,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_den = 0.0;
     double vif_num = 0.0;
-
+    
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
         if (level+1 < s->needed_dwt_levels) {
@@ -387,7 +391,7 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if (!s->enable_spatial_csf) {
-            if (level < s->adm_levels || level < s->ssim_levels) {
+            if (level < s->adm_levels || level < s->ssim_levels) {//applying CSF to DWT coefficients
                 // we need full CSF on all bands
                 funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);

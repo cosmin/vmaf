@@ -107,10 +107,68 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
     aligned_free(tmplo);
 }
 
-//Convolution using coefficients from python workspace
-void spatial_filter(float *src, float *dst, int width, int height)
-{
-    //Copied the coefficients from python coefficients
+void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
+{   
+    if(num_taps == 5){
+        //coefficients for 5 tap nadeanu_spat filter 
+        float filter_coeffs[5] = {
+        0.0253133196, 0.2310067710, 0.4759767950, 0.2310067710, 0.0253133196
+        };
+        
+        int src_px_stride = width;
+        int dst_px_stride = width;
+
+        // Allocate temporary memory for intermediate results
+        float *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(float)), MAX_ALIGN);
+        float fcoeff, imgcoeff;
+        int fwidth = 5;
+        int i, j, fi, fj, ii, jj;
+    
+        for (i = 0; i < height; ++i) {
+
+            // Vertical pass. 
+            for (j = 0; j < width; ++j) { //iterate through each column of image
+                double accum = 0;
+
+                for (fi = 0; fi < fwidth; ++fi) {
+                    fcoeff = filter_coeffs[fi];
+                    //compute the weighted sumof neighboring pixels
+                    ii = i - fwidth / 2 + fi;
+                    ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
+
+                    imgcoeff = src[ii * src_px_stride + j];
+
+                    accum += (double) fcoeff * imgcoeff; //store weighted sum of pixel values
+                }
+
+                tmp[j] = accum;
+                
+            }
+
+            // Horizontal pass.
+            for (j = 0; j < width; ++j) {
+                double accum = 0;
+
+                for (fj = 0; fj < fwidth; ++fj) {
+                    fcoeff = filter_coeffs[fj];
+
+                    jj = j - fwidth / 2 + fj;
+                    jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
+
+                    imgcoeff = tmp[jj];
+
+                    accum += (double) fcoeff * imgcoeff;
+                }
+
+                dst[i * dst_px_stride + j] = accum;
+                printf("%f  ", dst[i * dst_px_stride + j]);
+            }
+            printf("\n");
+        }
+
+        aligned_free(tmp);
+    }
+    else{
         float filter_coeffs[21] = {
         -0.01373463642215844680849 ,
         -0.01608514932055564797264 ,
@@ -137,56 +195,56 @@ void spatial_filter(float *src, float *dst, int width, int height)
     
     int src_px_stride = width;
     int dst_px_stride = width;
+    
+        float *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(float)), MAX_ALIGN);
+        float fcoeff, imgcoeff;
 
-    float *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(float)), MAX_ALIGN);
-    float fcoeff, imgcoeff;
+        int i, j, fi, fj, ii, jj;
+        int fwidth = 21;
+        for (i = 0; i < height; ++i) {
 
-    int i, j, fi, fj, ii, jj;
-    int fwidth = 21;
-    for (i = 0; i < height; ++i) {
+            /* Vertical pass. */ 
+            for (j = 0; j < width; ++j) {
+                double accum = 0;
 
-        /* Vertical pass. */
-        for (j = 0; j < width; ++j) {
-            double accum = 0;
+                for (fi = 0; fi < fwidth; ++fi) {
+                    fcoeff = filter_coeffs[fi];
+                    
+                    ii = i - fwidth / 2 + fi;
+                    ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
 
-            for (fi = 0; fi < fwidth; ++fi) {
-                fcoeff = filter_coeffs[fi];
-                
-                ii = i - fwidth / 2 + fi;
-                ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
+                    imgcoeff = src[ii * src_px_stride + j];
 
-                imgcoeff = src[ii * src_px_stride + j];
+                    accum += (double) fcoeff * imgcoeff;
+                }
 
-                accum += (double) fcoeff * imgcoeff;
+                tmp[j] = accum;
             }
 
-            tmp[j] = accum;
+            /* Horizontal pass. */
+            for (j = 0; j < width; ++j) {
+                double accum = 0;
+
+                for (fj = 0; fj < fwidth; ++fj) {
+                    fcoeff = filter_coeffs[fj];
+
+                    jj = j - fwidth / 2 + fj;
+                    jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
+
+                    imgcoeff = tmp[jj];
+
+                    accum += (double) fcoeff * imgcoeff;
+                }
+
+                dst[i * dst_px_stride + j] = accum;
+                        }
         }
 
-        /* Horizontal pass. */
-        for (j = 0; j < width; ++j) {
-            double accum = 0;
-
-            for (fj = 0; fj < fwidth; ++fj) {
-                fcoeff = filter_coeffs[fj];
-
-                jj = j - fwidth / 2 + fj;
-                jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
-
-                imgcoeff = tmp[jj];
-
-                accum += (double) fcoeff * imgcoeff;
-            }
-
-            dst[i * dst_px_stride + j] = accum;
-        }
+        aligned_free(tmp);
     }
-
-    aligned_free(tmp);
-
     return;
 }
-
+    
 void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride, int width, int height)
 {
     for (int i = 0; i < height; i++) {

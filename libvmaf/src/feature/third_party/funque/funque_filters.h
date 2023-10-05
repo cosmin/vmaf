@@ -72,7 +72,7 @@ typedef struct dwt2buffers {
     ptrdiff_t stride;
 }dwt2buffers;
 
-void spatial_filter(float *src, float *dst, int width, int height);
+void spatial_csfs(float *src, float *dst, int width, int height, int num_taps);
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height);
 
