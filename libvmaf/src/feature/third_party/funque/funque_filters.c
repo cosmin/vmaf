@@ -137,12 +137,9 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                     ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
 
                     imgcoeff = src[ii * src_px_stride + j];
-
                     accum += (double) fcoeff * imgcoeff; //store weighted sum of pixel values
                 }
-
-                tmp[j] = accum;
-                
+                tmp[j] = accum;      
             }
 
             // Horizontal pass.
@@ -156,16 +153,11 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                     jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
 
                     imgcoeff = tmp[jj];
-
                     accum += (double) fcoeff * imgcoeff;
                 }
-
                 dst[i * dst_px_stride + j] = accum;
-                printf("%f  ", dst[i * dst_px_stride + j]);
             }
-            printf("\n");
         }
-
         aligned_free(tmp);
     }
     else{
@@ -217,7 +209,6 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
 
                     accum += (double) fcoeff * imgcoeff;
                 }
-
                 tmp[j] = accum;
             }
 
@@ -237,9 +228,8 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                 }
 
                 dst[i * dst_px_stride + j] = accum;
-                        }
+            }
         }
-
         aligned_free(tmp);
     }
     return;
