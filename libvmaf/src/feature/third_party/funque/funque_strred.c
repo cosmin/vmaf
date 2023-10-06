@@ -120,6 +120,8 @@ void strred_compute_entropy_scale(const double* int_1_x, const double* int_2_x, 
             mx = (int_1_x[i * width + j] - int_1_x[i * width + j + kw] - int_1_x[(i + kh) * width + j] + int_1_x[(i + kh) * width + j + kw]) / kNorm;
             vx = ((int_2_x[i * width + j] - int_2_x[i * width + j + kw] - int_2_x[(i + kh) * width + j] + int_2_x[(i + kh) * width + j + kw]) / kNorm) - (mx * mx);
 
+            vx = (vx < 0) ? 0 : vx; /* Add CLIP macro */
+
             entropy[i * width + j] = log(vx + STRRED_SIGMA_NSQ) + entr_const;
             scale[i * width + j] = log(1 + vx);
 
@@ -136,7 +138,6 @@ void rred_entropies_and_scales(const float* x, int block_size, size_t width, siz
 
     if(block_size == 1)
     {
-        float exp_val = EULERS_CONSTANT;
         entr_const = log(2 * M_PI * EULERS_CONSTANT);
         int k = STRRED_WINDOW_SIZE;
         int k_norm = k * k;
@@ -165,8 +166,10 @@ void rred_entropies_and_scales(const float* x, int block_size, size_t width, siz
 
         strred_integral_image(x_pad, r_width, r_height, int_1_x);
         strred_strred_integral_image_2(x_pad, x_pad, r_width, r_height, int_2_x);
-        strred_compute_entropy_scale(int_1_x, int_2_x, width, height, kw, kh, k_norm, entropies, scales, entr_const);
+        strred_compute_entropy_scale(int_1_x, int_2_x, r_width + 1, r_height + 1, kw, kh, k_norm, entropy, scale, entr_const);
 
+        free(int_1_x);
+        free(int_2_x);
     }
 }
 
@@ -293,8 +296,8 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     dwt2buffers *prev_dist;
     int ret;
 
-    float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
-    float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
+    //float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
+    //float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
 
     // Pass frame index to the function argument 
     if (index == 0)
