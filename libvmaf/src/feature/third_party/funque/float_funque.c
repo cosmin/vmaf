@@ -445,7 +445,7 @@ static int extract(VmafFeatureExtractor *fex,
 
             err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
                                  &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
-                                 &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, 1, (double)STRRED_SIGMA_NSQ);
+                                 &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, 1, (double)STRRED_SIGMA_NSQ, index);
         }
 
         if (err) return err;

@@ -283,7 +283,7 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
                         double* srred_vals, double* trred_vals, double* strred_vals,
                         double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
                         double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg)
+                        int k, int stride, double sigma_nsq_arg, int index)
 {
 #if 1
     // For frame 0. The code will not enter strred function in python and will copy the contents to prev pyr
@@ -297,19 +297,19 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
 
     // Pass frame index to the function argument 
-    //if (frame_idx != 0)
+    if (index == 0)
     {
         prev_ref = ref;
         prev_dist = dist;
     }
-    //else
+    else
     {
         int subband;
         int compute_temporal;
 
         // TODO: Insert an assert to check whether details ref and details dist are of same length
         int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
-        int total_subbands = 3;
+        int total_subbands = 4;
 
         float *approx_ref = (float*) malloc (width * height * sizeof(float));
         float *approxs_dist = (float*) malloc (width * height * sizeof(float));
@@ -320,7 +320,25 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
         //double *spat_gsm_dist_details[3] = (double *) malloc (total_subbands * width * height * sizeof(double));
         float ref_entropy, ref_scale, dist_entropy, dist_scale;
 
-        for(subband = 0; subband < total_subbands; subband++)
+#if 1
+
+        FILE *fptr;
+        fptr = fopen ("debug_strred.txt", "w");
+
+        int i, j;
+        for(i = 0; i < height; i++)
+        {
+            for(j = 0; j < width; j++)
+            {
+                fprintf(fptr, "%d ", ref->bands[1]);
+            }
+            fprintf(fptr, "\n");
+        }
+
+        fclose(fptr);
+#endif
+
+        for(subband = 1; subband < total_subbands; subband++)
         {
             rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
             rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
@@ -328,11 +346,11 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
 
         //compute_temporal = (prev_ref->bands[0] != 'NULL') ? 1 : 0;
 
-        if(compute_temporal)
-        {
-            rred_entropies_and_scales_temporal(ref->bands[subband], prev_ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
-            rred_entropies_and_scales_temporal(dist->bands[subband], prev_dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
-        }
+        //if(compute_temporal)
+        //{
+        //    rred_entropies_and_scales_temporal(ref->bands[subband], prev_ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
+        //    rred_entropies_and_scales_temporal(dist->bands[subband], prev_dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
+        //}
 
 
         // Agrregate functions from Ajat

@@ -22,4 +22,4 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
                         double* srred_vals, double* trred_vals, double* strred_vals,
                         double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
                         double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg);
+                        int k, int stride, double sigma_nsq_arg, int index);
