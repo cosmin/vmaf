@@ -295,7 +295,7 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
     }
 }
 
-int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_t width, size_t height, 
+int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, size_t width, size_t height, 
                         double* srred_vals, double* trred_vals, double* strred_vals,
                         double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
                         double* spat_vals, double* temp_vals, double* spat_temp_vals,
@@ -308,31 +308,40 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
+    int subband;
+    int total_subbands = 4;
 
-    dwt2buffers *prev_ref = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
-    dwt2buffers *prev_dist = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
+    static struct dwt2buffers *prev_ref = NULL;
+    static struct dwt2buffers *prev_dist = NULL;
     int ret;
-
-    //prev_ref = NULL;
-    //prev_dist = NULL;
-
-    //float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
-    //float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
 
     // Pass frame index to the function argument 
     if (index == 0)
     {
-        prev_ref = ref;
-        prev_dist = dist;
+        prev_ref = (struct dwt2buffers*)calloc(1, sizeof(struct dwt2buffers));
+        prev_dist = (struct dwt2buffers*)calloc(1, sizeof(struct dwt2buffers));
+
+        for(subband = 0; subband < total_subbands; subband++)
+        {
+            prev_ref->bands[subband] = (double*)calloc(width * height, sizeof(double));
+            prev_dist->bands[subband] = (double*)calloc(width * height, sizeof(double));
+
+            // Use memcpy to copy the contents of ref and dist to prev_ref and prev_dist
+            memcpy(prev_ref->bands[subband], ref->bands[subband], width * height);
+            memcpy(prev_dist->bands[subband], dist->bands[subband], width * height);
+        }
+
+        prev_ref->width = ref->width;
+        prev_ref->height = ref->height;
+        prev_dist->width = dist->width;
+        prev_dist->height = dist->height;
     }
     else
     {
-        int subband;
         int compute_temporal;
 
         // TODO: Insert an assert to check whether details ref and details dist are of same length
         int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
-        int total_subbands = 4;
 
         double *entropies_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
@@ -373,8 +382,8 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
 
         if(prev_ref != NULL && prev_dist != NULL)
         {
-            dwt2buffers *ref_temporal = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
-            dwt2buffers *dist_temporal = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
+            struct dwt2buffers *ref_temporal = (struct dwt2buffers*)calloc((width) * (height), sizeof(struct dwt2buffers));
+            struct dwt2buffers *dist_temporal = (struct dwt2buffers*)calloc((width) * (height), sizeof(struct dwt2buffers));
             double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
             double temp_mean;
 
