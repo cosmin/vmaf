@@ -234,7 +234,7 @@ void strred_integral_image_temporal(const float* src1, const float* src2,  size_
     }
 }
 
-void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int block_size, size_t width, size_t height, size_t stride, float *entropy, float *scale)
+void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int block_size, size_t width, size_t height, size_t stride, double *entropy, double *scale)
 {
     float sigma_nsq = STRRED_SIGMA_NSQ;
     float tol = 1e-10;
@@ -266,17 +266,15 @@ void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int
         size_t r_height = height + (2 * x_reflect);
 
 
-        double *int_1_x, *int_2_x, *entropies, *scales;
+        double *int_1_x, *int_2_x;
         double *var_x;
 
         int_1_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         int_2_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-        entropies = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-        scales = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
         strred_integral_image_temporal(x_pad, prev_x_pad, r_width, r_height, int_1_x);
         strred_strred_integral_image_2_temporal(x_pad, prev_x_pad, r_width, r_height, int_2_x);
-        strred_compute_entropy_scale(int_1_x, int_2_x, width, height, kw, kh, k_norm, entropies, scales, entr_const);
+        strred_compute_entropy_scale(int_1_x, int_2_x, width, height, kw, kh, k_norm, entropy, scale, entr_const);
 
     }
 }
@@ -296,6 +294,9 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     dwt2buffers *prev_dist;
     int ret;
 
+    prev_ref = NULL;
+    prev_dist = NULL;
+
     //float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
     //float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
 
@@ -314,38 +315,57 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
         int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
         int total_subbands = 4;
 
+        int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+        size_t r_width = width + (2 * x_reflect);
+        size_t r_height = height + (2 * x_reflect);
+
         float *approx_ref = (float*) malloc (width * height * sizeof(float));
         float *approxs_dist = (float*) malloc (width * height * sizeof(float));
         float *details_ref = (float*) malloc (width * height * sizeof(float));
         float *details_dist = (float*) malloc (width * height * sizeof(float));
 
-        //double *spat_gsm_ref_details[3] = (double *) malloc (total_subbands * width * height * sizeof(double));
-        //double *spat_gsm_dist_details[3] = (double *) malloc (total_subbands * width * height * sizeof(double));
+        double *entropies_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *scales_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *scales_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+
+        double *spat_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+
         float ref_entropy, ref_scale, dist_entropy, dist_scale;
-
-#if 1
-
-        FILE *fptr;
-        fptr = fopen ("debug_strred.txt", "w");
-
-        int i, j;
-        for(i = 0; i < height; i++)
-        {
-            for(j = 0; j < width; j++)
-            {
-                fprintf(fptr, "%d ", ref->bands[1]);
-            }
-            fprintf(fptr, "\n");
-        }
-
-        fclose(fptr);
-#endif
+        double spat_temp_vals, spat_vals, temp_vals;
+        //double spat_aggregate[r_height][r_width],temp_aggregate[r_height][r_width];
+        double spat_mean;
+        double temp_mean;
 
         for(subband = 1; subband < total_subbands; subband++)
         {
-            rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, &ref_entropy, &ref_scale);
-            rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, &dist_entropy, &dist_scale);
+            spat_mean = 0;
+
+            rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
+            rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
+
+
+
+            for (int i = 0; i < r_height; i++) {
+                for (int j = 0; j < r_width; j++) {
+                    spat_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] - entropies_dist[i * r_width + j] * scales_dist[i * r_width + j];
+                    //if(compute_temporal){
+                    //    temp_aggregate[i][j] = scale_ref[1][i][j] * temp_ref[1][i][j] * entropy_ref[0][i][j] - scale_dist[1][i][j] * temp_dist[1][i][j] * entropy_dist[0][i][j];
+                    //} 
+                }
+            }
+
+            for (int i = 0; i < r_height; i++) {
+                for (int j = 0; j < r_width; j++) {
+                    spat_mean += fabs(spat_aggregate[i * r_width + j]);
+                }
+                spat_vals = spat_mean / (height * width);
+            }
         }
+
+
+
 
         //compute_temporal = (prev_ref->bands[0] != 'NULL') ? 1 : 0;
 
