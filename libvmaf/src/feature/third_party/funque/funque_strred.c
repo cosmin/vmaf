@@ -279,6 +279,21 @@ void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int
     }
 }
 
+void subract_subbands(const float* ref_src, const float* ref_prev_src, float* ref_dst,
+                      const float* dist_src, const float* dist_prev_src, float* dist_dst,
+                      size_t width, size_t height)
+{
+    int i, j;
+
+    for(i = 0; i < height; i++)
+    {
+        for(j = 0; j < width; j++)
+        {
+            ref_dst[i * width + j] = ref_src[i * width + j] - ref_prev_src[i * width + j];
+            dist_dst[i * width + j] = dist_src[i * width + j] - dist_prev_src[i * width + j];
+        }
+    }
+}
 
 int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_t width, size_t height, 
                         double* srred_vals, double* trred_vals, double* strred_vals,
@@ -290,12 +305,16 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
     // For frame 0. The code will not enter strred function in python and will copy the contents to prev pyr
     // Here insert an if condition for the same. If frame != 0 then enter the loop else just copy the contents into prev_frame
     // Need to pass frame number in the caller of the function
-    dwt2buffers *prev_ref;
-    dwt2buffers *prev_dist;
+    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+    size_t r_width = width + (2 * x_reflect);
+    size_t r_height = height + (2 * x_reflect);
+
+    dwt2buffers *prev_ref = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
+    dwt2buffers *prev_dist = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
     int ret;
 
-    prev_ref = NULL;
-    prev_dist = NULL;
+    //prev_ref = NULL;
+    //prev_dist = NULL;
 
     //float *ref_angles[4] = { ref->bands[0], ref->bands[1], ref->bands[2], ref->bands[3]};
     //float *dist_angles[4] = { dist->bands[0], dist->bands[1], dist->bands[2], dist->bands[3]};
@@ -315,28 +334,17 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
         int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
         int total_subbands = 4;
 
-        int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
-        size_t r_width = width + (2 * x_reflect);
-        size_t r_height = height + (2 * x_reflect);
-
-        float *approx_ref = (float*) malloc (width * height * sizeof(float));
-        float *approxs_dist = (float*) malloc (width * height * sizeof(float));
-        float *details_ref = (float*) malloc (width * height * sizeof(float));
-        float *details_dist = (float*) malloc (width * height * sizeof(float));
-
         double *entropies_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *scales_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *scales_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
         double *spat_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-        double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
         float ref_entropy, ref_scale, dist_entropy, dist_scale;
         double spat_temp_vals, spat_vals, temp_vals;
-        //double spat_aggregate[r_height][r_width],temp_aggregate[r_height][r_width];
         double spat_mean;
-        double temp_mean;
+        double check_val;
 
         for(subband = 1; subband < total_subbands; subband++)
         {
@@ -345,25 +353,57 @@ int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_
             rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
             rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
 
-
-
-            for (int i = 0; i < r_height; i++) {
-                for (int j = 0; j < r_width; j++) {
+            for (int i = 0; i < r_height; i++)
+            {
+                for (int j = 0; j < r_width; j++)
+                {
                     spat_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] - entropies_dist[i * r_width + j] * scales_dist[i * r_width + j];
-                    //if(compute_temporal){
-                    //    temp_aggregate[i][j] = scale_ref[1][i][j] * temp_ref[1][i][j] * entropy_ref[0][i][j] - scale_dist[1][i][j] * temp_dist[1][i][j] * entropy_dist[0][i][j];
-                    //} 
                 }
             }
 
-            for (int i = 0; i < r_height; i++) {
-                for (int j = 0; j < r_width; j++) {
+            for (int i = 0; i < r_height; i++)
+            {
+                for (int j = 0; j < r_width; j++)
+                {
                     spat_mean += fabs(spat_aggregate[i * r_width + j]);
                 }
                 spat_vals = spat_mean / (height * width);
             }
         }
 
+        if(prev_ref != NULL && prev_dist != NULL)
+        {
+            dwt2buffers *ref_temporal = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
+            dwt2buffers *dist_temporal = (dwt2buffers*)calloc((width) * (height), sizeof(dwt2buffers));
+            double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+            double temp_mean;
+
+            for(subband = 1; subband < total_subbands; subband++)
+            {
+                subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal->bands[subband], dist->bands[subband], prev_dist->bands[subband], dist_temporal->bands [subband], width, height);
+
+                rred_entropies_and_scales(ref_temporal->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
+                rred_entropies_and_scales(dist_temporal->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
+
+                for (int i = 0; i < r_height; i++)
+                {
+                    for (int j = 0; j < r_width; j++)
+                    {
+                        temp_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] - entropies_dist[i * r_width + j] * scales_dist[i * r_width + j];
+                    }
+                }
+
+                for (int i = 0; i < r_height; i++)
+                {
+                    for (int j = 0; j < r_width; j++)
+                    {
+                        temp_mean += fabs(temp_aggregate[i * r_width + j]);
+                    }
+                    temp_vals = temp_mean / (height * width);
+                    check_val = temp_vals;
+                }
+            }
+        }
 
 
 
