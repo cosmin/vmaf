@@ -24,6 +24,7 @@
 
 #include "funque_filters.h"
 #include "funque_strred_options.h"
+#include "funque_global_options.h"
 
 void strred_reflect_pad(const float* src, size_t width, size_t height, int reflect, float* dest)
 {
@@ -173,6 +174,7 @@ void rred_entropies_and_scales(const float* x, int block_size, size_t width, siz
     }
 }
 
+/*
 void strred_strred_integral_image_2_temporal(const float* src1, const float* src2, size_t width, size_t height, double* sum)
 {
     for (size_t i = 0; i < (height + 1); ++i)
@@ -278,9 +280,9 @@ void rred_entropies_and_scales_temporal(const float* x, const float* prev_x, int
 
     }
 }
-
-void subract_subbands(const float* ref_src, const float* ref_prev_src, float* ref_dst,
-                      const float* dist_src, const float* dist_prev_src, float* dist_dst,
+*/
+void subract_subbands(const float* ref_src, const float* ref_prev_src, double* ref_dst,
+                      const float* dist_src, const float* dist_prev_src, double* dist_dst,
                       size_t width, size_t height)
 {
     int i, j;
@@ -295,11 +297,35 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
     }
 }
 
-int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, size_t width, size_t height, 
-                        double* srred_vals, double* trred_vals, double* strred_vals,
+int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist, size_t width, size_t height)
+{
+    int subband;
+    int total_subbands = DEFAULT_STRRED_SUBBANDS;
+
+    for(subband = 1; subband < total_subbands; subband++)
+    {
+        prev_ref->bands[subband] = (double*)calloc(width * height, sizeof(double));
+        prev_dist->bands[subband] = (double*)calloc(width * height, sizeof(double));
+
+        // Use memcpy to copy the contents of ref and dist to prev_ref and prev_dist
+        memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(double));
+        memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(double));
+    }
+
+    //prev_ref->width = ref->width;
+    //prev_ref->height = ref->height;
+    //prev_dist->width = dist->width;
+    //prev_dist->height = dist->height;
+
+    return 0;
+}
+
+
+int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist,
+                        size_t width, size_t height, double* srred_vals, double* trred_vals, double* strred_vals,
                         double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
                         double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg, int index)
+                        int k, int stride, double sigma_nsq_arg, int index, int level)
 {
 #if 1
     // For frame 0. The code will not enter strred function in python and will copy the contents to prev pyr
@@ -309,34 +335,18 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
     int subband;
-    int total_subbands = 4;
+    int total_subbands = DEFAULT_STRRED_SUBBANDS;
 
-    static struct dwt2buffers *prev_ref = NULL;
-    static struct dwt2buffers *prev_dist = NULL;
+//    static struct dwt2buffers *prev_ref = NULL;
+//    static struct dwt2buffers *prev_dist = NULL;
     int ret;
 
     // Pass frame index to the function argument 
-    if (index == 0)
-    {
-        prev_ref = (struct dwt2buffers*)calloc(1, sizeof(struct dwt2buffers));
-        prev_dist = (struct dwt2buffers*)calloc(1, sizeof(struct dwt2buffers));
-
-        for(subband = 0; subband < total_subbands; subband++)
-        {
-            prev_ref->bands[subband] = (double*)calloc(width * height, sizeof(double));
-            prev_dist->bands[subband] = (double*)calloc(width * height, sizeof(double));
-
-            // Use memcpy to copy the contents of ref and dist to prev_ref and prev_dist
-            memcpy(prev_ref->bands[subband], ref->bands[subband], width * height);
-            memcpy(prev_dist->bands[subband], dist->bands[subband], width * height);
-        }
-
-        prev_ref->width = ref->width;
-        prev_ref->height = ref->height;
-        prev_dist->width = dist->width;
-        prev_dist->height = dist->height;
-    }
-    else
+    //if (index == 0)
+    //{
+//
+    //}
+    //else
     {
         int compute_temporal;
 
@@ -382,17 +392,17 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
 
         if(prev_ref != NULL && prev_dist != NULL)
         {
-            struct dwt2buffers *ref_temporal = (struct dwt2buffers*)calloc((width) * (height), sizeof(struct dwt2buffers));
-            struct dwt2buffers *dist_temporal = (struct dwt2buffers*)calloc((width) * (height), sizeof(struct dwt2buffers));
+            double *ref_temporal = (double*)calloc((width) * (height), sizeof(double));
+            double *dist_temporal = (double*)calloc((width) * (height), sizeof(double));
             double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
             double temp_mean;
 
             for(subband = 1; subband < total_subbands; subband++)
             {
-                subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal->bands[subband], dist->bands[subband], prev_dist->bands[subband], dist_temporal->bands [subband], width, height);
+                subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
 
-                rred_entropies_and_scales(ref_temporal->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
-                rred_entropies_and_scales(dist_temporal->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
+                rred_entropies_and_scales(ref_temporal, BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
+                rred_entropies_and_scales(dist_temporal, BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
 
                 for (int i = 0; i < r_height; i++)
                 {

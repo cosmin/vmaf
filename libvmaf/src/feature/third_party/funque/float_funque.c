@@ -56,6 +56,8 @@ typedef struct FunqueState {
     float csf_factors[4][4];
     dwt2buffers ref_dwt2out[4];
     dwt2buffers dist_dwt2out[4];
+    dwt2buffers prev_ref[4];
+    dwt2buffers prev_dist[4];
 
     // funque configurable parameters
     bool enable_resize;
@@ -441,12 +443,24 @@ static int extract(VmafFeatureExtractor *fex,
             vif_den += vif_score_den[level];
         }
 
-        if (level <= s->strred_levels - 1) {
+        if(index == 0) {
+            if (level <= s->strred_levels - 1) {
 
-            err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
-                                 &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
-                                 &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, BLOCK_SIZE, (double)STRRED_SIGMA_NSQ, index);
+                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
+                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
+
+            }
         }
+        else {
+            if (level <= s->strred_levels - 1) {
+
+                err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+                                     &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
+                                     &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, BLOCK_SIZE,
+                                     (double)STRRED_SIGMA_NSQ, index, level);
+            }
+        }
+
 
         if (err) return err;
     }
@@ -527,30 +541,33 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    double strred = 0;
+    if (index > 0)
+    {
+        double strred = 0;
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_feature_strred_score",
-                                                   strred, index);
-
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
-                                                   strred_score[0], index);
-
-    if (s->strred_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                                                       strred_score[1], index);
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_score",
+                                                       strred, index);
 
-        if (s->strred_levels > 2) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+                                                       strred_score[0], index);
+
+        if (s->strred_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                                                           strred_score[2], index);
+                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                                                           strred_score[1], index);
 
-            if (s->strred_levels > 3) {
+            if (s->strred_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
-                                                               strred_score[3], index);
+                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                                                               strred_score[2], index);
+
+                if (s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
+                                                                   strred_score[3], index);
+                }
             }
         }
     }

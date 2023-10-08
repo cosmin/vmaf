@@ -18,8 +18,8 @@
 
 #include "funque_strred_options.h"
 
-int compute_strred_funque(const dwt2buffers* ref, const dwt2buffers* dist, size_t width, size_t height, 
-                        double* srred_vals, double* trred_vals, double* strred_vals,
+int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist,
+                        size_t width, size_t height, double* srred_vals, double* trred_vals, double* strred_vals,
                         double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
                         double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg, int index);
+                        int k, int stride, double sigma_nsq_arg, int index, int level);

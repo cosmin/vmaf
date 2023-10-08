@@ -30,5 +30,6 @@
 #define BLOCK_SIZE          1
 
 #define DEFAULT_STRRED_LEVELS 4
+#define DEFAULT_STRRED_SUBBANDS 4
 
 #endif /* STRRED_OPTIONS_H_ */
