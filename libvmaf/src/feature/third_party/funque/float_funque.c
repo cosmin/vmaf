@@ -58,6 +58,7 @@ typedef struct FunqueState {
     dwt2buffers dist_dwt2out[4];
     dwt2buffers prev_ref[4];
     dwt2buffers prev_dist[4];
+    strred_results strred_scores[4];
 
     // funque configurable parameters
     bool enable_resize;
@@ -382,10 +383,7 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
-    double strred_score[MAX_LEVELS];
-    double srred_vals[MAX_LEVELS], trred_vals[MAX_LEVELS], strred_vals[MAX_LEVELS];
-    double srred_approx_vals[MAX_LEVELS], trred_approx_vals[MAX_LEVELS], strred_approx_vals[MAX_LEVELS];
-    double spat_vals[MAX_LEVELS], temp_vals[MAX_LEVELS], spat_temp_vals[MAX_LEVELS];
+    double strred_values[MAX_LEVELS];
 
 
     double adm_den = 0.0;
@@ -454,10 +452,8 @@ static int extract(VmafFeatureExtractor *fex,
         else {
             if (level <= s->strred_levels - 1) {
 
-                err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
-                                     &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
-                                     &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, BLOCK_SIZE,
-                                     (double)STRRED_SIGMA_NSQ, index, level);
+                err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width,
+                                              s->ref_dwt2out[level].height, &s->strred_scores[level], STRRED_WINDOW_SIZE, BLOCK_SIZE, (double)STRRED_SIGMA_NSQ, level);
 
                 err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
                                                      &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
@@ -554,22 +550,22 @@ static int extract(VmafFeatureExtractor *fex,
 
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
-                                                       strred_score[0], index);
+                                                       strred_values[0], index);
 
         if (s->strred_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                            s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                                                           strred_score[1], index);
+                                                           strred_values[1], index);
 
             if (s->strred_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                                                               strred_score[2], index);
+                                                               strred_values[2], index);
 
                 if (s->strred_levels > 3) {
                     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                    s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
-                                                                   strred_score[3], index);
+                                                                   strred_values[3], index);
                 }
             }
         }

@@ -16,10 +16,17 @@
  *
  */
 
+#include "funque_global_options.h"
 #include "funque_strred_options.h"
 
+typedef struct strred_results {
+    double srred_vals[MAX_LEVELS];
+    double trred_vals[MAX_LEVELS];
+    double strred_vals[MAX_LEVELS];
+    double spat_vals[MAX_LEVELS];
+    double temp_vals[MAX_LEVELS];
+    double spat_temp_vals[MAX_LEVELS];
+} strred_results;
+
 int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist,
-                        size_t width, size_t height, double* srred_vals, double* trred_vals, double* strred_vals,
-                        double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
-                        double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg, int index, int level);
+                        size_t width, size_t height, struct strred_results* strred_scores, int k, int stride, double sigma_nsq_arg, int level);

@@ -24,7 +24,7 @@
 
 #include "funque_filters.h"
 #include "funque_strred_options.h"
-#include "funque_global_options.h"
+#include "funque_strred.h"
 
 void strred_reflect_pad(const float* src, size_t width, size_t height, int reflect, float* dest)
 {
@@ -211,10 +211,7 @@ int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dw
 
 
 int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist,
-                        size_t width, size_t height, double* srred_vals, double* trred_vals, double* strred_vals,
-                        double* srred_approx_vals, double* trred_approx_vals, double* strred_approx_vals,
-                        double* spat_vals, double* temp_vals, double* spat_temp_vals,
-                        int k, int stride, double sigma_nsq_arg, int index, int level)
+                        size_t width, size_t height, struct strred_results* strred_scores, int k, int stride, double sigma_nsq_arg, int level)
 {
     int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
     size_t r_width = width + (2 * x_reflect);
@@ -222,11 +219,7 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     int subband;
     int total_subbands = DEFAULT_STRRED_SUBBANDS;
 
-    
     int compute_temporal;
-
-    // TODO: Insert an assert to check whether details ref and details dist are of same length
-    int n_levels = sizeof(ref->bands) / sizeof(ref->bands[0]) - 1;
 
     double *entropies_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
     double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
@@ -239,6 +232,7 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
 
     float ref_entropy, ref_scale, dist_entropy, dist_scale;
     double spat_abs, spat_mean, spat_values[DEFAULT_STRRED_SUBBANDS];
+    double temp_abs, temp_mean, temp_values[DEFAULT_STRRED_SUBBANDS];
 
     for(subband = 1; subband < total_subbands; subband++)
     {
@@ -270,7 +264,6 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             float *ref_temporal = (float*)calloc((width) * (height), sizeof(float));
             float *dist_temporal = (float*)calloc((width) * (height), sizeof(float));
             double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-            double temp_abs, temp_mean, temp_values[DEFAULT_STRRED_SUBBANDS];
 
             temp_abs = 0;
 
@@ -299,7 +292,16 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             }
             temp_values[subband] = temp_mean;
         }
+        else
+        {
+            strred_scores->temp_vals[level] = 0;
+            strred_scores->spat_temp_vals[level] = 0;
+        }
     }
+
+    strred_scores->spat_vals[level] = (spat_values[1] + spat_values[2] + spat_values[3]) / 3;
+    strred_scores->temp_vals[level] = (temp_values[1] + temp_values[2] + temp_values[3]) / 3;
+    strred_scores->spat_temp_vals[level] = strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     return 0;
 }
