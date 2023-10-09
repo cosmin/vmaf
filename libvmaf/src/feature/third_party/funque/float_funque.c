@@ -75,6 +75,7 @@ typedef struct FunqueState {
 
     VmafDictionary *feature_name_dict;
     ResizerState resize_module;
+    MsSsimScore *score;
 } FunqueState;
 
 static const VmafOption options[] = {
@@ -362,6 +363,7 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
     double ssim_score[MAX_LEVELS];
+    MsSsimScore ms_ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
 
@@ -405,7 +407,8 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if (level <= s->ssim_levels - 1) {
-            err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
+            //err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
+            err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ms_ssim_score[level], 1, (float)0.01, (float)0.03, (level + 1));
         }
 
         if (level <= s->vif_levels - 1) {
