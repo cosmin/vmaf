@@ -458,6 +458,9 @@ static int extract(VmafFeatureExtractor *fex,
                                      &srred_vals[level], &trred_vals[level], &strred_vals[level], &srred_approx_vals[level], &trred_approx_vals[level],
                                      &strred_approx_vals[level], &spat_vals[level], &temp_vals[level], &spat_temp_vals[level], STRRED_WINDOW_SIZE, BLOCK_SIZE,
                                      (double)STRRED_SIGMA_NSQ, index, level);
+
+                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
+                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
             }
         }
 
@@ -545,9 +548,9 @@ static int extract(VmafFeatureExtractor *fex,
     {
         double strred = 0;
 
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_strred_score",
-                                                       strred, index);
+        //err |= vmaf_feature_collector_append_with_dict(feature_collector,
+        //                                               s->feature_name_dict, "FUNQUE_feature_strred_score",
+        //                                               strred, index);
 
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
@@ -608,7 +611,7 @@ static const char *provided_features[] = {
     "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
     "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
 
-    "FUNQUE_feature_strred_score",
+    //"FUNQUE_feature_strred_score",
     "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
     "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
 
