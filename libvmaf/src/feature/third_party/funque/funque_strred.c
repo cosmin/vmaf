@@ -357,17 +357,18 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
         double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *scales_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         double *scales_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *temp_scales_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
+        double *temp_scales_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
         double *spat_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
         float ref_entropy, ref_scale, dist_entropy, dist_scale;
-        double spat_temp_vals, spat_vals, temp_vals;
-        double spat_mean;
-        double check_val;
+        double spat_temp_vals;
+        double spat_abs, spat_mean, spat_vals[DEFAULT_STRRED_SUBBANDS];
 
         for(subband = 1; subband < total_subbands; subband++)
         {
-            spat_mean = 0;
+            spat_abs = 0;
 
             rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
             rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
@@ -384,10 +385,11 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             {
                 for (int j = 0; j < r_width; j++)
                 {
-                    spat_mean += fabs(spat_aggregate[i * r_width + j]);
+                    spat_abs += fabs(spat_aggregate[i * r_width + j]);
                 }
-                spat_vals = spat_mean / (height * width);
+                spat_mean = spat_abs / (height * width);
             }
+            spat_vals[subband] = spat_mean;
         }
 
         if(prev_ref != NULL && prev_dist != NULL)
@@ -395,20 +397,21 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             double *ref_temporal = (double*)calloc((width) * (height), sizeof(double));
             double *dist_temporal = (double*)calloc((width) * (height), sizeof(double));
             double *temp_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
-            double temp_mean;
+            double temp_abs, temp_mean, temp_vals[DEFAULT_STRRED_SUBBANDS];
 
             for(subband = 1; subband < total_subbands; subband++)
             {
                 subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
 
-                rred_entropies_and_scales(ref_temporal, BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
-                rred_entropies_and_scales(dist_temporal, BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
+                rred_entropies_and_scales(ref_temporal, BLOCK_SIZE, width, height, stride, entropies_ref, temp_scales_ref);
+                rred_entropies_and_scales(dist_temporal, BLOCK_SIZE, width, height, stride, entropies_dist, temp_scales_dist);
 
                 for (int i = 0; i < r_height; i++)
                 {
                     for (int j = 0; j < r_width; j++)
                     {
-                        temp_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] - entropies_dist[i * r_width + j] * scales_dist[i * r_width + j];
+                        temp_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] * temp_scales_ref[i * r_width + j] -
+                                                          entropies_dist[i * r_width + j] * scales_dist[i * r_width + j] * temp_scales_dist[i * r_width + j];
                     }
                 }
 
@@ -416,11 +419,11 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
                 {
                     for (int j = 0; j < r_width; j++)
                     {
-                        temp_mean += fabs(temp_aggregate[i * r_width + j]);
+                        temp_abs += fabs(temp_aggregate[i * r_width + j]);
                     }
-                    temp_vals = temp_mean / (height * width);
-                    check_val = temp_vals;
+                    temp_mean = temp_abs / (height * width);
                 }
+                temp_vals[subband] = temp_mean;
             }
         }
 
