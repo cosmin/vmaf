@@ -112,19 +112,19 @@ void strred_integral_image(const float* src, size_t width, size_t height, double
 
 void strred_compute_entropy_scale(const double* int_1_x, const double* int_2_x, size_t width, size_t height, size_t kh, size_t kw, double kNorm, double* entropy, double* scale, double entr_const)
 {
-    double mx, my, vx, vy, cxy;
+    double mu_x, var_x;
 
     for (size_t i = 0; i < (height - kh); i++)
     {
         for (size_t j = 0; j < (width - kw); j++)
         {
-            mx = (int_1_x[i * width + j] - int_1_x[i * width + j + kw] - int_1_x[(i + kh) * width + j] + int_1_x[(i + kh) * width + j + kw]) / kNorm;
-            vx = ((int_2_x[i * width + j] - int_2_x[i * width + j + kw] - int_2_x[(i + kh) * width + j] + int_2_x[(i + kh) * width + j + kw]) / kNorm) - (mx * mx);
+            mu_x = (int_1_x[i * width + j] - int_1_x[i * width + j + kw] - int_1_x[(i + kh) * width + j] + int_1_x[(i + kh) * width + j + kw]) / kNorm;
+            var_x = ((int_2_x[i * width + j] - int_2_x[i * width + j + kw] - int_2_x[(i + kh) * width + j] + int_2_x[(i + kh) * width + j + kw]) / kNorm) - (mu_x * mu_x);
 
-            vx = (vx < 0) ? 0 : vx; /* Add CLIP macro */
+            var_x = (var_x < 0) ? 0 : var_x; /* Add CLIP macro */
 
-            entropy[i * width + j] = log(vx + STRRED_SIGMA_NSQ) + entr_const;
-            scale[i * width + j] = log(1 + vx);
+            entropy[i * width + j] = log(var_x + STRRED_SIGMA_NSQ) + entr_const;
+            scale[i * width + j] = log(1 + var_x);
 
         }
     }
@@ -132,9 +132,6 @@ void strred_compute_entropy_scale(const double* int_1_x, const double* int_2_x, 
 
 void rred_entropies_and_scales(const float* src, int block_size, size_t width, size_t height, size_t stride, float *entropy, float *scale)
 {
-    float sigma_nsq = STRRED_SIGMA_NSQ;
-    float tol = 1e-10;
-
     float entr_const;
 
     if(block_size == 1)
@@ -144,20 +141,15 @@ void rred_entropies_and_scales(const float* src, int block_size, size_t width, s
         int k_norm = k * k;
         int kw = k;
         int kh = k;
-        int wd, ht;
-        int i, j;
-
-        float* x_pad;
 
         int x_reflect = (int)((kw - 1) / 2);
-        x_pad = (float*) malloc (sizeof(float) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
+        float *x_pad = (float*) malloc (sizeof(float) * (width + (2 * x_reflect)) * (height + (2 * x_reflect)));
 
         strred_reflect_pad(src, width, height, x_reflect, x_pad);
         size_t r_width = width + (2 * x_reflect);
         size_t r_height = height + (2 * x_reflect);
 
         double *int_1_x, *int_2_x;
-        double *var_x;
 
         int_1_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
         int_2_x = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
@@ -166,6 +158,7 @@ void rred_entropies_and_scales(const float* src, int block_size, size_t width, s
         strred_strred_integral_image_2(x_pad, x_pad, r_width, r_height, int_2_x);
         strred_compute_entropy_scale(int_1_x, int_2_x, r_width + 1, r_height + 1, kw, kh, k_norm, entropy, scale, entr_const);
 
+        free(x_pad);
         free(int_1_x);
         free(int_2_x);
     }
@@ -175,7 +168,7 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
                       const float* dist_src, const float* dist_prev_src, float* dist_dst,
                       size_t width, size_t height)
 {
-    int i, j;
+    size_t i, j;
 
     for(i = 0; i < height; i++)
     {
@@ -219,8 +212,6 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     int subband;
     int total_subbands = DEFAULT_STRRED_SUBBANDS;
 
-    int compute_temporal;
-
     double *entropies_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
     double *entropies_dist = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
     double *scales_ref = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
@@ -230,28 +221,28 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
 
     double *spat_aggregate = (double*)calloc((r_width + 1) * (r_height + 1), sizeof(double));
 
-    float ref_entropy, ref_scale, dist_entropy, dist_scale;
     double spat_abs, spat_mean, spat_values[DEFAULT_STRRED_SUBBANDS];
     double temp_abs, temp_mean, temp_values[DEFAULT_STRRED_SUBBANDS];
 
     for(subband = 1; subband < total_subbands; subband++)
     {
+        size_t i, j;
         spat_abs = 0;
 
         rred_entropies_and_scales(ref->bands[subband], BLOCK_SIZE, width, height, stride, entropies_ref, scales_ref);
         rred_entropies_and_scales(dist->bands[subband], BLOCK_SIZE, width, height, stride, entropies_dist, scales_dist);
 
-        for (int i = 0; i < r_height; i++)
+        for (i = 0; i < r_height; i++)
         {
-            for (int j = 0; j < r_width; j++)
+            for (j = 0; j < r_width; j++)
             {
                 spat_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] - entropies_dist[i * r_width + j] * scales_dist[i * r_width + j];
             }
         }
 
-        for (int i = 0; i < r_height; i++)
+        for (i = 0; i < r_height; i++)
         {
-            for (int j = 0; j < r_width; j++)
+            for (j = 0; j < r_width; j++)
             {
                 spat_abs += fabs(spat_aggregate[i * r_width + j]);
             }
@@ -273,24 +264,28 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             rred_entropies_and_scales(ref_temporal, BLOCK_SIZE, width, height, stride, entropies_ref, temp_scales_ref);
             rred_entropies_and_scales(dist_temporal, BLOCK_SIZE, width, height, stride, entropies_dist, temp_scales_dist);
 
-            for (int i = 0; i < r_height; i++)
+            for (i = 0; i < r_height; i++)
             {
-                for (int j = 0; j < r_width; j++)
+                for (j = 0; j < r_width; j++)
                 {
                     temp_aggregate[i * r_width + j] = entropies_ref[i * r_width + j] * scales_ref[i * r_width + j] * temp_scales_ref[i * r_width + j] -
                                                       entropies_dist[i * r_width + j] * scales_dist[i * r_width + j] * temp_scales_dist[i * r_width + j];
                 }
             }
 
-            for (int i = 0; i < r_height; i++)
+            for (i = 0; i < r_height; i++)
             {
-                for (int j = 0; j < r_width; j++)
+                for (j = 0; j < r_width; j++)
                 {
                     temp_abs += fabs(temp_aggregate[i * r_width + j]);
                 }
                 temp_mean = temp_abs / (height * width);
             }
             temp_values[subband] = temp_mean;
+
+            free(ref_temporal);
+            free(dist_temporal);
+            free(temp_aggregate);
         }
         else
         {
@@ -302,6 +297,14 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     strred_scores->spat_vals[level] = (spat_values[1] + spat_values[2] + spat_values[3]) / 3;
     strred_scores->temp_vals[level] = (temp_values[1] + temp_values[2] + temp_values[3]) / 3;
     strred_scores->spat_temp_vals[level] = strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
+
+    free(entropies_ref);
+    free(entropies_dist);
+    free(scales_ref);
+    free(scales_dist);
+    free(temp_scales_ref);
+    free(temp_scales_dist);
+    free(spat_aggregate);
 
     return 0;
 }
