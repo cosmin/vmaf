@@ -56,6 +56,7 @@ typedef struct FunqueState {
     dwt2buffers dist_dwt2out[4];
 
     // funque configurable parameters
+    const char *wavelet_csfs;
     bool enable_resize;
     bool enable_spatial_csf;
     int vif_levels;
@@ -100,7 +101,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(FunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
 {
@@ -255,17 +256,65 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
 
+    /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
+    s->wavelet_csfs = "nadenau_weight";
+
     if (s->enable_spatial_csf) {
         s->spat_filter = aligned_malloc(s->float_stride * h, 32);
         if (!s->spat_filter)
             goto fail;
     } else {
-        for(int level = 0; level < 4; level++) {
-            s->csf_factors[level][0] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0, s->norm_view_dist, s->ref_display_height);
-            s->csf_factors[level][1] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1, s->norm_view_dist, s->ref_display_height);
-            s->csf_factors[level][2] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2, s->norm_view_dist, s->ref_display_height);
-            s->csf_factors[level][3] = s->csf_factors[level][1]; // same as horizontal
+
+        if(strcmp(s->wavelet_csfs,"nadenau_weight")==0){
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = nadenau_weight_coeffs[level][0];
+                s->csf_factors[level][1] = nadenau_weight_coeffs[level][1];
+                s->csf_factors[level][2] = nadenau_weight_coeffs[level][2];
+                s->csf_factors[level][3] = nadenau_weight_coeffs[level][3];
+            }
         }
+        else if(strcmp(s->wavelet_csfs, "li")==0){
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = li_coeffs[level][0];
+                s->csf_factors[level][1] = li_coeffs[level][1];
+                s->csf_factors[level][2] = li_coeffs[level][2];
+                s->csf_factors[level][3] = li_coeffs[level][3];
+            }
+        }
+        
+        else if(strcmp(s->wavelet_csfs, "hill")==0){
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = hill_coeffs[level][0];
+                s->csf_factors[level][1] = hill_coeffs[level][1];
+                s->csf_factors[level][2] = hill_coeffs[level][2];
+                s->csf_factors[level][3] = hill_coeffs[level][3];
+            }
+        }
+        else if(strcmp(s->wavelet_csfs, "watson")==0){
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = watson_coeffs[level][0];
+                s->csf_factors[level][1] = watson_coeffs[level][1];
+                s->csf_factors[level][2] = watson_coeffs[level][2];
+                s->csf_factors[level][3] = watson_coeffs[level][3];
+            }
+        }
+        else if(strcmp(s->wavelet_csfs, "mannos_weight")==0){
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = mannos_weight_coeffs[level][0];
+                s->csf_factors[level][1] = mannos_weight_coeffs[level][1];
+                s->csf_factors[level][2] = mannos_weight_coeffs[level][2];
+                s->csf_factors[level][3] = mannos_weight_coeffs[level][3];
+            }
+        }
+        else{
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0, s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][1] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1, s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][2] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2, s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][3] = s->csf_factors[level][1]; // same as horizontal
+            }
+        }
+
     }
 
     int err = 0;
@@ -354,14 +403,15 @@ static int extract(VmafFeatureExtractor *fex,
 
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
-        //CSF factors are applied to the pictures based on predefined thresholds.
+        /*CSF factors are applied to the pictures based on predefined thresholds.*/
         s->num_taps = 5;
         spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->num_taps);
         funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->num_taps);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+
     } else {
-                funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
 
@@ -391,9 +441,9 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if (!s->enable_spatial_csf) {
-            if (level < s->adm_levels || level < s->ssim_levels) {//applying CSF to DWT coefficients
+            if (level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
+                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);      
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);
             } else {
                 // we only need CSF on approx band

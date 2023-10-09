@@ -66,6 +66,7 @@ void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height)
             band_v[i*dst_px_stride+j] = filter_coeff * (tmplo[col_idx0] - tmplo[col_idx1]);
             band_d[i*dst_px_stride+j] = filter_coeff * (tmphi[col_idx0] - tmphi[col_idx1]);
         }
+        
     }
     aligned_free(tmplo);
     aligned_free(tmphi);
@@ -110,8 +111,8 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
 void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
 {   
     if(num_taps == 5){
-        //coefficients for 5 tap nadeanu_spat filter 
-        float filter_coeffs[5] = {
+        /*coefficients for 5 tap nadeanu_spat filter */
+        float nadeanu_filter_coeffs[5] = {
         0.0253133196, 0.2310067710, 0.4759767950, 0.2310067710, 0.0253133196
         };
         
@@ -127,22 +128,20 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
         for (i = 0; i < height; ++i) {
 
             // Vertical pass. 
-            for (j = 0; j < width; ++j) { //iterate through each column of image
+            for (j = 0; j < width; ++j) { 
                 double accum = 0;
 
                 for (fi = 0; fi < fwidth; ++fi) {
-                    fcoeff = filter_coeffs[fi];
-                    //compute the weighted sumof neighboring pixels
+                    fcoeff = nadeanu_filter_coeffs[fi];
+                    /*compute the weighted sumof neighboring pixels*/
                     ii = i - fwidth / 2 + fi;
                     ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
 
                     imgcoeff = src[ii * src_px_stride + j];
 
-                    accum += (double) fcoeff * imgcoeff; //store weighted sum of pixel values
+                    accum += (double) fcoeff * imgcoeff; 
                 }
-
-                tmp[j] = accum;
-                
+                tmp[j] = accum; 
             }
 
             // Horizontal pass.
@@ -150,7 +149,7 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                 double accum = 0;
 
                 for (fj = 0; fj < fwidth; ++fj) {
-                    fcoeff = filter_coeffs[fj];
+                    fcoeff = nadeanu_filter_coeffs[fj];
 
                     jj = j - fwidth / 2 + fj;
                     jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
@@ -159,17 +158,14 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
 
                     accum += (double) fcoeff * imgcoeff;
                 }
-
                 dst[i * dst_px_stride + j] = accum;
-                printf("%f  ", dst[i * dst_px_stride + j]);
             }
-            printf("\n");
         }
 
         aligned_free(tmp);
     }
     else{
-        float filter_coeffs[21] = {
+        float ngan_filter_coeffs[21] = {
         -0.01373463642215844680849 ,
         -0.01608514932055564797264 ,
         -0.01890698454168517061991 ,
@@ -208,7 +204,7 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                 double accum = 0;
 
                 for (fi = 0; fi < fwidth; ++fi) {
-                    fcoeff = filter_coeffs[fi];
+                    fcoeff = ngan_filter_coeffs[fi];
                     
                     ii = i - fwidth / 2 + fi;
                     ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
@@ -226,7 +222,7 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                 double accum = 0;
 
                 for (fj = 0; fj < fwidth; ++fj) {
-                    fcoeff = filter_coeffs[fj];
+                    fcoeff = ngan_filter_coeffs[fj];
 
                     jj = j - fwidth / 2 + fj;
                     jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
@@ -235,9 +231,8 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
 
                     accum += (double) fcoeff * imgcoeff;
                 }
-
                 dst[i * dst_px_stride + j] = accum;
-                        }
+            }
         }
 
         aligned_free(tmp);
@@ -288,6 +283,6 @@ void funque_dwt2_inplace_csf(const dwt2buffers *src, float factors[4], int min_t
                 dst_val = factors[theta] * src_ptr[src_offset + j];
                 dst_ptr[dst_offset + j] = dst_val;
             }
-        }
+        } 
     }
 }
