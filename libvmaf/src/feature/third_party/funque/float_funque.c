@@ -56,8 +56,8 @@ typedef struct FunqueState {
     float csf_factors[4][4];
     dwt2buffers ref_dwt2out[4];
     dwt2buffers dist_dwt2out[4];
-    dwt2buffers prev_ref[4];
-    dwt2buffers prev_dist[4];
+    strredbuffers prev_ref[4];
+    strredbuffers prev_dist[4];
     strred_results strred_scores[4];
 
     // funque configurable parameters
@@ -453,7 +453,7 @@ static int extract(VmafFeatureExtractor *fex,
             if (level <= s->strred_levels - 1) {
 
                 err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width,
-                                              s->ref_dwt2out[level].height, &s->strred_scores[level], STRRED_WINDOW_SIZE, BLOCK_SIZE, (double)STRRED_SIGMA_NSQ, level);
+                                              s->ref_dwt2out[level].height, &s->strred_scores[level], BLOCK_SIZE, level);
 
                 err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
                                                      &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
@@ -542,7 +542,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     if (index > 0)
     {
-        double strred = 0;
+        //double strred = 0;
 
         //err |= vmaf_feature_collector_append_with_dict(feature_collector,
         //                                               s->feature_name_dict, "FUNQUE_feature_strred_score",

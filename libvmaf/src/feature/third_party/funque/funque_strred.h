@@ -19,6 +19,13 @@
 #include "funque_global_options.h"
 #include "funque_strred_options.h"
 
+typedef struct strredbuffers {
+    float *bands[4];
+    int width;
+    int height;
+    ptrdiff_t stride;
+} strredbuffers;
+
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];
     double trred_vals[MAX_LEVELS];
@@ -28,5 +35,8 @@ typedef struct strred_results {
     double spat_temp_vals[MAX_LEVELS];
 } strred_results;
 
-int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct dwt2buffers* prev_ref, struct dwt2buffers* prev_dist,
-                        size_t width, size_t height, struct strred_results* strred_scores, int k, int stride, double sigma_nsq_arg, int level);
+int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
+                        size_t width, size_t height, struct strred_results* strred_scores, int block_size, int level);
+
+int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct strredbuffers* prev_ref,
+                                  struct strredbuffers* prev_dist, size_t width, size_t height);
