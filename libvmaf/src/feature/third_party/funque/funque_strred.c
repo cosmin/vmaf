@@ -204,7 +204,7 @@ int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dw
 int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist, struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
                         size_t width, size_t height, struct strred_results* strred_scores, int block_size, int level)
 {
-    size_t subband;
+    size_t subband, num_level;
     float spat_abs, spat_mean, spat_values[DEFAULT_STRRED_SUBBANDS];
     float temp_abs, temp_mean, temp_values[DEFAULT_STRRED_SUBBANDS];
 
@@ -295,6 +295,22 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     strred_scores->spat_vals[level] = (spat_values[1] + spat_values[2] + spat_values[3]) / 3;
     strred_scores->temp_vals[level] = (temp_values[1] + temp_values[2] + temp_values[3]) / 3;
     strred_scores->spat_temp_vals[level] = strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
+
+    // Add equations to compute ST-RRED using norm factors
+    int norm_factor;
+    double spat_vals_cumsum, temp_vals_cumsum, spat_temp_vals_cumsum;
+    for(num_level = 0; num_level <= level; num_level++)
+    {
+        norm_factor = num_level + 1;
+        spat_vals_cumsum += strred_scores->spat_vals[num_level];
+        temp_vals_cumsum += strred_scores->temp_vals[num_level];
+        spat_temp_vals_cumsum += strred_scores->spat_temp_vals[num_level];
+    }
+
+    strred_scores->srred_vals[level] = spat_vals_cumsum / norm_factor;
+    strred_scores->trred_vals[level] = temp_vals_cumsum / norm_factor;
+    strred_scores->strred_vals[level] = spat_temp_vals_cumsum / norm_factor;
+
 
     free(entropies_ref);
     free(entropies_dist);
