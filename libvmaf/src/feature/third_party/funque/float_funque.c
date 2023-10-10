@@ -540,32 +540,48 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    if (index > 0)
-    {
-        //double strred = 0;
-
-        //err |= vmaf_feature_collector_append_with_dict(feature_collector,
-        //                                               s->feature_name_dict, "FUNQUE_feature_strred_score",
-        //                                               strred, index);
-
+    if (index == 0) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
-                                                       strred_values[0], index);
+                                                       0, index);
 
         if (s->strred_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                            s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                                                           strred_values[1], index);
+                                                           0, index);
 
             if (s->strred_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                                                               strred_values[2], index);
+                                                               0, index);
 
                 if (s->strred_levels > 3) {
                     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                    s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
-                                                                   strred_values[3], index);
+                                                                   0, index);
+                }
+            }
+        }
+    }
+    else {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+                                                       s->strred_scores[0].strred_vals[0], index);
+
+        if (s->strred_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                                                           s->strred_scores[1].strred_vals[1], index);
+
+            if (s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                                                               s->strred_scores[2].strred_vals[2], index);
+
+                if (s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
+                                                                   s->strred_scores[3].strred_vals[3], index);
                 }
             }
         }
