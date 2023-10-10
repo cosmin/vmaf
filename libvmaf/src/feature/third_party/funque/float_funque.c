@@ -367,6 +367,14 @@ static int extract(VmafFeatureExtractor *fex,
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
 
+    float* var_x_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float* var_y_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float* cov_xy_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+
+    ms_ssim_score[0].var_x_cum = &var_x_cum;
+    ms_ssim_score[0].var_y_cum = &var_y_cum;
+    ms_ssim_score[0].cov_xy_cum = &cov_xy_cum;
+
     double adm_den = 0.0;
     double adm_num = 0.0;
 
@@ -409,6 +417,12 @@ static int extract(VmafFeatureExtractor *fex,
         if (level <= s->ssim_levels - 1) {
             //err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
             err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ms_ssim_score[level], 1, (float)0.01, (float)0.03, (level + 1));
+            if(level != s->ssim_levels -1)
+            {
+                ms_ssim_score[level+1].var_x_cum = ms_ssim_score[level].var_x_cum;
+                ms_ssim_score[level+1].var_y_cum = ms_ssim_score[level].var_y_cum;
+                ms_ssim_score[level+1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
+            }
         }
 
         if (level <= s->vif_levels - 1) {
