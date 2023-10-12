@@ -126,9 +126,6 @@ int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *sco
     float *var_x_cum = *(score->var_x_cum);
     float *var_y_cum = *(score->var_y_cum);
     float *cov_xy_cum = *(score->cov_xy_cum);
-    /* float *var_x_cum = score->var_x_cum;
-    float *var_y_cum = ms_ssim_score.var_y_cum;
-    float *cov_xy_cum = ms_ssim_score.cov_xy_cum; */
 
 #if ENABLE_MINK3POOL
     float cube_1minus_map = 0;
@@ -166,18 +163,15 @@ int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *sco
             var_y[index] = var_y_cum[index] / win_size;
             cov_xy[index] = cov_xy_cum[index] / win_size;
 
-            l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
-            cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-
             l_arr[index] = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
             cs_arr[index] = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-            ssim_arr[index] = l * cs;
+            ssim_arr[index] = l_arr[index] * cs_arr[index];
 #if ENABLE_MINK3POOL
-            cube_1minus_map += pow((1 - (l * cs)), 3);
+            cube_1minus_map += pow((1 - (l_arr[index] * cs_arr[index])), 3);
 #else
-            sum += (l * cs);
-            l_sum += l;
-            cs_sum += cs;
+            sum += (l_arr[index] * cs_arr[index]);
+            l_sum += l_arr[index];
+            cs_sum += cs_arr[index];
 #endif
             index_cum += 2;
         }
@@ -186,14 +180,14 @@ int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *sco
 
 #if ENABLE_MINK3POOL
     double ssim_val = 1 - cbrt((double)cube_1minus_map/(width*height));
-    ms_ssim_score.ssim_mean = ssim_clip(ssim_val, 0, 1);
+    score->ssim_mean = ssim_clip(ssim_val, 0, 1);
 #else
     float ssim_mean = sum / (height * width);
     float l_mean = l_sum / (height * width);
     float cs_mean = cs_sum / (height * width);
-    ms_ssim_score.ssim_mean = ssim_mean;
-    ms_ssim_score.l_mean = l_mean;
-    ms_ssim_score.cs_mean = cs_mean;
+    score->ssim_mean = ssim_mean;
+    score->l_mean = l_mean;
+    score->cs_mean = cs_mean;
 
    double l_var = 0;
    double cs_var = 0;
@@ -203,9 +197,9 @@ int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *sco
         for (int j = 0; j < width; j++)
         {
             index = i * width + j;
-            l_var += (l_arr[index] - ms_ssim_score.l_mean) * (l_arr[index] - ms_ssim_score.l_mean);
-            cs_var += (cs_arr[index] - ms_ssim_score.cs_mean) * (cs_arr[index] - ms_ssim_score.cs_mean);
-            ssim_var += (ssim_arr[index] - ms_ssim_score.ssim_mean) * (ssim_arr[index] - ms_ssim_score.ssim_mean);
+            l_var += (l_arr[index] - score->l_mean) * (l_arr[index] - score->l_mean);
+            cs_var += (cs_arr[index] - score->cs_mean) * (cs_arr[index] - score->cs_mean);
+            ssim_var += (ssim_arr[index] - score->ssim_mean) * (ssim_arr[index] - score->ssim_mean);
         }
     }
     l_var = l_var / (height * width);
@@ -220,15 +214,62 @@ int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *sco
     float cs_cov = cs_std / cs_mean;
     float ssim_cov = ssim_std / ssim_mean;
 
-    ms_ssim_score.ssim_cov = ssim_cov;
-    ms_ssim_score.l_cov = l_cov;
-    ms_ssim_score.cs_cov = cs_cov;
+    score->ssim_cov = ssim_cov;
+    score->l_cov = l_cov;
+    score->cs_cov = cs_cov;
 #endif
 
 
     free(var_x);
     free(var_y);
     free(cov_xy);
+    free(var_x_add);
+    free(var_y_add);
+    free(cov_xy_add);
+    free(l_arr);
+    free(cs_arr);
+    free(ssim_arr);
+
+    ret = 0;
+
+    return ret;
+
+}
+
+int compute_ms_ssim_mean_scales(MsSsimScore *score, int n_levels)
+{
+    int ret = 1;
+    float exps[5] = {0.0448, 0.2856, 0.3001, 0.2363, 0.1333};
+
+    double cum_prod_mean[5] = {0};
+    double cum_prod_concat_mean[5] = {0};
+    double ms_ssim_mean_scales[5] = {0};
+
+    double cum_prod_cov[5] = {0};
+    double cum_prod_concat_cov[5] = {0};
+    double ms_ssim_cov_scales[5] = {0};
+
+    cum_prod_mean[0] = pow(score[0].cs_mean, exps[0]);
+    cum_prod_cov[0] = pow(score[0].cs_cov, exps[0]);
+    for(int i = 1; i < (n_levels-1); i++)
+    {
+        cum_prod_mean[i] = cum_prod_mean[i-1] + pow(score[i].cs_mean, exps[i]);
+        cum_prod_cov[i] = cum_prod_cov[i-1] + pow(score[i].cs_cov, exps[i]);
+    }
+
+    cum_prod_concat_mean[0] = 1;
+    cum_prod_concat_cov[0] = 1;
+    for(int i = 1; i < n_levels; i++)
+    {
+        cum_prod_concat_mean[i] = cum_prod_mean[i-1];
+        cum_prod_concat_cov[i] = cum_prod_cov[i-1];
+    }
+
+    for(int i = 0; i < n_levels; i++)
+    {
+        score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(score[i].ssim_mean, exps[i]);
+        score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(score[i].ssim_cov, exps[i]);
+    }
 
     ret = 0;
 
