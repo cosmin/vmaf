@@ -23,6 +23,9 @@
 #include <math.h>
 #include "macros.h"
 
+#define NGAN_21_TAP_FILTER           21
+#define NADENAU_SPAT_5_TAP_FILTER    5
+
 struct funque_dwt_model_params {
     float a;
     float k;

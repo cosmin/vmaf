@@ -104,6 +104,16 @@ static const VmafOption options[] = {
         .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
+        {
+        .name = "num_taps",
+        .alias = "ntaps",
+        .help = "Select number of taps to be used for spatial filter",
+        .offset = offsetof(FunqueState, num_taps),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.b = NADENAU_SPAT_5_TAP_FILTER,
+        .min = NADENAU_SPAT_5_TAP_FILTER,
+        .max = NGAN_21_TAP_FILTER
+    },
 {
         .name = "norm_view_dist",
         .alias = "nvd",
