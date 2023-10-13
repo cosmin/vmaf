@@ -414,7 +414,6 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
-        s->num_taps = 5;
         spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->num_taps);
         funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->num_taps);
