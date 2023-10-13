@@ -39,6 +39,9 @@
 #include "funque_ssim.h"
 #include "resizer.h"
 
+#include "funque_strred.h"
+#include "funque_strred_options.h"
+
 typedef struct FunqueState {
     size_t float_stride;
     float *ref;
@@ -54,6 +57,9 @@ typedef struct FunqueState {
     float csf_factors[4][4];
     dwt2buffers ref_dwt2out[4];
     dwt2buffers dist_dwt2out[4];
+    strredbuffers prev_ref[4];
+    strredbuffers prev_dist[4];
+    strred_results strred_scores[4];
 
     // funque configurable parameters
     const char *wavelet_csfs;
@@ -66,6 +72,7 @@ typedef struct FunqueState {
     int ssim_levels;
     double norm_view_dist;
     int ref_display_height;
+    int strred_levels;
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -201,6 +208,16 @@ static const VmafOption options[] = {
         .min = 1.0,
         .max = DEFAULT_ADM_ENHN_GAIN_LIMIT,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+    {
+        .name = "strred_levels",
+        .alias = "strred",
+        .help = "Number of levels in STRRED",
+        .offset = offsetof(FunqueState, strred_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_STRRED_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
     },
 
     { 0 }
@@ -420,6 +437,7 @@ static int extract(VmafFeatureExtractor *fex,
         funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
 
     } else {
+        // Wavelet Domain or pyramid is done
         funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
@@ -427,6 +445,8 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
+    double strred_values[MAX_LEVELS];
+
 
     double adm_den = 0.0;
     double adm_num = 0.0;
@@ -482,6 +502,26 @@ static int extract(VmafFeatureExtractor *fex,
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
         }
+
+        if(index == 0) {
+            if (level <= s->strred_levels - 1) {
+
+                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
+                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
+
+            }
+        }
+        else {
+            if (level <= s->strred_levels - 1) {
+
+                err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width,
+                                              s->ref_dwt2out[level].height, &s->strred_scores[level], BLOCK_SIZE, level);
+
+                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
+                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
+            }
+        }
+
 
         if (err) return err;
     }
@@ -562,6 +602,53 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
+    if (index == 0) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+                                                       0, index);
+
+        if (s->strred_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                                                           0, index);
+
+            if (s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                                                               0, index);
+
+                if (s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
+                                                                   0, index);
+                }
+            }
+        }
+    }
+    else {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+                                                       s->strred_scores[0].strred_vals[0], index);
+
+        if (s->strred_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                                                           s->strred_scores[1].strred_vals[1], index);
+
+            if (s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                                                               s->strred_scores[2].strred_vals[2], index);
+
+                if (s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
+                                                                   s->strred_scores[3].strred_vals[3], index);
+                }
+            }
+        }
+    }
+
     return err;
 }
 
@@ -597,6 +684,10 @@ static const char *provided_features[] = {
 
     "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
     "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
+
+    //"FUNQUE_feature_strred_score",
+    "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
+    "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
 
     NULL
 };
