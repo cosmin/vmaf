@@ -180,7 +180,7 @@ static const VmafOption options[] = {
         .min = MIN_ADM_LEVELS,
         .max = MAX_ADM_LEVELS,
     },
-    {
+        {
         .name = "adm_enhn_gain_limit",
         .alias = "egl",
         .help = "enhancement gain imposed on adm, must be >= 1.0, "
@@ -406,15 +406,15 @@ static int extract(VmafFeatureExtractor *fex,
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
         s->num_taps = 5;
         spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->num_taps);
-        funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->num_taps);
-        funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
 
     } else {
         funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
-
+    
     double ssim_score[MAX_LEVELS];
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
