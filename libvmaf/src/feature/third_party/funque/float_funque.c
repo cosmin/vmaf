@@ -84,6 +84,7 @@ typedef struct FunqueState {
 
     VmafDictionary *feature_name_dict;
     ResizerState resize_module;
+    MsSsimScore *score;
 } FunqueState;
 
 static const VmafOption options[] = {
@@ -443,10 +444,20 @@ static int extract(VmafFeatureExtractor *fex,
     }
     
     double ssim_score[MAX_LEVELS];
+    MsSsimScore ms_ssim_score[MAX_LEVELS];
+    s->score = &ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
     double strred_values[MAX_LEVELS];
 
+
+    float* var_x_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float* var_y_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float* cov_xy_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+
+    ms_ssim_score[0].var_x_cum = &var_x_cum;
+    ms_ssim_score[0].var_y_cum = &var_y_cum;
+    ms_ssim_score[0].cov_xy_cum = &cov_xy_cum;
 
     double adm_den = 0.0;
     double adm_num = 0.0;
@@ -491,6 +502,16 @@ static int extract(VmafFeatureExtractor *fex,
             err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
         }
 
+        if(level <= s->ssim_levels - 1){
+            err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ms_ssim_score[level], 1, (float)0.01, (float)0.03, (level + 1));
+            if(level != s->ssim_levels -1)
+            {
+                ms_ssim_score[level+1].var_x_cum = ms_ssim_score[level].var_x_cum;
+                ms_ssim_score[level+1].var_y_cum = ms_ssim_score[level].var_y_cum;
+                ms_ssim_score[level+1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
+            }
+        }
+
         if (level <= s->vif_levels - 1) {
             #if USE_DYNAMIC_SIGMA_NSQ
             err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
@@ -525,6 +546,8 @@ static int extract(VmafFeatureExtractor *fex,
 
         if (err) return err;
     }
+
+    err |= compute_ms_ssim_mean_scales(ms_ssim_score, s->ssim_levels);
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
     double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
@@ -649,6 +672,27 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_ms_ssim_scale0_score",
+                                         s->score[0].ms_ssim_mean, index);
+
+    if (s->ssim_levels > 1) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_ms_ssim_scale1_score",
+                                                       s->score[1].ms_ssim_mean, index);
+
+        if (s->ssim_levels > 2) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_ms_ssim_scale2_score",
+                                                           s->score[2].ms_ssim_mean, index);
+
+            if (s->ssim_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_ms_ssim_scale3_score",
+                                                               s->score[3].ms_ssim_mean, index);
+            }
+        }
+    }
+
     return err;
 }
 
@@ -685,9 +729,11 @@ static const char *provided_features[] = {
     "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
     "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
 
-    //"FUNQUE_feature_strred_score",
     "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
     "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
+
+    "FUNQUE_feature_ms_ssim_scale0_score", "FUNQUE_feature_ms_ssim_scale1_score",
+    "FUNQUE_feature_ms_ssim_scale2_score", "FUNQUE_feature_ms_ssim_scale3_score",
 
     NULL
 };
