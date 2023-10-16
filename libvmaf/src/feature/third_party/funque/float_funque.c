@@ -112,7 +112,7 @@ static const VmafOption options[] = {
         .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
-        {
+    {
         .name = "num_taps",
         .alias = "ntaps",
         .help = "Select number of taps to be used for spatial filter",
@@ -292,57 +292,55 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         if (!s->spat_filter)
             goto fail;
     } else {
-
-        if(strcmp(s->wavelet_csfs,"nadenau_weight")==0){
+        if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = nadenau_weight_coeffs[level][0];
                 s->csf_factors[level][1] = nadenau_weight_coeffs[level][1];
                 s->csf_factors[level][2] = nadenau_weight_coeffs[level][2];
                 s->csf_factors[level][3] = nadenau_weight_coeffs[level][3];
             }
-        }
-        else if(strcmp(s->wavelet_csfs, "li")==0){
+        } else if(strcmp(s->wavelet_csfs, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = li_coeffs[level][0];
                 s->csf_factors[level][1] = li_coeffs[level][1];
                 s->csf_factors[level][2] = li_coeffs[level][2];
                 s->csf_factors[level][3] = li_coeffs[level][3];
             }
-        }
-        
-        else if(strcmp(s->wavelet_csfs, "hill")==0){
+        } else if(strcmp(s->wavelet_csfs, "hill") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = hill_coeffs[level][0];
                 s->csf_factors[level][1] = hill_coeffs[level][1];
                 s->csf_factors[level][2] = hill_coeffs[level][2];
                 s->csf_factors[level][3] = hill_coeffs[level][3];
             }
-        }
-        else if(strcmp(s->wavelet_csfs, "watson")==0){
+        } else if(strcmp(s->wavelet_csfs, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = watson_coeffs[level][0];
                 s->csf_factors[level][1] = watson_coeffs[level][1];
                 s->csf_factors[level][2] = watson_coeffs[level][2];
                 s->csf_factors[level][3] = watson_coeffs[level][3];
             }
-        }
-        else if(strcmp(s->wavelet_csfs, "mannos_weight")==0){
+        } else if(strcmp(s->wavelet_csfs, "mannos_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = mannos_weight_coeffs[level][0];
                 s->csf_factors[level][1] = mannos_weight_coeffs[level][1];
                 s->csf_factors[level][2] = mannos_weight_coeffs[level][2];
                 s->csf_factors[level][3] = mannos_weight_coeffs[level][3];
             }
-        }
-        else{
+        } else {
             for(int level = 0; level < 4; level++) {
-                s->csf_factors[level][0] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0, s->norm_view_dist, s->ref_display_height);
-                s->csf_factors[level][1] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1, s->norm_view_dist, s->ref_display_height);
-                s->csf_factors[level][2] = 1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2, s->norm_view_dist, s->ref_display_height);
-                s->csf_factors[level][3] = s->csf_factors[level][1]; // same as horizontal
+                s->csf_factors[level][0] =
+                    1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 0,
+                                                 s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][1] =
+                    1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 1,
+                                                 s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][2] =
+                    1.0f / funque_dwt_quant_step(&funque_dwt_7_9_YCbCr_threshold[0], level, 2,
+                                                 s->norm_view_dist, s->ref_display_height);
+                s->csf_factors[level][3] = s->csf_factors[level][1];  // same as horizontal
             }
         }
-
     }
 
     int err = 0;
@@ -442,7 +440,7 @@ static int extract(VmafFeatureExtractor *fex,
         funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
         funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
     }
-    
+
     double ssim_score[MAX_LEVELS];
     MsSsimScore ms_ssim_score[MAX_LEVELS];
     s->score = &ms_ssim_score;
@@ -450,10 +448,9 @@ static int extract(VmafFeatureExtractor *fex,
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
     double strred_values[MAX_LEVELS];
 
-
-    float* var_x_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
-    float* var_y_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
-    float* cov_xy_cum = (float*)calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float *var_x_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float *var_y_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    float *cov_xy_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
 
     ms_ssim_score[0].var_x_cum = &var_x_cum;
     ms_ssim_score[0].var_y_cum = &var_y_cum;
@@ -464,7 +461,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double vif_den = 0.0;
     double vif_num = 0.0;
-    
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
         if (level+1 < s->needed_dwt_levels) {
@@ -483,7 +480,7 @@ static int extract(VmafFeatureExtractor *fex,
         if (!s->enable_spatial_csf) {
             if (level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);      
+                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);
             } else {
                 // we only need CSF on approx band
@@ -502,13 +499,14 @@ static int extract(VmafFeatureExtractor *fex,
             err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
         }
 
-        if(level <= s->ssim_levels - 1){
-            err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ms_ssim_score[level], 1, (float)0.01, (float)0.03, (level + 1));
-            if(level != s->ssim_levels -1)
-            {
-                ms_ssim_score[level+1].var_x_cum = ms_ssim_score[level].var_x_cum;
-                ms_ssim_score[level+1].var_y_cum = ms_ssim_score[level].var_y_cum;
-                ms_ssim_score[level+1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
+        if(level <= s->ssim_levels - 1) {
+            err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
+                                          &ms_ssim_score[level], 1, (float) 0.01, (float) 0.03,
+                                          (level + 1));
+            if(level != s->ssim_levels - 1) {
+                ms_ssim_score[level + 1].var_x_cum = ms_ssim_score[level].var_x_cum;
+                ms_ssim_score[level + 1].var_y_cum = ms_ssim_score[level].var_y_cum;
+                ms_ssim_score[level + 1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
             }
         }
 
@@ -525,24 +523,25 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if(index == 0) {
-            if (level <= s->strred_levels - 1) {
+            if(level <= s->strred_levels - 1) {
+                err |= copy_prev_frame_strred_funque(
+                    &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
+                    &s->prev_dist[level], s->ref_dwt2out[level].width,
+                    s->ref_dwt2out[level].height);
+            }
+        } else {
+            if(level <= s->strred_levels - 1) {
+                err |= compute_strred_funque(
+                    &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
+                    &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+                    &s->strred_scores[level], BLOCK_SIZE, level);
 
-                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
-                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
-
+                err |= copy_prev_frame_strred_funque(
+                    &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
+                    &s->prev_dist[level], s->ref_dwt2out[level].width,
+                    s->ref_dwt2out[level].height);
             }
         }
-        else {
-            if (level <= s->strred_levels - 1) {
-
-                err |= compute_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width,
-                                              s->ref_dwt2out[level].height, &s->strred_scores[level], BLOCK_SIZE, level);
-
-                err |= copy_prev_frame_strred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
-                                                     &s->prev_ref[level], &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
-            }
-        }
-
 
         if (err) return err;
     }
@@ -604,8 +603,8 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_feature_ssim_scale0_score",
+    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                   "FUNQUE_feature_ssim_scale0_score",
                                                    ssim_score[0], index);
 
     if (s->ssim_levels > 1) {
@@ -626,87 +625,87 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    if (index == 0) {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
-                                                       0, index);
+    if(index == 0) {
+        err |=
+            vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                    "FUNQUE_feature_strred_scale0_score", 0, index);
 
-        if (s->strred_levels > 1) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                                                           0, index);
+        if(s->strred_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                           "FUNQUE_feature_strred_scale1_score", 0,
+                                                           index);
 
-            if (s->strred_levels > 2) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                                                               0, index);
+            if(s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                    0, index);
 
-                if (s->strred_levels > 3) {
-                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
-                                                                   0, index);
+                if(s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_feature_strred_scale3_score", 0, index);
                 }
             }
         }
-    }
-    else {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_strred_scale0_score",
+    } else {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_feature_strred_scale0_score",
                                                        s->strred_scores[0].strred_vals[0], index);
 
-        if (s->strred_levels > 1) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                                                           s->strred_scores[1].strred_vals[1], index);
+        if(s->strred_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
+                s->strred_scores[1].strred_vals[1], index);
 
-            if (s->strred_levels > 2) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                                                               s->strred_scores[2].strred_vals[2], index);
+            if(s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
+                    s->strred_scores[2].strred_vals[2], index);
 
-                if (s->strred_levels > 3) {
-                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                   s->feature_name_dict, "FUNQUE_feature_strred_scale3_score",
-                                                                   s->strred_scores[3].strred_vals[3], index);
+                if(s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_feature_strred_scale3_score", s->strred_scores[3].strred_vals[3],
+                        index);
                 }
             }
         }
     }
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                    s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale0_score",
-                                                    s->score[0].ms_ssim_mean, index);
+    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                   "FUNQUE_feature_ms_ssim_mean_scale0_score",
+                                                   s->score[0].ms_ssim_mean, index);
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                    s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale0_score",
-                                                    s->score[0].ms_ssim_cov, index);
+    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                   "FUNQUE_feature_ms_ssim_cov_scale0_score",
+                                                   s->score[0].ms_ssim_cov, index);
 
-    if (s->ssim_levels > 1) {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale1_score",
+    if(s->ssim_levels > 1) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_feature_ms_ssim_mean_scale1_score",
                                                        s->score[1].ms_ssim_mean, index);
 
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale1_score",
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_feature_ms_ssim_cov_scale1_score",
                                                        s->score[1].ms_ssim_cov, index);
 
-        if (s->ssim_levels > 2) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale2_score",
-                                                           s->score[2].ms_ssim_mean, index);
+        if(s->ssim_levels > 2) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale2_score",
+                s->score[2].ms_ssim_mean, index);
 
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale2_score",
-                                                           s->score[2].ms_ssim_cov, index);
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale2_score",
+                s->score[2].ms_ssim_cov, index);
 
-            if (s->ssim_levels > 3) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale3_score",
-                                                               s->score[3].ms_ssim_mean, index);
-                
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale3_score",
-                                                               s->score[3].ms_ssim_cov, index);
+            if(s->ssim_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_feature_ms_ssim_mean_scale3_score", s->score[3].ms_ssim_mean, index);
+
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_feature_ms_ssim_cov_scale3_score", s->score[3].ms_ssim_cov, index);
             }
         }
     }
