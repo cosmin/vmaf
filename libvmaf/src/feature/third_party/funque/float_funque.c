@@ -673,11 +673,13 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_ms_ssim_mean_scale0_score",
-                                         s->score[0].ms_ssim_mean, index);
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                    s->feature_name_dict, "FUNQUE_feature_ms_ssim_mean_scale0_score",
+                                                    s->score[0].ms_ssim_mean, index);
 
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_feature_ms_ssim_cov_scale0_score",
-                                         s->score[0].ms_ssim_cov, index);
+    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                    s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale0_score",
+                                                    s->score[0].ms_ssim_cov, index);
 
     if (s->ssim_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
