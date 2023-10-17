@@ -246,31 +246,6 @@ static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
     return -ENOMEM;
 }
 
-static int alloc_strredbuffers(strredbuffers *strredout, int w, int h)
-{
-    strredout->width = (int) (w + 1) / 2;
-    strredout->height = (int) (h + 1) / 2;
-    strredout->stride = ALIGN_CEIL(strredout->width * sizeof(float));
-
-    for(unsigned i = 0; i < 4; i++) {
-        strredout->bands[i] = aligned_malloc(strredout->stride * strredout->height, 32);
-        if(!strredout->bands[i])
-            goto fail;
-
-        strredout->bands[i] = aligned_malloc(strredout->stride * strredout->height, 32);
-        if(!strredout->bands[i])
-            goto fail;
-    }
-    return 0;
-
-fail:
-    for(unsigned i = 0; i < 4; i++) {
-        if(strredout->bands[i])
-            aligned_free(strredout->bands[i]);
-    }
-    return -ENOMEM;
-}
-
 static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {
@@ -375,13 +350,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], last_w, last_h);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], last_w, last_h);
-        last_w = s->ref_dwt2out[level].width;
-        last_h = s->ref_dwt2out[level].height;
-    }
-
-    for (int level = 0; level < s->strred_levels; level++) {
-        err |= alloc_strredbuffers(&s->prev_ref[level], last_w, last_h);
-        err |= alloc_strredbuffers(&s->prev_dist[level], last_w, last_h);
         last_w = s->ref_dwt2out[level].width;
         last_h = s->ref_dwt2out[level].height;
     }
@@ -762,14 +730,6 @@ static int close(VmafFeatureExtractor *fex)
         {
             if (s->ref_dwt2out[level].bands[i]) aligned_free(s->ref_dwt2out[level].bands[i]);
             if (s->dist_dwt2out[level].bands[i]) aligned_free(s->dist_dwt2out[level].bands[i]);
-        }
-    }
-
-    for(int level = 0; level < s->strred_levels; level += 1) {
-        for(unsigned i = 0; i < 4; i++)
-        {
-            if (s->prev_ref[level].bands[i]) aligned_free(s->prev_ref[level].bands[i]);
-            if (s->prev_dist[level].bands[i]) aligned_free(s->prev_dist[level].bands[i]);
         }
     }
 
