@@ -521,15 +521,14 @@ static int extract(VmafFeatureExtractor *fex,
             vif_den += vif_score_den[level];
         }
 
-        if(index == 0) {
-            if(level <= s->strred_levels - 1) {
+        if(level <= s->strred_levels - 1) {
+            if(index == 0) {
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
                     &s->prev_dist[level], s->ref_dwt2out[level].width,
                     s->ref_dwt2out[level].height);
             }
-        } else {
-            if(level <= s->strred_levels - 1) {
+            else {
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
                     &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,

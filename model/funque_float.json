@@ -14,15 +14,12 @@
         "feature_opts_dicts": [
             {
                 "enable_spatial_csf": true,
-                "enable_resize": false
-            },
-            {
-                "num_taps": 5
-            },
-            {
+                "enable_resize": false,
+                "num_taps": 5,
+
                 "vif_levels": 4,
-                "adm_levels": 4,
-                "ssim_levels": 4,
+                "adm_levels": 2,
+                "ssim_levels": 2,
                 "strred_levels": 4
             }
         ],
