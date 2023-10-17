@@ -15,8 +15,9 @@
             {
                 "enable_spatial_csf": true,
                 "enable_resize": false,
-                "num_taps": 5,
-
+                "num_taps": 5
+            },
+            {
                 "vif_levels": 4,
                 "adm_levels": 2,
                 "ssim_levels": 2,
