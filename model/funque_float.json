@@ -13,8 +13,6 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "enable_spatial_csf": true,
-                "enable_resize": false,
                 "num_taps": 5
             },
             {
