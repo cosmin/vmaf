@@ -447,9 +447,9 @@ static int extract(VmafFeatureExtractor *fex,
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
     double strred_values[MAX_LEVELS];
 
-    float *var_x_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
-    float *var_y_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
-    float *cov_xy_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
+    double *var_x_cum = (double *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(double));
+    double *var_y_cum = (double *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(double));
+    double *cov_xy_cum = (double *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(double));
 
     ms_ssim_score[0].var_x_cum = &var_x_cum;
     ms_ssim_score[0].var_y_cum = &var_y_cum;
