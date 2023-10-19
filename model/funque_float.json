@@ -13,31 +13,28 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "num_taps": 5
+                "num_taps": 5,
+                "enable_resize": false
             },
             {
-                "vif_levels": 4,
-                "adm_levels": 2,
-                "ssim_levels": 2,
-                "strred_levels": 4
+                "adm_levels": 2
+            },
+            {
+                "ssim_levels": 2
+            },
+            {},
+            {},
+            {
+                "strred_levels": 2
             }
         ],
         "feature_names": [
-            "FUNQUE_feature_vif_score",
-            "FUNQUE_feature_vif_scale0_score", "FUNQUE_feature_vif_scale1_score",
-            "FUNQUE_feature_vif_scale2_score", "FUNQUE_feature_vif_scale3_score",
             "FUNQUE_feature_adm_score",
             "FUNQUE_feature_adm_scale0_score", "FUNQUE_feature_adm_scale1_score",
-            "FUNQUE_feature_adm_scale2_score", "FUNQUE_feature_adm_scale3_score",
-            "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
-            "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
 
             "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
-            "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
             "FUNQUE_feature_ms_ssim_mean_scale0_score", "FUNQUE_feature_ms_ssim_mean_scale1_score",
-            "FUNQUE_feature_ms_ssim_mean_scale2_score", "FUNQUE_feature_ms_ssim_mean_scale3_score",
-            "FUNQUE_feature_ms_ssim_cov_scale0_score", "FUNQUE_feature_ms_ssim_cov_scale1_score",
-            "FUNQUE_feature_ms_ssim_cov_scale2_score", "FUNQUE_feature_ms_ssim_cov_scale3_score"
+            "FUNQUE_feature_ms_ssim_cov_scale0_score", "FUNQUE_feature_ms_ssim_cov_scale1_score"
         ],
         "slopes": [
             0.013377926421404682,

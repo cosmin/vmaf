@@ -101,7 +101,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(FunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
     },
     {
         .name = "enable_spatial_csf",
@@ -109,7 +109,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(FunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -234,8 +234,8 @@ static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
         dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
         if (!dwt2out->bands[i]) goto fail;
 
-        dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
-        if (!dwt2out->bands[i]) goto fail;
+        //dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
+        //if (!dwt2out->bands[i]) goto fail;
     }
     return 0;
 
@@ -351,6 +351,18 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], last_w, last_h);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], last_w, last_h);
+
+        s->prev_ref[level].bands[0] = NULL;
+        s->prev_dist[level].bands[0] = NULL;
+
+        int str_width = (int) (w+1)/2;
+        int str_height = (int) (h+1)/2;
+
+        for(int subband = 1; subband < 4; subband++) {
+            s->prev_ref[level].bands[subband] = (float*) calloc(str_width * str_height, sizeof(float));
+            s->prev_dist[level].bands[subband] = (float*) calloc(str_width * str_height, sizeof(float));
+        }
+
         last_w = s->ref_dwt2out[level].width;
         last_h = s->ref_dwt2out[level].height;
     }
@@ -731,6 +743,12 @@ static int close(VmafFeatureExtractor *fex)
             if (s->ref_dwt2out[level].bands[i]) aligned_free(s->ref_dwt2out[level].bands[i]);
             if (s->dist_dwt2out[level].bands[i]) aligned_free(s->dist_dwt2out[level].bands[i]);
         }
+        for(unsigned i=1; i<4; i++)
+        {
+            if (s->prev_ref[level].bands[i]) free(s->prev_ref[level].bands[i]);
+            if (s->prev_dist[level].bands[i]) free(s->prev_dist[level].bands[i]);
+        }
+
     }
 
     vmaf_dictionary_free(&s->feature_name_dict);

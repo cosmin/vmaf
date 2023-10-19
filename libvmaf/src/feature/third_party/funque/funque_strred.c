@@ -179,9 +179,6 @@ int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dw
     int total_subbands = DEFAULT_STRRED_SUBBANDS;
 
     for(subband = 1; subband < total_subbands; subband++) {
-        prev_ref->bands[subband] = (float*) calloc(width * height, sizeof(float));
-        prev_dist->bands[subband] = (float*) calloc(width * height, sizeof(float));
-
         memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(float));
         memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(float));
     }
