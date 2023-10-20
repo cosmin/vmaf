@@ -96,7 +96,7 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     return ret;
 }
 
-const float exps[5] = {0.0448, 0.2856, 0.3001, 0.2363, 0.1333};
+const double exps[5] = {0.0448000000, 0.2856000000, 0.3001000000, 0.2363000000, 0.1333000000};
 
 int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* score, int max_val,
                            float K1, float K2, int n_levels)
