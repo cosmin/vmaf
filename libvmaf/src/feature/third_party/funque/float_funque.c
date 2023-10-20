@@ -52,6 +52,7 @@ typedef struct FunqueState {
     VmafPicture res_dist_pic;
 
     int num_taps;
+    float *spat_tmp_buf;
     size_t float_dwt2_stride;
     float *spat_filter;
     float csf_factors[4][4];
@@ -233,6 +234,7 @@ static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
     {
         dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
         if (!dwt2out->bands[i]) goto fail;
+        memset(dwt2out->bands[i], 0, dwt2out->stride * dwt2out->height);
 
         //dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
         //if (!dwt2out->bands[i]) goto fail;
@@ -274,23 +276,34 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->res_ref_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
+        memset(s->res_ref_pic.data[0], 0, s->float_stride * h);
+
         s->res_dist_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
         if (!s->res_dist_pic.data[0])
             goto fail;
+        memset(s->res_dist_pic.data[0], 0, s->float_stride * h);
     }
 
     s->ref = aligned_malloc(s->float_stride * h, 32);
     if (!s->ref) goto fail;
+    memset(s->ref, 0, s->float_stride * h);
+
     s->dist = aligned_malloc(s->float_stride * h, 32);
     if (!s->dist) goto fail;
+    memset(s->dist, 0, s->float_stride * h);
 
     /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
     s->wavelet_csfs = "nadenau_weight";
 
     if (s->enable_spatial_csf) {
+        s->spat_tmp_buf = aligned_malloc(s->float_stride, 32);
+        if (!s->spat_tmp_buf) goto fail;
+        memset(s->spat_tmp_buf, 0, s->float_stride);
+
         s->spat_filter = aligned_malloc(s->float_stride * h, 32);
-        if (!s->spat_filter)
-            goto fail;
+        if (!s->spat_filter) goto fail;
+        memset(s->spat_filter, 0, s->float_stride * h);
+
     } else {
         if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
             for(int level = 0; level < 4; level++) {
@@ -379,6 +392,7 @@ fail:
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
     if (s->spat_filter) aligned_free(s->spat_filter);
+    if (s->spat_tmp_buf) aligned_free(s->spat_tmp_buf);
     vmaf_dictionary_free(&s->feature_name_dict);
     return -ENOMEM;
 }
@@ -442,9 +456,9 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
-        spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->num_taps);
+        spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->spat_tmp_buf, s->num_taps);
         funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->num_taps);
+        spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->spat_tmp_buf, s->num_taps);
         funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
 
     } else {
@@ -736,6 +750,7 @@ static int close(VmafFeatureExtractor *fex)
     if (s->ref) aligned_free(s->ref);
     if (s->dist) aligned_free(s->dist);
     if (s->spat_filter) aligned_free(s->spat_filter);
+    if (s->spat_tmp_buf) aligned_free(s->spat_tmp_buf);
 
     for(int level = 0; level < s->needed_dwt_levels; level += 1) {
         for(unsigned i=0; i<4; i++)

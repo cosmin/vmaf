@@ -107,47 +107,47 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
     aligned_free(tmplo);
 }
 
-void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
+const float nadeanu_filter_coeffs[5] = {0.0253133196, 0.2310067710, 0.4759767950, 0.2310067710,
+                                            0.0253133196 };
+
+const float ngan_filter_coeffs[21] = {
+        -0.01373463642215844680849 ,
+        -0.01608514932055564797264 ,
+        -0.01890698454168517061991 ,
+        -0.02215701978091480159327 ,
+        -0.02546262290256656735110 ,
+        -0.02742964751138579973522 ,
+        -0.02361034173470941133210 ,
+        -0.00100995586322411641696 ,
+         0.07137023192756482281585 ,
+         0.22121922236871877087694 ,
+         0.32798240221262831006754 ,
+         0.22121922236871877087694 ,
+         0.07137023192756482281585 ,
+        -0.00100995586322411641696 ,
+        -0.02361034173470941133210 ,
+        -0.02742964751138579973522 ,
+        -0.02546262290256656735110 ,
+        -0.02215701978091480159327 ,
+        -0.01890698454168517061991 ,
+        -0.01608514932055564797264 ,
+        -0.01373463642215844680849 };
+
+void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, int num_taps)
 {
     int fwidth;
     float *filter_coeffs;
     if(num_taps == 5) {
         /*coefficients for 5 tap nadeanu_spat filter */
-        float nadeanu_filter_coeffs[5] = {0.0253133196, 0.2310067710, 0.4759767950, 0.2310067710,
-                                          0.0253133196};
         fwidth = 5;
         filter_coeffs = nadeanu_filter_coeffs;
     } else {
-        float ngan_filter_coeffs[21] = {
-            -0.01373463642215844680849 ,
-            -0.01608514932055564797264 ,
-            -0.01890698454168517061991 ,
-            -0.02215701978091480159327 ,
-            -0.02546262290256656735110 ,
-            -0.02742964751138579973522 ,
-            -0.02361034173470941133210 ,
-            -0.00100995586322411641696 ,
-             0.07137023192756482281585 ,
-             0.22121922236871877087694 ,
-             0.32798240221262831006754 ,
-             0.22121922236871877087694 ,
-             0.07137023192756482281585 ,
-            -0.00100995586322411641696 ,
-            -0.02361034173470941133210 ,
-            -0.02742964751138579973522 ,
-            -0.02546262290256656735110 ,
-            -0.02215701978091480159327 ,
-            -0.01890698454168517061991 ,
-            -0.01608514932055564797264 ,
-            -0.01373463642215844680849
-        };
         fwidth = 21;
         filter_coeffs = ngan_filter_coeffs;
     }
     int src_px_stride = width;
     int dst_px_stride = width;
 
-    float *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(float)), MAX_ALIGN);
     float fcoeff, imgcoeff;
 
     int i, j, fi, fj, ii, jj;
@@ -167,7 +167,7 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
 
                 accum += (double) fcoeff * imgcoeff;
             }
-            tmp[j] = accum;
+            tmp_buf[j] = accum;
         }
 
         /* Horizontal pass. */
@@ -180,14 +180,13 @@ void spatial_csfs(float *src, float *dst, int width, int height, int num_taps)
                 jj = j - fwidth / 2 + fj;
                 jj = jj < 0 ? -(jj + 1) : (jj >= width ? 2 * width - jj - 1 : jj);
 
-                imgcoeff = tmp[jj];
+                imgcoeff = tmp_buf[jj];
 
                 accum += (double) fcoeff * imgcoeff;
             }
             dst[i * dst_px_stride + j] = accum;
         }
     }
-    aligned_free(tmp);
 
     return;
 }

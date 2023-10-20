@@ -117,7 +117,7 @@ static const float mannos_weight_coeffs[4][4] = {
     /*{ 9.81000000e-01, 9.81000000e-01, 9.81000000e-01, 9.81000000e-01},*/
 };
 
-void spatial_csfs(float *src, float *dst, int width, int height, int num_taps);
+void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, int num_taps);
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height);
 
