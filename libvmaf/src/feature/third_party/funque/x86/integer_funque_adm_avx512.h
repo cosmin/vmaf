@@ -1,3 +1,6 @@
+/*   SPDX-License-Identifier: BSD-3-Clause
+*   Copyright (C) 2022 Intel Corporation.
+*/
 /**
  *
  *  Copyright 2016-2020 Netflix, Inc.
@@ -16,11 +19,18 @@
  *
  */
 
-#pragma once
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
-#ifndef FILE_IO_H_
-#define FILE_IO_H_
+#include <stdlib.h>
 
-int write_image(FILE *wfile, const void *buf, int width, int height, int stride, int elem_size);
+#include <string.h>
+#include <math.h>
 
-#endif /* FILE_IO_H_ */
+#include "../integer_funque_filters.h"
+#include "../integer_funque_adm.h"
+
+void integer_adm_decouple_avx512(i_dwt2buffers ref, i_dwt2buffers dist, 
+                          i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den);

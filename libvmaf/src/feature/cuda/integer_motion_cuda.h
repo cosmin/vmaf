@@ -1,6 +1,7 @@
 /**
  *
- *  Copyright 2016-2020 Netflix, Inc.
+ *  Copyright 2016-2023 Netflix, Inc.
+ *  Copyright 2021 NVIDIA Corporation.
  *
  *     Licensed under the BSD+Patent License (the "License");
  *     you may not use this file except in compliance with the License.
@@ -16,36 +17,12 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#ifndef FEATURE_MOTION_CUDA_H_
+#define FEATURE_MOTION_CUDA_H_
 
-/**
- * Note: stride is in terms of bytes
- */
-int write_image(FILE *wfile, const void *buf, int width, int height, int stride, int elem_size)
-{
-	const char *byte_ptr = buf;
-	int i;
-	int ret = 1;
+#include <stdint.h>
+#include "integer_motion.h"
+#include "common.h"
 
-	if (width <= 0 || height <= 0 || elem_size <= 0)
-	{
-		goto fail_or_end;
-	}
-
-	for (i = 0; i < height; ++i)
-	{
-		if (fwrite(byte_ptr, elem_size, width, wfile) != (size_t)width)
-		{
-			goto fail_or_end;
-		}
-
-		byte_ptr += stride;
-	}
-
-	ret = 0;
-
-fail_or_end:
-	return ret;
-}
+extern unsigned char src_motion_score_ptx[];
+#endif /* _FEATURE_MOTION_CUDA_H_ */

@@ -73,6 +73,10 @@ void hbd_hresize_avx2(const unsigned short **src, int **dst, int count,
                  int swidth, int dwidth, int cn, int xmin, int xmax)
 #endif
 {
+    __m256i coef0_256 = _mm256_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
+    __m256i coef2_256 = _mm256_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
+    __m256i zero_256 = _mm256_setzero_si256();
+
     int xmax_16 = xmax - (xmax % 16);
     int xmax_8 = xmax - (xmax % 8);
     int xmax_4 = xmax - (xmax % 4);
@@ -120,31 +124,28 @@ void hbd_hresize_avx2(const unsigned short **src, int **dst, int count,
             {
                 int sx = xofs[dx]; // sx - 2, 4, 6, 8....
 #endif
-                __m256i coef0 = _mm256_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m256i coef2 = _mm256_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m256i val0_0 = _mm256_loadu_si256((__m256i*)(S + sx - 1));
                 __m256i val2_0 = _mm256_loadu_si256((__m256i*)(S + sx + 1));
                 __m256i val0_16 = _mm256_loadu_si256((__m256i*)(S + sx + 15));
                 __m256i val2_16 = _mm256_loadu_si256((__m256i*)(S + sx + 17));
 
-                __m256i val0_0_lo = _mm256_unpacklo_epi16(val0_0, _mm256_setzero_si256());
-                __m256i val0_0_hi = _mm256_unpackhi_epi16(val0_0, _mm256_setzero_si256());
-                __m256i val2_0_lo = _mm256_unpacklo_epi16(val2_0, _mm256_setzero_si256());
-                __m256i val2_0_hi = _mm256_unpackhi_epi16(val2_0, _mm256_setzero_si256());
-                __m256i val0_16_lo = _mm256_unpacklo_epi16(val0_16, _mm256_setzero_si256());
-                __m256i val0_16_hi = _mm256_unpackhi_epi16(val0_16, _mm256_setzero_si256());
-                __m256i val2_16_lo = _mm256_unpacklo_epi16(val2_16, _mm256_setzero_si256());
-                __m256i val2_16_hi = _mm256_unpackhi_epi16(val2_16, _mm256_setzero_si256());
+                __m256i val0_0_lo = _mm256_unpacklo_epi16(val0_0, zero_256);
+                __m256i val0_0_hi = _mm256_unpackhi_epi16(val0_0, zero_256);
+                __m256i val2_0_lo = _mm256_unpacklo_epi16(val2_0, zero_256);
+                __m256i val2_0_hi = _mm256_unpackhi_epi16(val2_0, zero_256);
+                __m256i val0_16_lo = _mm256_unpacklo_epi16(val0_16, zero_256);
+                __m256i val0_16_hi = _mm256_unpackhi_epi16(val0_16, zero_256);
+                __m256i val2_16_lo = _mm256_unpacklo_epi16(val2_16, zero_256);
+                __m256i val2_16_hi = _mm256_unpackhi_epi16(val2_16, zero_256);
 
-                __m256i mul0_0_lo = _mm256_mullo_epi32(val0_0_lo, coef0);
-                __m256i mul0_0_hi = _mm256_mullo_epi32(val0_0_hi, coef0);
-                __m256i mul2_0_lo = _mm256_mullo_epi32(val2_0_lo, coef2);
-                __m256i mul2_0_hi = _mm256_mullo_epi32(val2_0_hi, coef2);
-                __m256i mul0_16_lo = _mm256_mullo_epi32(val0_16_lo, coef0);
-                __m256i mul0_16_hi = _mm256_mullo_epi32(val0_16_hi, coef0);
-                __m256i mul2_16_lo = _mm256_mullo_epi32(val2_16_lo, coef2);
-                __m256i mul2_16_hi = _mm256_mullo_epi32(val2_16_hi, coef2);
+                __m256i mul0_0_lo = _mm256_mullo_epi32(val0_0_lo, coef0_256);
+                __m256i mul0_0_hi = _mm256_mullo_epi32(val0_0_hi, coef0_256);
+                __m256i mul2_0_lo = _mm256_mullo_epi32(val2_0_lo, coef2_256);
+                __m256i mul2_0_hi = _mm256_mullo_epi32(val2_0_hi, coef2_256);
+                __m256i mul0_16_lo = _mm256_mullo_epi32(val0_16_lo, coef0_256);
+                __m256i mul0_16_hi = _mm256_mullo_epi32(val0_16_hi, coef0_256);
+                __m256i mul2_16_lo = _mm256_mullo_epi32(val2_16_lo, coef2_256);
+                __m256i mul2_16_hi = _mm256_mullo_epi32(val2_16_hi, coef2_256);
 
                 __m256i hadd0_0 = _mm256_hadd_epi32(mul0_0_lo, mul0_0_hi);
                 __m256i hadd2_0 = _mm256_hadd_epi32(mul2_0_lo, mul2_0_hi);
@@ -162,21 +163,18 @@ void hbd_hresize_avx2(const unsigned short **src, int **dst, int count,
             {
                 int sx = dx * 2;
 
-                __m256i coef0 = _mm256_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m256i coef2 = _mm256_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m256i val0_0 = _mm256_loadu_si256((__m256i*)(S + sx - 1));
                 __m256i val2_0 = _mm256_loadu_si256((__m256i*)(S + sx + 1));
 
-                __m256i val0_0_lo = _mm256_unpacklo_epi16(val0_0, _mm256_setzero_si256());
-                __m256i val0_0_hi = _mm256_unpackhi_epi16(val0_0, _mm256_setzero_si256());
-                __m256i val2_0_lo = _mm256_unpacklo_epi16(val2_0, _mm256_setzero_si256());
-                __m256i val2_0_hi = _mm256_unpackhi_epi16(val2_0, _mm256_setzero_si256());
+                __m256i val0_0_lo = _mm256_unpacklo_epi16(val0_0, zero_256);
+                __m256i val0_0_hi = _mm256_unpackhi_epi16(val0_0, zero_256);
+                __m256i val2_0_lo = _mm256_unpacklo_epi16(val2_0, zero_256);
+                __m256i val2_0_hi = _mm256_unpackhi_epi16(val2_0, zero_256);
 
-                __m256i mul0_0_lo = _mm256_mullo_epi32(val0_0_lo, coef0);
-                __m256i mul0_0_hi = _mm256_mullo_epi32(val0_0_hi, coef0);
-                __m256i mul2_0_lo = _mm256_mullo_epi32(val2_0_lo, coef2);
-                __m256i mul2_0_hi = _mm256_mullo_epi32(val2_0_hi, coef2);
+                __m256i mul0_0_lo = _mm256_mullo_epi32(val0_0_lo, coef0_256);
+                __m256i mul0_0_hi = _mm256_mullo_epi32(val0_0_hi, coef0_256);
+                __m256i mul2_0_lo = _mm256_mullo_epi32(val2_0_lo, coef2_256);
+                __m256i mul2_0_hi = _mm256_mullo_epi32(val2_0_hi, coef2_256);
 
                 __m256i hadd0_0 = _mm256_hadd_epi32(mul0_0_lo, mul0_0_hi);
                 __m256i hadd2_0 = _mm256_hadd_epi32(mul2_0_lo, mul2_0_hi);
@@ -189,13 +187,10 @@ void hbd_hresize_avx2(const unsigned short **src, int **dst, int count,
             {
                 int sx = dx * 2;
 
-                __m256i coef0 = _mm256_set_epi32(alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0], alpha[1], alpha[0]);
-                __m256i coef2 = _mm256_set_epi32(alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2], alpha[3], alpha[2]);
-
                 __m256i val0_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m128i*)(S + sx - 1)));
                 __m256i val2_0 = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m128i*)(S + sx + 1)));
-                __m256i mul0_0 = _mm256_mullo_epi32(val0_0, coef0);
-                __m256i mul2_0 = _mm256_mullo_epi32(val2_0, coef2);
+                __m256i mul0_0 = _mm256_mullo_epi32(val0_0, coef0_256);
+                __m256i mul2_0 = _mm256_mullo_epi32(val2_0, coef2_256);
 
                 __m256i hadd0 = _mm256_hadd_epi32(mul0_0, mul0_0);
                 __m256i hadd2 = _mm256_hadd_epi32(mul2_0, mul2_0);
@@ -238,20 +233,25 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
     const int *S0 = src[0], *S1 = src[1], *S2 = src[2], *S3 = src[3];
 
     int bits = 22;
-    __m256i delta = _mm256_set1_epi64x(1 << (bits - 1));
-    __m256i max_char = _mm256_set1_epi64x(((1 << bitdepth) - 1));
-    __m128i max_char_128 = _mm_set1_epi32(((1 << bitdepth) - 1));
+
+    __m256i delta_256 = _mm256_set1_epi64x(1 << (bits - 1));
+    __m256i max_char_256 = _mm256_set1_epi64x(((1 << bitdepth) - 1));
+    __m256i coef0_256 = _mm256_set1_epi32(beta[0]);
+    __m256i coef1_256 = _mm256_set1_epi32(beta[1]);
+    __m256i perm_256 = _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0);
+    __m256i zero_256 = _mm256_setzero_si256();
+
+    __m128i max_char_128 = _mm_set1_epi64x(((1 << bitdepth) - 1));
     __m128i delta_128 = _mm_set1_epi64x(1 << (bits - 1));
-    __m256i coef0 = _mm256_set1_epi32(beta[0]);
-    __m256i coef1 = _mm256_set1_epi32(beta[1]);
     __m128i coef0_128 = _mm_set1_epi32(beta[0]);
     __m128i coef1_128 = _mm_set1_epi32(beta[1]);
+    __m128i zero_128 = _mm_setzero_si128();
 
     int width_16 = width - (width % 16);
     int width_8 = width - (width % 8);
     int width_4 = width - (width % 4);
-    int x;
-    for (x = 0; x < width_16; x+=16)
+    int x = 0;
+    for (; x < width_16; x+=16)
     {
         __m256i src0_0 = _mm256_loadu_si256((__m256i*)(S0 + x));
         __m256i src1_0 = _mm256_loadu_si256((__m256i*)(S1 + x));
@@ -263,37 +263,25 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m256i src2_8 = _mm256_loadu_si256((__m256i*)(S2 + x + 8));
         __m256i src3_8 = _mm256_loadu_si256((__m256i*)(S3 + x + 8));
 
-        __m256i src0_4 = _mm256_permutevar8x32_epi32(src0_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src1_4 = _mm256_permutevar8x32_epi32(src1_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src2_4 = _mm256_permutevar8x32_epi32(src2_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src3_4 = _mm256_permutevar8x32_epi32(src3_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
+        __m256i mul0_0 = _mm256_mul_epi32(src0_0, coef0_256);
+        __m256i mul1_0 = _mm256_mul_epi32(src1_0, coef1_256);
+        __m256i mul2_0 = _mm256_mul_epi32(src2_0, coef1_256);
+        __m256i mul3_0 = _mm256_mul_epi32(src3_0, coef0_256);
 
-        __m256i src0_12 = _mm256_permutevar8x32_epi32(src0_8, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src1_12 = _mm256_permutevar8x32_epi32(src1_8, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src2_12 = _mm256_permutevar8x32_epi32(src2_8, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src3_12 = _mm256_permutevar8x32_epi32(src3_8, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
+        __m256i mul0_4 = _mm256_mul_epi32(_mm256_srli_si256(src0_0, 4), coef0_256);
+        __m256i mul1_4 = _mm256_mul_epi32(_mm256_srli_si256(src1_0, 4), coef1_256);
+        __m256i mul2_4 = _mm256_mul_epi32(_mm256_srli_si256(src2_0, 4), coef1_256);
+        __m256i mul3_4 = _mm256_mul_epi32(_mm256_srli_si256(src3_0, 4), coef0_256);
 
-        // 0 2 4 6
-        __m256i mul0_0 = _mm256_mul_epi32(src0_0, coef0);
-        __m256i mul1_0 = _mm256_mul_epi32(src1_0, coef1);
-        __m256i mul2_0 = _mm256_mul_epi32(src2_0, coef1);
-        __m256i mul3_0 = _mm256_mul_epi32(src3_0, coef0);
+        __m256i mul0_8 = _mm256_mul_epi32(src0_8, coef0_256);
+        __m256i mul1_8 = _mm256_mul_epi32(src1_8, coef1_256);
+        __m256i mul2_8 = _mm256_mul_epi32(src2_8, coef1_256);
+        __m256i mul3_8 = _mm256_mul_epi32(src3_8, coef0_256);
 
-        // 1 3 5 7
-        __m256i mul0_4 = _mm256_mul_epi32(src0_4, coef0);
-        __m256i mul1_4 = _mm256_mul_epi32(src1_4, coef1);
-        __m256i mul2_4 = _mm256_mul_epi32(src2_4, coef1);
-        __m256i mul3_4 = _mm256_mul_epi32(src3_4, coef0);
-
-        __m256i mul0_8 = _mm256_mul_epi32(src0_8, coef0);
-        __m256i mul1_8 = _mm256_mul_epi32(src1_8, coef1);
-        __m256i mul2_8 = _mm256_mul_epi32(src2_8, coef1);
-        __m256i mul3_8 = _mm256_mul_epi32(src3_8, coef0);
-
-        __m256i mul0_12 = _mm256_mul_epi32(src0_12, coef0);
-        __m256i mul1_12 = _mm256_mul_epi32(src1_12, coef1);
-        __m256i mul2_12 = _mm256_mul_epi32(src2_12, coef1);
-        __m256i mul3_12 = _mm256_mul_epi32(src3_12, coef0);
+        __m256i mul0_12 = _mm256_mul_epi32(_mm256_srli_si256(src0_8, 4), coef0_256);
+        __m256i mul1_12 = _mm256_mul_epi32(_mm256_srli_si256(src1_8, 4), coef1_256);
+        __m256i mul2_12 = _mm256_mul_epi32(_mm256_srli_si256(src2_8, 4), coef1_256);
+        __m256i mul3_12 = _mm256_mul_epi32(_mm256_srli_si256(src3_8, 4), coef0_256);
 
         __m256i accum_01_0 = _mm256_add_epi64(mul0_0, mul1_0);
         __m256i accum_23_0 = _mm256_add_epi64(mul2_0, mul3_0);
@@ -309,50 +297,30 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m256i accum_0123_8 = _mm256_add_epi64(accum_01_8, accum_23_8);
         __m256i accum_0123_12 = _mm256_add_epi64(accum_01_12, accum_23_12);
 
-        accum_0123_0 = _mm256_add_epi64(accum_0123_0, delta);
-        accum_0123_4 = _mm256_add_epi64(accum_0123_4, delta);
-        accum_0123_8 = _mm256_add_epi64(accum_0123_8, delta);
-        accum_0123_12 = _mm256_add_epi64(accum_0123_12, delta);
+        accum_0123_0 = _mm256_add_epi64(accum_0123_0, delta_256);
+        accum_0123_4 = _mm256_add_epi64(accum_0123_4, delta_256);
+        accum_0123_8 = _mm256_add_epi64(accum_0123_8, delta_256);
+        accum_0123_12 = _mm256_add_epi64(accum_0123_12, delta_256);
 
         shift22_64b_signExt(accum_0123_0, accum_0123_0);
         shift22_64b_signExt(accum_0123_4, accum_0123_4);
         shift22_64b_signExt(accum_0123_8, accum_0123_8);
         shift22_64b_signExt(accum_0123_12, accum_0123_12);
 
-        __m256i lt_0 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_0);
-        __m256i lt_4 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_4);
-        __m256i lt_8 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_8);
-        __m256i lt_12 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_12);
+        accum_0123_0 = _mm256_max_epi32(accum_0123_0, zero_256);
+        accum_0123_4 = _mm256_max_epi32(accum_0123_4, zero_256);
+        accum_0123_8 = _mm256_max_epi32(accum_0123_8, zero_256);
+        accum_0123_12 = _mm256_max_epi32(accum_0123_12, zero_256);
 
-        accum_0123_0 = _mm256_andnot_si256(lt_0, accum_0123_0);
-        accum_0123_4 = _mm256_andnot_si256(lt_4, accum_0123_4);
-        accum_0123_8 = _mm256_andnot_si256(lt_8, accum_0123_8);
-        accum_0123_12 = _mm256_andnot_si256(lt_12, accum_0123_12);
-
-        __m256i gt_255_0 = _mm256_cmpgt_epi32(accum_0123_0, max_char);
-        __m256i gt_255_4 = _mm256_cmpgt_epi32(accum_0123_4, max_char);
-        __m256i gt_255_8 = _mm256_cmpgt_epi32(accum_0123_8, max_char);
-        __m256i gt_255_12 = _mm256_cmpgt_epi32(accum_0123_12, max_char);
-
-        __m256i add_255_0 = _mm256_and_si256(gt_255_0, max_char);
-        __m256i add_255_4 = _mm256_and_si256(gt_255_4, max_char);
-        __m256i add_255_8 = _mm256_and_si256(gt_255_8, max_char);
-        __m256i add_255_12 = _mm256_and_si256(gt_255_12, max_char);
-
-        accum_0123_0 = _mm256_andnot_si256(gt_255_0, accum_0123_0);
-        accum_0123_4 = _mm256_andnot_si256(gt_255_4, accum_0123_4);
-        accum_0123_8 = _mm256_andnot_si256(gt_255_8, accum_0123_8);
-        accum_0123_12 = _mm256_andnot_si256(gt_255_12, accum_0123_12);
-
-        accum_0123_0 = _mm256_add_epi32(accum_0123_0, add_255_0);
-        accum_0123_4 = _mm256_add_epi32(accum_0123_4, add_255_4);
-        accum_0123_8 = _mm256_add_epi32(accum_0123_8, add_255_8);
-        accum_0123_12 = _mm256_add_epi32(accum_0123_12, add_255_12);
+        accum_0123_0 = _mm256_min_epi32(accum_0123_0, max_char_256);
+        accum_0123_4 = _mm256_min_epi32(accum_0123_4, max_char_256);
+        accum_0123_8 = _mm256_min_epi32(accum_0123_8, max_char_256);
+        accum_0123_12 = _mm256_min_epi32(accum_0123_12, max_char_256);
 
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi32(accum_0123_4, 16));
         accum_0123_8 = _mm256_or_si256(accum_0123_8, _mm256_slli_epi32(accum_0123_12, 16));
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi64(accum_0123_8, 32));
-        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0));
+        accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, perm_256);
 
         _mm256_storeu_si256((__m256i*)(dst + x), accum_0123_0);
     }
@@ -363,22 +331,15 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m256i src2_0 = _mm256_loadu_si256((__m256i*)(S2 + x));
         __m256i src3_0 = _mm256_loadu_si256((__m256i*)(S3 + x));
 
-        __m256i src0_4 = _mm256_permutevar8x32_epi32(src0_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src1_4 = _mm256_permutevar8x32_epi32(src1_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src2_4 = _mm256_permutevar8x32_epi32(src2_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
-        __m256i src3_4 = _mm256_permutevar8x32_epi32(src3_0, _mm256_set_epi32(6, 7, 4, 5, 2, 3, 0, 1));
+        __m256i mul0_0 = _mm256_mul_epi32(src0_0, coef0_256);
+        __m256i mul1_0 = _mm256_mul_epi32(src1_0, coef1_256);
+        __m256i mul2_0 = _mm256_mul_epi32(src2_0, coef1_256);
+        __m256i mul3_0 = _mm256_mul_epi32(src3_0, coef0_256);
 
-        // 0 2 4 6
-        __m256i mul0_0 = _mm256_mul_epi32(src0_0, coef0);
-        __m256i mul1_0 = _mm256_mul_epi32(src1_0, coef1);
-        __m256i mul2_0 = _mm256_mul_epi32(src2_0, coef1);
-        __m256i mul3_0 = _mm256_mul_epi32(src3_0, coef0);
-
-        // 1 3 5 7
-        __m256i mul0_4 = _mm256_mul_epi32(src0_4, coef0);
-        __m256i mul1_4 = _mm256_mul_epi32(src1_4, coef1);
-        __m256i mul2_4 = _mm256_mul_epi32(src2_4, coef1);
-        __m256i mul3_4 = _mm256_mul_epi32(src3_4, coef0);
+        __m256i mul0_4 = _mm256_mul_epi32(_mm256_srli_si256(src0_0, 4), coef0_256);
+        __m256i mul1_4 = _mm256_mul_epi32(_mm256_srli_si256(src1_0, 4), coef1_256);
+        __m256i mul2_4 = _mm256_mul_epi32(_mm256_srli_si256(src2_0, 4), coef1_256);
+        __m256i mul3_4 = _mm256_mul_epi32(_mm256_srli_si256(src3_0, 4), coef0_256);
 
         __m256i accum_01_0 = _mm256_add_epi64(mul0_0, mul1_0);
         __m256i accum_23_0 = _mm256_add_epi64(mul2_0, mul3_0);
@@ -388,60 +349,39 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m256i accum_0123_0 = _mm256_add_epi64(accum_01_0, accum_23_0);
         __m256i accum_0123_4 = _mm256_add_epi64(accum_01_4, accum_23_4);
 
-        accum_0123_0 = _mm256_add_epi64(accum_0123_0, delta);
-        accum_0123_4 = _mm256_add_epi64(accum_0123_4, delta);
+        accum_0123_0 = _mm256_add_epi64(accum_0123_0, delta_256);
+        accum_0123_4 = _mm256_add_epi64(accum_0123_4, delta_256);
 
         shift22_64b_signExt(accum_0123_0, accum_0123_0);
         shift22_64b_signExt(accum_0123_4, accum_0123_4);
 
-        __m256i lt_0 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_0);
-        __m256i lt_4 = _mm256_cmpgt_epi64(_mm256_setzero_si256(), accum_0123_4);
+        accum_0123_0 = _mm256_max_epi32(accum_0123_0, zero_256);
+        accum_0123_4 = _mm256_max_epi32(accum_0123_4, zero_256);
 
-        accum_0123_0 = _mm256_andnot_si256(lt_0, accum_0123_0);
-        accum_0123_4 = _mm256_andnot_si256(lt_4, accum_0123_4);
+        accum_0123_0 = _mm256_min_epi32(accum_0123_0, max_char_256);
+        accum_0123_4 = _mm256_min_epi32(accum_0123_4, max_char_256);
 
-        __m256i gt_255_0 = _mm256_cmpgt_epi32(accum_0123_0, max_char);
-        __m256i gt_255_4 = _mm256_cmpgt_epi32(accum_0123_4, max_char);
-
-        __m256i add_255_0 = _mm256_and_si256(gt_255_0, max_char);
-        __m256i add_255_4 = _mm256_and_si256(gt_255_4, max_char);
-
-        accum_0123_0 = _mm256_andnot_si256(gt_255_0, accum_0123_0);
-        accum_0123_4 = _mm256_andnot_si256(gt_255_4, accum_0123_4);
-
-        accum_0123_0 = _mm256_add_epi32(accum_0123_0, add_255_0);
-        accum_0123_4 = _mm256_add_epi32(accum_0123_4, add_255_4);
-
-        // 0 1 x x 2 3 x x 4 5 x x 6 7 x x
-        accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi32(accum_0123_4, 16));        
-        __m128i accum = _mm256_castsi256_si128(_mm256_permutevar8x32_epi32(accum_0123_0, _mm256_set_epi32(7, 5, 3, 1, 6, 4, 2, 0)));
+        accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi32(accum_0123_4, 16));
+        __m128i accum = _mm256_castsi256_si128(_mm256_permutevar8x32_epi32(accum_0123_0, perm_256));
 
         _mm_storeu_si128((__m128i*)(dst + x), accum);
     }
     for (; x < width_4; x+=4)
     {
-        // 0 1 2 3
         __m128i src0_0 = _mm_loadu_si128((__m128i*)(S0 + x));
         __m128i src1_0 = _mm_loadu_si128((__m128i*)(S1 + x));
         __m128i src2_0 = _mm_loadu_si128((__m128i*)(S2 + x));
         __m128i src3_0 = _mm_loadu_si128((__m128i*)(S3 + x));
 
-        __m128i src0_4 = _mm_srli_si128(src0_0, 4);
-        __m128i src1_4 = _mm_srli_si128(src1_0, 4);
-        __m128i src2_4 = _mm_srli_si128(src2_0, 4);
-        __m128i src3_4 = _mm_srli_si128(src3_0, 4);
-
-        // 0 2
         __m128i mul0_0 = _mm_mul_epi32(src0_0, coef0_128);
         __m128i mul1_0 = _mm_mul_epi32(src1_0, coef1_128);
         __m128i mul2_0 = _mm_mul_epi32(src2_0, coef1_128);
         __m128i mul3_0 = _mm_mul_epi32(src3_0, coef0_128);
 
-        // 1 3
-        __m128i mul0_4 = _mm_mul_epi32(src0_4, coef0_128);
-        __m128i mul1_4 = _mm_mul_epi32(src1_4, coef1_128);
-        __m128i mul2_4 = _mm_mul_epi32(src2_4, coef1_128);
-        __m128i mul3_4 = _mm_mul_epi32(src3_4, coef0_128);
+        __m128i mul0_4 = _mm_mul_epi32(_mm_srli_si128(src0_0, 4), coef0_128);
+        __m128i mul1_4 = _mm_mul_epi32(_mm_srli_si128(src1_0, 4), coef1_128);
+        __m128i mul2_4 = _mm_mul_epi32(_mm_srli_si128(src2_0, 4), coef1_128);
+        __m128i mul3_4 = _mm_mul_epi32(_mm_srli_si128(src3_0, 4), coef0_128);
 
         __m128i accum_01_0 = _mm_add_epi64(mul0_0, mul1_0);
         __m128i accum_23_0 = _mm_add_epi64(mul2_0, mul3_0);
@@ -455,27 +395,14 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
 
         shift22_64b_signExt_128(accum_0123_0, accum_0123_0);
         shift22_64b_signExt_128(accum_0123_4, accum_0123_4);
-        __m128i lt_0 = _mm_cmpgt_epi64(_mm_setzero_si128(), accum_0123_0);
-        __m128i lt_4 = _mm_cmpgt_epi64(_mm_setzero_si128(), accum_0123_4);
 
-        accum_0123_0 = _mm_andnot_si128(lt_0, accum_0123_0);
-        accum_0123_4 = _mm_andnot_si128(lt_4, accum_0123_4);
+        accum_0123_0 = _mm_max_epi32(accum_0123_0, zero_128);
+        accum_0123_4 = _mm_max_epi32(accum_0123_4, zero_128);
 
-        __m128i gt_255_0 = _mm_cmpgt_epi32(accum_0123_0, max_char_128);
-        __m128i gt_255_4 = _mm_cmpgt_epi32(accum_0123_4, max_char_128);
+        accum_0123_0 = _mm_min_epi32(accum_0123_0, max_char_128);
+        accum_0123_4 = _mm_min_epi32(accum_0123_4, max_char_128);
 
-        __m128i add_255_0 = _mm_and_si128(gt_255_0, max_char_128);
-        __m128i add_255_4 = _mm_and_si128(gt_255_4, max_char_128);
-
-        accum_0123_0 = _mm_andnot_si128(gt_255_0, accum_0123_0);
-        accum_0123_4 = _mm_andnot_si128(gt_255_4, accum_0123_4);
-
-        accum_0123_0 = _mm_add_epi32(accum_0123_0, add_255_0);
-        accum_0123_4 = _mm_add_epi32(accum_0123_4, add_255_4);
-
-        // 0 1 x x 2 3 x x 
         accum_0123_0 = _mm_or_si128(accum_0123_0, _mm_slli_epi32(accum_0123_4, 16));
-        // 0 1 2 3 x x x x        
         accum_0123_0 = _mm_or_si128(accum_0123_0, _mm_srli_si128(accum_0123_0, 4));
 
         _mm_storel_epi64((__m128i*)(dst + x), accum_0123_0);

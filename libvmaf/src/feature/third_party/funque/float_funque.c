@@ -64,6 +64,7 @@ typedef struct FunqueState {
 
     // funque configurable parameters
     const char *wavelet_csfs;
+
     bool enable_resize;
     bool enable_spatial_csf;
     int vif_levels;
@@ -86,6 +87,7 @@ typedef struct FunqueState {
     VmafDictionary *feature_name_dict;
     ResizerState resize_module;
     MsSsimScore *score;
+
 } FunqueState;
 
 static const VmafOption options[] = {
@@ -102,7 +104,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(FunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
     },
     {
         .name = "enable_spatial_csf",
@@ -199,7 +201,7 @@ static const VmafOption options[] = {
         .min = MIN_ADM_LEVELS,
         .max = MAX_ADM_LEVELS,
     },
-        {
+    {
         .name = "adm_enhn_gain_limit",
         .alias = "egl",
         .help = "enhancement gain imposed on adm, must be >= 1.0, "
@@ -631,7 +633,6 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                    "FUNQUE_feature_ssim_scale0_score",
                                                    ssim_score[0], index);
-
     if (s->ssim_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_feature_ssim_scale1_score",
@@ -752,6 +753,7 @@ static int close(VmafFeatureExtractor *fex)
     if (s->spat_filter) aligned_free(s->spat_filter);
     if (s->spat_tmp_buf) aligned_free(s->spat_tmp_buf);
 
+
     for(int level = 0; level < s->needed_dwt_levels; level += 1) {
         for(unsigned i=0; i<4; i++)
         {
@@ -763,7 +765,6 @@ static int close(VmafFeatureExtractor *fex)
             if (s->prev_ref[level].bands[i]) free(s->prev_ref[level].bands[i]);
             if (s->prev_dist[level].bands[i]) free(s->prev_dist[level].bands[i]);
         }
-
     }
 
     vmaf_dictionary_free(&s->feature_name_dict);

@@ -23,22 +23,12 @@
 #include <immintrin.h>
 #include "../integer_funque_vif.h"
 
-#define extract_and_sum(vec, a, a0, a1, a2, a3, a4, a5, a6, a7) \
-{   a0 = a + _mm256_extract_epi32(vec, 0); \
-    a1 = a0 + _mm256_extract_epi32(vec, 1); \
-    a2 = a1 + _mm256_extract_epi32(vec, 2); \
-    a3 = a2 + _mm256_extract_epi32(vec, 3); \
-    a4 = a3 + _mm256_extract_epi32(vec, 4); \
-    a5 = a4 + _mm256_extract_epi32(vec, 5); \
-    a6 = a5 + _mm256_extract_epi32(vec, 6); \
-    a7 = a6 + _mm256_extract_epi32(vec, 7); }
-
-
 #if USE_DYNAMIC_SIGMA_NSQ
 int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18);
+                                 int64_t shift_val, uint32_t* log_18, int vif_level);
+
 #else
 int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
