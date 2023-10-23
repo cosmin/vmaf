@@ -138,6 +138,9 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     double sum = 0;
     double l_sum = 0;
     double cs_sum = 0;
+    double ssim_sq_sum = 0;
+    double l_sq_sum = 0;
+    double cs_sq_sum = 0;
     int index = 0;
     int index_cum = 0;
     for(int i = 0; i < height; i++) {
@@ -175,6 +178,9 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
             sum += (l_arr[index] * cs_arr[index]);
             l_sum += l_arr[index];
             cs_sum += cs_arr[index];
+            ssim_sq_sum += (l_arr[index] * cs_arr[index]) * (l_arr[index] * cs_arr[index]);
+            l_sq_sum += l_arr[index] * l_arr[index];
+            cs_sq_sum += cs_arr[index] * cs_arr[index];
 #endif
             index_cum += 2;
         }
@@ -192,20 +198,9 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     score->l_mean = l_mean;
     score->cs_mean = cs_mean;
 
-    double l_var = 0;
-    double cs_var = 0;
-    double ssim_var = 0;
-    for(int i = 0; i < height; i++) {
-        for(int j = 0; j < width; j++) {
-            index = i * width + j;
-            l_var += (l_arr[index] - score->l_mean) * (l_arr[index] - score->l_mean);
-            cs_var += (cs_arr[index] - score->cs_mean) * (cs_arr[index] - score->cs_mean);
-            ssim_var += (ssim_arr[index] - score->ssim_mean) * (ssim_arr[index] - score->ssim_mean);
-        }
-    }
-    l_var = l_var / (height * width);
-    cs_var = cs_var / (height * width);
-    ssim_var = ssim_var / (height * width);
+    double l_var = (l_sq_sum / (height * width)) - (l_mean * l_mean);
+    double cs_var = (cs_sq_sum / (height * width)) - (cs_mean * cs_mean);
+    double ssim_var = (ssim_sq_sum / (height * width)) - (ssim_mean * ssim_mean);
 
     double l_std = sqrt(l_var);
     double cs_std = sqrt(cs_var);
