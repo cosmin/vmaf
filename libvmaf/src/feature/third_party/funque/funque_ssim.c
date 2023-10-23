@@ -111,17 +111,13 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     double C1 = (K1 * max_val) * (K1 * max_val);
     double C2 = (K2 * max_val) * (K2 * max_val);
 
-    double* var_x_add = (double*) calloc(width * height, sizeof(double));
-    double* var_y_add = (double*) calloc(width * height, sizeof(double));
-    double* cov_xy_add = (double*) calloc(width * height, sizeof(double));
+    double var_x_add = 0;
+    double var_y_add = 0;
+    double cov_xy_add = 0;
 
     double* var_x = (double*) calloc(width * height, sizeof(double));
     double* var_y = (double*) calloc(width * height, sizeof(double));
     double* cov_xy = (double*) calloc(width * height, sizeof(double));
-
-    double* l_arr = (double*) calloc(width * height, sizeof(double));
-    double* cs_arr = (double*) calloc(width * height, sizeof(double));
-    double* ssim_arr = (double*) calloc(width * height, sizeof(double));
 
     double* var_x_cum = *(score->var_x_cum);
     double* var_y_cum = *(score->var_y_cum);
@@ -134,8 +130,8 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     int win_dim = (1 << n_levels);          // 2^L
     int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
 
-    double mx, my, l, cs;
-    double sum = 0;
+    double mx, my, l, cs, ssim;
+    double ssim_sum = 0;
     double l_sum = 0;
     double cs_sum = 0;
     double ssim_sq_sum = 0;
@@ -150,37 +146,37 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
             my = dist->bands[0][index] / win_dim;
 
             for(int k = 1; k < 4; k++) {
-                var_x_add[index] += ref->bands[k][index] * ref->bands[k][index];
-                var_y_add[index] += dist->bands[k][index] * dist->bands[k][index];
-                cov_xy_add[index] += ref->bands[k][index] * dist->bands[k][index];
+                var_x_add += ref->bands[k][index] * ref->bands[k][index];
+                var_y_add += dist->bands[k][index] * dist->bands[k][index];
+                cov_xy_add += ref->bands[k][index] * dist->bands[k][index];
             }
 
             var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
                                var_x_cum[index_cum + (width * 2)] +
-                               var_x_cum[index_cum + (width * 2) + 1] + var_x_add[index];
+                               var_x_cum[index_cum + (width * 2) + 1] + var_x_add;
             var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
                                var_y_cum[index_cum + (width * 2)] +
-                               var_y_cum[index_cum + (width * 2) + 1] + var_y_add[index];
+                               var_y_cum[index_cum + (width * 2) + 1] + var_y_add;
             cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
                                 cov_xy_cum[index_cum + (width * 2)] +
-                                cov_xy_cum[index_cum + (width * 2) + 1] + cov_xy_add[index];
+                                cov_xy_cum[index_cum + (width * 2) + 1] + cov_xy_add;
 
             var_x[index] = var_x_cum[index] / win_size;
             var_y[index] = var_y_cum[index] / win_size;
             cov_xy[index] = cov_xy_cum[index] / win_size;
 
-            l_arr[index] = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
-            cs_arr[index] = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-            ssim_arr[index] = l_arr[index] * cs_arr[index];
+            l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
+            cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
+            ssim = l * cs;
 #if ENABLE_MINK3POOL
-            cube_1minus_map += pow((1 - (l_arr[index] * cs_arr[index])), 3);
+            cube_1minus_map += pow((1 - (l * cs)), 3);
 #else
-            sum += (l_arr[index] * cs_arr[index]);
-            l_sum += l_arr[index];
-            cs_sum += cs_arr[index];
-            ssim_sq_sum += (l_arr[index] * cs_arr[index]) * (l_arr[index] * cs_arr[index]);
-            l_sq_sum += l_arr[index] * l_arr[index];
-            cs_sq_sum += cs_arr[index] * cs_arr[index];
+            ssim_sum += (l * cs);
+            l_sum += l;
+            cs_sum += cs;
+            ssim_sq_sum += (l * cs) * (l * cs);
+            l_sq_sum += l * l;
+            cs_sq_sum += cs * cs;
 #endif
             index_cum += 2;
         }
@@ -191,7 +187,7 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     double ssim_val = 1 - cbrt((double) cube_1minus_map / (width * height));
     score->ssim_mean = ssim_clip(ssim_val, 0, 1);
 #else
-    double ssim_mean = sum / (height * width);
+    double ssim_mean = ssim_sum / (height * width);
     double l_mean = l_sum / (height * width);
     double cs_mean = cs_sum / (height * width);
     score->ssim_mean = ssim_mean;
@@ -218,12 +214,6 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     free(var_x);
     free(var_y);
     free(cov_xy);
-    free(var_x_add);
-    free(var_y_add);
-    free(cov_xy_add);
-    free(l_arr);
-    free(cs_arr);
-    free(ssim_arr);
 
     ret = 0;
 
