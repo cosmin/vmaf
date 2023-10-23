@@ -108,20 +108,20 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     int width = ref->width;
     int height = ref->height;
 
-    double C1 = (K1 * max_val) * (K1 * max_val);
-    double C2 = (K2 * max_val) * (K2 * max_val);
+    float C1 = (K1 * max_val) * (K1 * max_val);
+    float C2 = (K2 * max_val) * (K2 * max_val);
 
-    double var_x_add = 0;
-    double var_y_add = 0;
-    double cov_xy_add = 0;
+    float var_x_add = 0;
+    float var_y_add = 0;
+    float cov_xy_add = 0;
 
-    double* var_x = (double*) calloc(width * height, sizeof(double));
-    double* var_y = (double*) calloc(width * height, sizeof(double));
-    double* cov_xy = (double*) calloc(width * height, sizeof(double));
+    float* var_x = (float*) calloc(width * height, sizeof(float));
+    float* var_y = (float*) calloc(width * height, sizeof(float));
+    float* cov_xy = (float*) calloc(width * height, sizeof(float));
 
-    double* var_x_cum = *(score->var_x_cum);
-    double* var_y_cum = *(score->var_y_cum);
-    double* cov_xy_cum = *(score->cov_xy_cum);
+    float* var_x_cum = *(score->var_x_cum);
+    float* var_y_cum = *(score->var_y_cum);
+    float* cov_xy_cum = *(score->cov_xy_cum);
 
 #if ENABLE_MINK3POOL
     float cube_1minus_map = 0;
@@ -130,7 +130,7 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     int win_dim = (1 << n_levels);          // 2^L
     int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
 
-    double mx, my, l, cs, ssim;
+    float mx, my, l, cs, ssim;
     double ssim_sum = 0;
     double l_sum = 0;
     double cs_sum = 0;
@@ -184,27 +184,27 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     }
 
 #if ENABLE_MINK3POOL
-    double ssim_val = 1 - cbrt((double) cube_1minus_map / (width * height));
+    float ssim_val = 1 - cbrt((float) cube_1minus_map / (width * height));
     score->ssim_mean = ssim_clip(ssim_val, 0, 1);
 #else
-    double ssim_mean = ssim_sum / (height * width);
-    double l_mean = l_sum / (height * width);
-    double cs_mean = cs_sum / (height * width);
+    float ssim_mean = ssim_sum / (height * width);
+    float l_mean = l_sum / (height * width);
+    float cs_mean = cs_sum / (height * width);
     score->ssim_mean = ssim_mean;
     score->l_mean = l_mean;
     score->cs_mean = cs_mean;
 
-    double l_var = (l_sq_sum / (height * width)) - (l_mean * l_mean);
-    double cs_var = (cs_sq_sum / (height * width)) - (cs_mean * cs_mean);
-    double ssim_var = (ssim_sq_sum / (height * width)) - (ssim_mean * ssim_mean);
+    float l_var = (l_sq_sum / (height * width)) - (l_mean * l_mean);
+    float cs_var = (cs_sq_sum / (height * width)) - (cs_mean * cs_mean);
+    float ssim_var = (ssim_sq_sum / (height * width)) - (ssim_mean * ssim_mean);
 
-    double l_std = sqrt(l_var);
-    double cs_std = sqrt(cs_var);
-    double ssim_std = sqrt(ssim_var);
+    float l_std = sqrt(l_var);
+    float cs_std = sqrt(cs_var);
+    float ssim_std = sqrt(ssim_var);
 
-    double l_cov = l_std / l_mean;
-    double cs_cov = cs_std / cs_mean;
-    double ssim_cov = ssim_std / ssim_mean;
+    float l_cov = l_std / l_mean;
+    float cs_cov = cs_std / cs_mean;
+    float ssim_cov = ssim_std / ssim_mean;
 
     score->ssim_cov = ssim_cov;
     score->l_cov = l_cov;
@@ -224,13 +224,13 @@ int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels)
 {
     int ret = 1;
 
-    double cum_prod_mean[5] = {0};
-    double cum_prod_concat_mean[5] = {0};
-    double ms_ssim_mean_scales[5] = {0};
+    float cum_prod_mean[5] = {0};
+    float cum_prod_concat_mean[5] = {0};
+    float ms_ssim_mean_scales[5] = {0};
 
-    double cum_prod_cov[5] = {0};
-    double cum_prod_concat_cov[5] = {0};
-    double ms_ssim_cov_scales[5] = {0};
+    float cum_prod_cov[5] = {0};
+    float cum_prod_concat_cov[5] = {0};
+    float ms_ssim_cov_scales[5] = {0};
 
     cum_prod_mean[0] = pow(score[0].cs_mean, exps[0]);
     cum_prod_cov[0] = pow(score[0].cs_cov, exps[0]);

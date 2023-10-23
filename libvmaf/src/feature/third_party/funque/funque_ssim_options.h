@@ -25,19 +25,19 @@
 #define MS_SSIM_LEVELS      5
 
 typedef struct MsSsimScore {
-    double ssim_mean;
-    double l_mean;
-    double cs_mean;
-    double ssim_cov;
-    double l_cov;
-    double cs_cov;
+    float ssim_mean;
+    float l_mean;
+    float cs_mean;
+    float ssim_cov;
+    float l_cov;
+    float cs_cov;
 
-    double ms_ssim_mean;
-    double ms_ssim_cov;
+    float ms_ssim_mean;
+    float ms_ssim_cov;
 
-    double **var_x_cum;
-    double **var_y_cum;
-    double **cov_xy_cum;
+    float **var_x_cum;
+    float **var_y_cum;
+    float **cov_xy_cum;
 } MsSsimScore;
 
 static inline double ssim_clip(double value, double low, double high)
