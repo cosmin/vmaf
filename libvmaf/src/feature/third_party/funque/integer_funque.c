@@ -514,10 +514,11 @@ static int extract(VmafFeatureExtractor *fex,
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
     double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
 
+#if 0
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_score",
                                                    vif, index);
-
+#endif
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
                                                    vif_score[0], index);
@@ -612,17 +613,12 @@ static int close(VmafFeatureExtractor *fex)
 }
 
 static const char *provided_features[] = {
-    "FUNQUE_integer_feature_vif_scale0_score", "FUNQUE_integer_feature_vif_scale1_score",
-    "FUNQUE_integer_feature_vif_scale2_score", "FUNQUE_integer_feature_vif_scale3_score",
 
-    "FUNQUE_integer_feature_adm2_score", "FUNQUE_integer_feature_adm_scale0_score",
-    "FUNQUE_integer_feature_adm_scale1_score", "FUNQUE_integer_feature_adm_scale2_score",
-    "FUNQUE_integer_feature_adm_scale3_score",
+    "FUNQUE_integer_feature_vif_scale0_score",
 
-    "FUNQUE_integer_feature_motion_score", "FUNQUE_integer_feature_motion2_score",
-    "FUNQUE_integer_feature_motion2_score",
+    "FUNQUE_integer_feature_adm_score", "FUNQUE_integer_feature_adm_scale0_score",
 
-    "FUNQUE_integer_feature_ssim",
+    "FUNQUE_integer_feature_ssim_scale0_score",
 
     NULL};
 
