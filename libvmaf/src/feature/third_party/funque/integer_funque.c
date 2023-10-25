@@ -463,52 +463,57 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
-    err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score[0], &adm_score_num[0], &adm_score_den[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
+    for(int level = 0; level < s->needed_dwt_levels; level++)
+    {
+        err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score[level], &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
 
-    if (err)
-        return err;
+        if (err)
+            return err;
 
-    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score[0], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+        err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
 
-    if (err)
-        return err;
+        if (err)
+            return err;
 
-
+        if (level == 0)
+        {
 #if USE_DYNAMIC_SIGMA_NSQ
-    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18, 0);
 #else
-    err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
 #endif
 
-    if (err) return err;
+            if (err) return err;
+        }
+        else
+        {
+            int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
+            int vifdwt_width  = s->i_ref_dwt2out.width;
+            int vifdwt_height = s->i_ref_dwt2out.height;
+            //The VIF function reuses the band1, band2, band3 of s->ref_dwt2out &   s->dist_dwt2out
+            //Hence VIF is called in the end
+            //If the individual modules(VIF,ADM,motion,ssim) are moved to different     files,
+            // separate memory allocation for higher level VIF buffers might be needed
 
-    int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
-    int vifdwt_width  = s->i_ref_dwt2out.width;
-    int vifdwt_height = s->i_ref_dwt2out.height;
-    //The VIF function reuses the band1, band2, band3 of s->ref_dwt2out & s->dist_dwt2out
-    //Hence VIF is called in the end
-    //If the individual modules(VIF,ADM,motion,ssim) are moved to different files,
-    // separate memory allocation for higher level VIF buffers might be needed  
-    for(int vif_level=1; vif_level<s->vif_levels; vif_level++)
-    {
-        int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts << vif_level))) * bitdepth_pow2;;
-        s->modules.integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[vif_level-1], s->i_ref_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
-        s->modules.integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[vif_level-1], s->i_dist_dwt2out.bands[vif_level], vifdwt_stride, vifdwt_width, vifdwt_height);
-        vifdwt_stride = (vifdwt_stride + 1)/2;
-        vifdwt_width = (vifdwt_width + 1)/2;
-        vifdwt_height = (vifdwt_height + 1)/2;
+            int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;;
+            s->modules.integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[level-1],    s->i_ref_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
+            s->modules.integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[level-1],   s->i_dist_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
+            vifdwt_stride = (vifdwt_stride + 1)/2;
+            vifdwt_width = (vifdwt_width + 1)/2;
+            vifdwt_height = (vifdwt_height + 1)/2;
 
 #if USE_DYNAMIC_SIGMA_NSQ
-        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
-                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, vif_level); 
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], vifdwt_width, vifdwt_height,
+                                    &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, level);
 #else
-        err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[vif_level], s->i_dist_dwt2out.bands[vif_level], vifdwt_width, vifdwt_height, 
-                                    &vif_score[vif_level], &vif_score_num[vif_level], &vif_score_den[vif_level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18); 
-#endif       
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], vifdwt_width, vifdwt_height,
+                                    &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18);
+#endif
 
-        if (err) return err;
+            if (err) return err;
+        }
     }
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
