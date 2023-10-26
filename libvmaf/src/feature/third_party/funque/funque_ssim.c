@@ -113,9 +113,9 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     float C1 = (K1 * max_val) * (K1 * max_val);
     float C2 = (K2 * max_val) * (K2 * max_val);
 
-    float* var_x = (float*) calloc(width * height, sizeof(float));
-    float* var_y = (float*) calloc(width * height, sizeof(float));
-    float* cov_xy = (float*) calloc(width * height, sizeof(float));
+    float var_x = 0;
+    float var_y = 0;
+    float cov_xy = 0;
 
     float* var_x_cum = *(score->var_x_cum);
     float* var_y_cum = *(score->var_y_cum);
@@ -149,12 +149,12 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
                 cov_xy_cum[index_cum] += ref->bands[k][index] * dist->bands[k][index];
             }
 
-            var_x[index] = var_x_cum[index_cum] / win_size;
-            var_y[index] = var_y_cum[index_cum] / win_size;
-            cov_xy[index] = cov_xy_cum[index_cum] / win_size;
+            var_x = var_x_cum[index_cum] / win_size;
+            var_y = var_y_cum[index_cum] / win_size;
+            cov_xy = cov_xy_cum[index_cum] / win_size;
 
             l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
-            cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
+            cs = (2 * cov_xy + C2) / (var_x + var_y + C2);
             ssim = l * cs;
 #if ENABLE_MINK3POOL
             cube_1minus_map += pow((1 - (l * cs)), 3);
@@ -198,10 +198,6 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     score->l_cov = l_cov;
     score->cs_cov = cs_cov;
 #endif
-
-    free(var_x);
-    free(var_y);
-    free(cov_xy);
 
     ret = 0;
 
