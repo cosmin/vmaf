@@ -229,9 +229,8 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             for(j = 0; j < r_width; j++) {
                 spat_abs += fabs(spat_aggregate[i * r_width + j]);
             }
-            spat_mean = spat_abs / (height * width);
         }
-        spat_values[subband] = spat_mean;
+        spat_values[subband] = spat_abs / (height * width);
 
         if(prev_ref != NULL && prev_dist != NULL) {
             float* ref_temporal = (float*) calloc((width) * (height), sizeof(float));
@@ -263,9 +262,8 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
                 for(j = 0; j < r_width; j++) {
                     temp_abs += fabs(temp_aggregate[i * r_width + j]);
                 }
-                temp_mean = temp_abs / (height * width);
             }
-            temp_values[subband] = temp_mean;
+            temp_values[subband] = temp_abs / (height * width);
 
             free(ref_temporal);
             free(dist_temporal);
