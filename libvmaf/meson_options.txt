@@ -28,6 +28,16 @@ option('enable_float',
     value: false,
     description: 'Compile floating-point feature extractors into the library')
 
+option('enable_cuda',
+    type: 'boolean',
+    value: false,
+    description: 'Enable CUDA support')
+
+option('enable_nvtx',
+    type: 'boolean',
+    value: false,
+    description: 'Enable NVTX range support')
+
 option('enable_float_funque',
     type: 'boolean',
     value: false,

@@ -5,6 +5,7 @@ feature_src_dir = './feature/'
 funque_feature_dir = './feature/third_party/funque/'
 src_dir = './'
 model_dir = '../../model/'
+cuda_dir = './cuda/'
 
 vmaf_base_include = include_directories('./', './feature/common')
 
@@ -30,7 +31,13 @@ if cc.symbols_have_underscore_prefix()
 endif
 
 is_asm_enabled = get_option('enable_asm') == true
+is_cuda_enabled = get_option('enable_cuda') == true
 is_avx512_enabled = get_option('enable_avx512') == true
+is_nvtx_enabled = get_option('enable_nvtx') == true
+
+if is_nvtx_enabled    
+    cdata.set10('HAVE_NVTX', is_nvtx_enabled)
+endif
 
 if is_asm_enabled
     if host_machine.cpu_family().startswith('arm') or host_machine.cpu_family().startswith('aarch')
@@ -153,6 +160,16 @@ if built_in_models_enabled
 
         cdata.set10('VMAF_BUILT_IN_MODELS', built_in_models_enabled)
     endif
+endif
+
+# check if cuda is present
+if is_cuda_enabled
+    is_cuda_enabled = dependency('cuda', version : '>=10', required : true).found()
+endif
+
+if is_cuda_enabled
+    add_languages('cuda')
+    cdata.set10('HAVE_CUDA', is_cuda_enabled)
 endif
 
 config_h_target = configure_file(output: 'config.h', configuration: cdata)
@@ -286,6 +303,17 @@ if is_asm_enabled
             feature_src_dir + 'x86/vif_avx512.c',
         ]
 
+        if funque_fixed_enabled
+            x86_avx512_sources += [
+                funque_feature_dir + 'x86/integer_funque_filters_avx512.c',
+                funque_feature_dir + 'x86/resizer_avx512.c',
+                funque_feature_dir + 'x86/hbd_resizer_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_ssim_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_adm_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_vif_avx512.c',
+            ]
+        endif 
+
         x86_avx512_static_lib = static_library(
             'x86_avx512',
             x86_avx512_sources,
@@ -299,6 +327,104 @@ if is_asm_enabled
       endif
 
     endif
+endif
+
+cuda_dependency = []
+common_cuda_objects = []
+cuda_inc = []
+
+if is_nvtx_enabled    
+    cuda_dependency += declare_dependency(link_args : ['-ldl'])
+    cuda_inc += include_directories('/usr/local/cuda/include')
+endif
+
+if is_cuda_enabled
+    cuda_inc += include_directories('/usr/local/cuda/include')
+
+    cuda_cu_sources = {
+        'adm_dwt2' : [feature_src_dir + 'cuda/integer_adm/adm_dwt2.cu'],
+        'adm_cm' : [feature_src_dir + 'cuda/integer_adm/adm_cm.cu'],
+        'adm_csf' : [feature_src_dir + 'cuda/integer_adm/adm_csf.cu'],
+        'adm_csf_den' : [feature_src_dir + 'cuda/integer_adm/adm_csf_den.cu'],
+        'adm_decouple' : [feature_src_dir + 'cuda/integer_adm/adm_decouple.cu'],
+        'filter1d' : [feature_src_dir + 'cuda/integer_vif/filter1d.cu'],
+        'motion_score' : [feature_src_dir + 'cuda/integer_motion/motion_score.cu'],
+    }
+    message(cuda_cu_sources)
+    cuda_sources = [
+        cuda_dir + 'common.c',
+        cuda_dir + 'picture_cuda.c',
+        cuda_dir + 'ring_buffer.c',
+    ]
+
+    cuda_drv_api_dependency = declare_dependency(link_args : ['-lcuda'])
+    cuda_rt_api_dependency = dependency('cuda', version : '>=10')
+
+    cuda_dependency += cuda_drv_api_dependency
+    cuda_dependency += cuda_rt_api_dependency
+
+    cuda_flags = []
+    if get_option('buildtype').startswith('debug')
+        cuda_flags += ['-DCUDA_DEBUG', '-lineinfo']
+    else
+        if is_nvtx_enabled
+                cuda_flags += ['-lineinfo']
+                cuda_dependency += declare_dependency(link_args : ['-lnvToolsExt'])
+        endif
+    endif
+
+    nvcc_exe = find_program('nvcc')
+    ptx_files = {}
+    foreach name, _cu : cuda_cu_sources
+        t = custom_target('cu_ptx_target_' + name,
+            build_by_default: true,
+            output : ['@0@.ptx'.format(name)],
+            input : _cu,
+            command : [nvcc_exe, '--ptx', '@INPUT@', '-o', '@OUTPUT@' ,
+                '-I', './src',
+                '-I', '../src',
+                '-I', '../include',
+                '-I', '../src/feature',
+                '-I', '../src/' + cuda_dir,
+            ]
+        )
+        ptx_files += {name : [t]}
+        cuda_sources += _cu
+    endforeach
+
+    message('ptx_files = @0@'.format(ptx_files))
+
+    xxd_exe = find_program('xxd')
+    ptx_arrays = []
+    foreach name, _ptx : ptx_files
+        t = custom_target('ptx_xxd_@0@'.format(name),
+            build_by_default: true,
+            output : ['@PLAINNAME@.c'],
+            input : _ptx,
+            command : [xxd_exe, '--include','@INPUT@', '@OUTPUT@'],
+        )
+        ptx_arrays += t
+    endforeach
+
+    message('ptx_arrays = @0@'.format(ptx_arrays))
+
+    cuda_static_lib = static_library(
+        'cuda_common_vmaf_lib',
+        [cuda_sources, ptx_arrays,],
+        dependencies: [cuda_drv_api_dependency],
+        include_directories : [
+            libvmaf_include,
+            vmaf_base_include,
+            cuda_dir,
+            feature_src_dir,
+            include_directories('../src/cuda/'),
+            cuda_inc,
+        ],
+        c_args : vmaf_cflags_common,
+        cuda_args: cuda_flags # + ['-gencode', 'arch=compute_86,code=sm_86' ] #, '--use_fast_math']
+    )
+
+    common_cuda_objects += cuda_static_lib.extract_all_objects()
 endif
 
 thread_lib = dependency('threads')
@@ -364,6 +490,14 @@ if float_enabled
     ]
 endif
 
+if is_cuda_enabled
+    libvmaf_feature_sources += [
+        feature_src_dir + 'cuda/integer_adm_cuda.c',
+        feature_src_dir + 'cuda/integer_vif_cuda.c',
+        feature_src_dir + 'cuda/integer_motion_cuda.c',
+    ]
+endif
+
 if funque_float_enabled
     libvmaf_feature_sources += [
         funque_feature_dir + 'float_funque.c',
@@ -374,7 +508,8 @@ if funque_float_enabled
         funque_feature_dir + 'funque_adm.c',
         funque_feature_dir + 'funque_ssim.c',
         funque_feature_dir + 'resizer.c',
-        funque_feature_dir + 'hbd_resizer.c'
+        funque_feature_dir + 'hbd_resizer.c',
+        funque_feature_dir + 'funque_strred.c'
     ]
 endif
 
@@ -394,8 +529,9 @@ endif
 libvmaf_feature_static_lib = static_library(
     'libvmaf_feature',
     libvmaf_feature_sources,
-    include_directories : [libvmaf_include, vmaf_include],
-    dependencies: [stdatomic_dependency],
+    include_directories : [libvmaf_include, vmaf_include, cuda_dir],
+    dependencies: [stdatomic_dependency, cuda_dependency],
+    objects: common_cuda_objects
 )
 
 libvmaf_sources = [
@@ -406,7 +542,6 @@ libvmaf_sources = [
     src_dir + 'svm.cpp',
     src_dir + 'picture.c',
     src_dir + 'mem.c',
-    src_dir + 'picture.c',
     src_dir + 'output.c',
     src_dir + 'fex_ctx_vector.c',
     src_dir + 'thread_pool.c',
@@ -417,6 +552,13 @@ libvmaf_sources = [
     src_dir + 'pdjson.c',
     src_dir + 'log.c',
 ]
+
+if is_cuda_enabled
+    vmaf_cflags_common += '-DHAVE_CUDA'
+    if is_nvtx_enabled    
+        vmaf_cflags_common += '-DHAVE_NVTX'
+    endif
+endif
 
 if host_machine.system() == 'windows'
     vmaf_soversion = ''
@@ -434,6 +576,7 @@ libvmaf = library(
       thread_lib,
       math_lib,
       stdatomic_dependency,
+      cuda_dependency,
     ],
     objects : [
         platform_specific_cpu_objects,

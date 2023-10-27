@@ -22,7 +22,7 @@
 #define ADM_OPTIONS_H_
 
 /* Percentage of frame to discard on all 4 sides */
-#define ADM_BORDER_FACTOR (0.1)
+#define ADM_BORDER_FACTOR (0.2)
 
 /* Whether to use a trigonometry-free method for comparing angles. */
 #define ADM_OPT_AVOID_ATAN

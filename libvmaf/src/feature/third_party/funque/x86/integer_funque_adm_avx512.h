@@ -1,3 +1,6 @@
+/*   SPDX-License-Identifier: BSD-3-Clause
+*   Copyright (C) 2022 Intel Corporation.
+*/
 /**
  *
  *  Copyright 2016-2020 Netflix, Inc.
@@ -16,36 +19,18 @@
  *
  */
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
+
 #include <stdlib.h>
-#include <assert.h>
 
-/**
- * Note: stride is in terms of bytes
- */
-int write_image(FILE *wfile, const void *buf, int width, int height, int stride, int elem_size)
-{
-	const char *byte_ptr = buf;
-	int i;
-	int ret = 1;
+#include <string.h>
+#include <math.h>
 
-	if (width <= 0 || height <= 0 || elem_size <= 0)
-	{
-		goto fail_or_end;
-	}
+#include "../integer_funque_filters.h"
+#include "../integer_funque_adm.h"
 
-	for (i = 0; i < height; ++i)
-	{
-		if (fwrite(byte_ptr, elem_size, width, wfile) != (size_t)width)
-		{
-			goto fail_or_end;
-		}
-
-		byte_ptr += stride;
-	}
-
-	ret = 0;
-
-fail_or_end:
-	return ret;
-}
+void integer_adm_decouple_avx512(i_dwt2buffers ref, i_dwt2buffers dist, 
+                          i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den);

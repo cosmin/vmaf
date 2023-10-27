@@ -99,7 +99,7 @@ int vmaf_write_output_xml(VmafContext *vmaf, VmafFeatureCollector *fc,
             int err = vmaf_feature_score_pooled(vmaf, feature_name, j, &score,
                                                 0, pic_cnt - 1);
             if (!err)
-                fprintf(outfile, "%s=\"%.6f\" ", pool_method_name[j], score);
+                fprintf(outfile, "%s=\"%.30f\" ", pool_method_name[j], score);
         }
         fprintf(outfile, "/>\n");
     }
@@ -167,7 +167,7 @@ int vmaf_write_output_json(VmafContext *vmaf, VmafFeatureCollector *fc,
             case FP_NORMAL:
             case FP_ZERO:
             case FP_SUBNORMAL:
-                fprintf(outfile, "        \"%s\": %.6f%s\n",
+                fprintf(outfile, "        \"%s\": %.30f%s\n",
                     vmaf_feature_name_alias(fc->feature_vector[j]->name),
                     fc->feature_vector[j]->score[i].value,
                     cnt2 < cnt ? "," : ""
@@ -203,7 +203,7 @@ int vmaf_write_output_json(VmafContext *vmaf, VmafFeatureCollector *fc,
                 case FP_NORMAL:
                 case FP_ZERO:
                 case FP_SUBNORMAL:
-                    fprintf(outfile, "      \"%s\": %.6f",
+                    fprintf(outfile, "      \"%s\": %.30f",
                             pool_method_name[j], score);
                     break;
                 case FP_INFINITE:
@@ -273,7 +273,7 @@ int vmaf_write_output_csv(VmafFeatureCollector *fc, FILE *outfile,
                 continue;
             if (!fc->feature_vector[j]->score[i].written)
                 continue;
-            fprintf(outfile, "%.6f,", fc->feature_vector[j]->score[i].value);
+            fprintf(outfile, "%.30f,", fc->feature_vector[j]->score[i].value);
         }
         fprintf(outfile, "\n");
     }
@@ -303,7 +303,7 @@ int vmaf_write_output_sub(VmafFeatureCollector *fc, FILE *outfile,
                 continue;
             if (!fc->feature_vector[j]->score[i].written)
                 continue;
-            fprintf(outfile, "%s: %.6f|",
+            fprintf(outfile, "%s: %.30f|",
                     vmaf_feature_name_alias(fc->feature_vector[j]->name),
                     fc->feature_vector[j]->score[i].value);
         }

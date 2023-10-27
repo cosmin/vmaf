@@ -9,6 +9,9 @@
 
 #include "libvmaf/picture.h"
 #include "libvmaf/libvmaf.h"
+#ifdef HAVE_CUDA
+#include "libvmaf/libvmaf_cuda.h"
+#endif
 
 static enum VmafPixelFormat pix_fmt_map(int pf)
 {
@@ -181,6 +184,7 @@ int main(int argc, char *argv[])
         .n_threads = c.thread_cnt,
         .n_subsample = c.subsample,
         .cpumask = c.cpumask,
+        .gpumask = c.gpumask,
     };
 
     VmafContext *vmaf;
@@ -189,6 +193,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "problem initializing VMAF context\n");
         return -1;
     }
+
+#ifdef HAVE_CUDA
+    VmafCudaState *cu_state;
+    VmafCudaConfiguration cuda_cfg = { 0 };
+    err = vmaf_cuda_state_init(&cu_state, cuda_cfg);
+    err |= vmaf_cuda_import_state(vmaf, cu_state);
+    if (err) {
+        fprintf(stderr, "problem during vmaf_cuda_state_init\n");
+        return -1;
+    }
+#endif
 
     VmafModel **model;
     const size_t model_sz = sizeof(*model) * c.model_cnt;
@@ -335,11 +350,15 @@ int main(int argc, char *argv[])
             fprintf(stderr, "\n\"%s\" ended before \"%s\".\n",
                     c.path_ref, c.path_dist);
             int err = vmaf_picture_unref(&pic_dist);
+            if (err)
+                fprintf(stderr, "\nproblem during vmaf_picture_unref\n");
             break;
         } else if (ret2) {
             fprintf(stderr, "\n\"%s\" ended before \"%s\".\n",
                     c.path_dist, c.path_ref);
             int err = vmaf_picture_unref(&pic_ref);
+            if (err)
+                fprintf(stderr, "\nproblem during vmaf_picture_unref\n");
             break;
         }
 

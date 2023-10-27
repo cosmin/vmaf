@@ -60,6 +60,14 @@
 #include "x86/integer_funque_adm_avx2.h"
 #include "x86/integer_funque_motion_avx2.h"
 #include "x86/resizer_avx2.h"
+
+#if HAVE_AVX512
+#include "x86/integer_funque_filters_avx512.h"
+#include "x86/resizer_avx512.h"
+#include "x86/integer_funque_ssim_avx512.h"
+#include "x86/integer_funque_adm_avx512.h"
+#include "x86/integer_funque_vif_avx512.h"
+#endif
 #endif
 
 #include "cpu.h"
@@ -344,6 +352,19 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
     }
+
+#if HAVE_AVX512
+    if (flags & VMAF_X86_CPU_FLAG_AVX512) {
+        s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+        s->resize_module.resizer_step = step_avx512;
+        s->resize_module.hbd_resizer_step = hbd_step_avx512;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx512;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
+    }
+#endif
 #endif
 
     funque_log_generate(s->log_18);
@@ -447,7 +468,8 @@ static int extract(VmafFeatureExtractor *fex,
     if (err)
         return err;
 
-    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score, 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+    err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score[0], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+
     if (err)
         return err;
 
@@ -500,23 +522,23 @@ static int extract(VmafFeatureExtractor *fex,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
                                                    vif_score[0], index);
 
-    if (s->vif_levels > 1) {
-        err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
-                                                       vif_score[1], index);
+    // if (s->vif_levels > 1) {
+    //     err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
+    //                                                    vif_score[1], index);
 
-        if (s->vif_levels > 2) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
-                                                           vif_score[2], index);
+    //     if (s->vif_levels > 2) {
+    //         err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                        s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
+    //                                                        vif_score[2], index);
 
-            if (s->vif_levels > 3) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
-                                                               vif_score[3], index);
-            }
-        }
-    }
+    //         if (s->vif_levels > 3) {
+    //             err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
+    //                                                            vif_score[3], index);
+    //         }
+    //     }
+    // }
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_adm_score",
