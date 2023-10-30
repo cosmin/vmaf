@@ -522,7 +522,8 @@ if funque_fixed_enabled
         funque_feature_dir + 'integer_funque_adm.c',
         funque_feature_dir + 'integer_funque_ssim.c',
         funque_feature_dir + 'resizer.c',
-        funque_feature_dir + 'hbd_resizer.c'
+        funque_feature_dir + 'hbd_resizer.c',
+        funque_feature_dir + 'integer_funque_strred.c'
     ]
 endif
 

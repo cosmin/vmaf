@@ -39,6 +39,8 @@
 #include "integer_funque_ssim.h"
 #include "funque_ssim_options.h"
 #include "resizer.h"
+#include "integer_funque_strred.h"
+#include "funque_strred_options.h"
 
 #if ARCH_AARCH64
 #include "arm64/integer_funque_filters_neon.h"
@@ -87,6 +89,8 @@ typedef struct IntFunqueState
     spat_fil_output_dtype *spat_filter;
     i_dwt2buffers i_ref_dwt2out;
     i_dwt2buffers i_dist_dwt2out;
+    i_dwt2buffers i_prev_ref;
+    i_dwt2buffers i_prev_dist;
 
     // funque configurable parameters
     bool enable_resize;
@@ -96,6 +100,7 @@ typedef struct IntFunqueState
     int needed_dwt_levels;
     int needed_full_dwt_levels;
     int ssim_levels;
+    int strred_levels;
     double norm_view_dist;
     int ref_display_height;
 
@@ -113,6 +118,7 @@ typedef struct IntFunqueState
 
     ModuleFunqueState modules;
     ResizerState resize_module;
+    strred_results strred_scores[4];
 
 } IntFunqueState;
 
@@ -240,6 +246,16 @@ static const VmafOption options[] = {
         .max = 9,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
+    {
+        .name = "strred_levels",
+        .alias = "strredl",
+        .help = "Number of levels in STRRED",
+        .offset = offsetof(IntFunqueState, strred_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_STRRED_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
 
     {0}};
 
@@ -315,6 +331,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->resize_module.hbd_resizer_step = hbd_step;
     s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
 
+    s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+    s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+
 #if ARCH_AARCH64
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_ARM_CPU_FLAG_NEON) {
@@ -369,6 +388,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
+    strred_funque_log_generate(s->log_18);
 
     return 0;
 
@@ -465,6 +485,31 @@ static int extract(VmafFeatureExtractor *fex,
 
     for(int level = 0; level < s->needed_dwt_levels; level++)
     {
+//        if (level+1 < s->needed_dwt_levels) {
+//            if (level+1 > s->needed_full_dwt_levels - 1) {
+//                // from here on out we only need approx band for VIF
+//                integer_funque_vifdwt2_band0(s->i_ref_dwt2out[level].bands[0], s->i_ref_dwt2out[level + 1].bands[0],  ((s->i_dwt2_stride + 1) / 2), s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
+//            } else {
+//                // compute full DWT if either SSIM or ADM need it for this level
+//                integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0], &s->i_ref_dwt2out[level + 1], s->i_dwt2_stride, s->i_ref_dwt2out[level].width,
+//                            s->i_ref_dwt2out[level].height);
+//                integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0], &s->i_dist_dwt2out[level + 1],s->i_dwt2_stride,
+//                            s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height);
+//            }
+//        }
+//
+//        if (!s->enable_spatial_csf) {
+//            if (level < s->adm_levels || level < s->ssim_levels) {
+//                // we need full CSF on all bands
+//                integer_funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
+//                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);
+//            } else {
+//                // we only need CSF on approx band
+//                funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 0);
+//                funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 0);
+//            }
+//        }
+
         err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score[level], &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
 
         if (err)
@@ -497,7 +542,7 @@ static int extract(VmafFeatureExtractor *fex,
             //If the individual modules(VIF,ADM,motion,ssim) are moved to different     files,
             // separate memory allocation for higher level VIF buffers might be needed
 
-            int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;;
+            int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
             s->modules.integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[level-1],    s->i_ref_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
             s->modules.integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[level-1],   s->i_dist_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
             vifdwt_stride = (vifdwt_stride + 1)/2;
@@ -514,6 +559,33 @@ static int extract(VmafFeatureExtractor *fex,
 
             if (err) return err;
         }
+
+
+        if(level <= s->strred_levels - 1) {
+            int16_t strred_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
+
+            if(index == 0) {
+                err |= s->modules.integer_copy_prev_frame_strred_funque(
+                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
+                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width,
+                    s->i_ref_dwt2out.height);
+            }
+            else {
+                err |= s->modules.integer_compute_strred_funque(
+                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
+                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 6);
+
+                err |= s->modules.integer_copy_prev_frame_strred_funque(
+                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
+                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width,
+                    s->i_ref_dwt2out.height);
+            }
+            if (err) return err;
+        }
+
+
+
     }
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
