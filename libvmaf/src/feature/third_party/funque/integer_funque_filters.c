@@ -130,6 +130,110 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
         }
     }
 }
+void integer_funque_dwt2_wavelet(void  *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+{
+    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
+
+    /**
+     * Absolute value of filter coefficients are 1/sqrt(2)
+     * The filter is handled by multiplying square of coefficients in final stage
+     * Hence the value becomes 1/2, and this is handled using shifts
+     * Also extra required out shift is done along with filter shift itself
+     */
+    // const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    // const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
+    /**
+     * Last column due to padding the values are left shifted and then right shifted
+     * Hence using updated shifts. Subtracting 1 due to left shift
+     */
+    // const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    // const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
+
+    dwt2_dtype *band_a = dwt2_dst->bands[0];
+    dwt2_dtype *band_h = dwt2_dst->bands[1];
+    dwt2_dtype *band_v = dwt2_dst->bands[2];
+    dwt2_dtype *band_d = dwt2_dst->bands[3];
+
+    int16_t row_idx0, row_idx1, col_idx0;
+	// int16_t col_idx1;
+	int row0_offset, row1_offset;
+    // int64_t accum;
+	int width_div_2 = width >> 1; // without rounding (last value is handle outside)
+	int last_col = width & 1;
+
+    int i, j;
+    uint8_t *tmp = src;
+    for (i=0; i < (height+1)/2; ++i)
+    {
+        row_idx0 = 2*i;
+        row_idx1 = 2*i+1;
+        row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
+		row0_offset = (row_idx0)*width;
+		row1_offset = (row_idx1)*width;
+        
+        for(j=0; j< width_div_2; ++j)
+		{
+			int col_idx0 = (j << 1);
+			int col_idx1 = (j << 1) + 1;
+			
+			// a & b 2 values in adjacent rows at the same coloumn
+			dwt2_inter_dtype src_a = tmp[row0_offset+ col_idx0];
+			dwt2_inter_dtype src_b = tmp[row1_offset+ col_idx0];
+			// c & d are adjacent values to a & b in teh same row
+			dwt2_inter_dtype src_c = tmp[row0_offset + col_idx1];
+			dwt2_inter_dtype src_d = tmp[row1_offset + col_idx1];
+			
+			//a + b	& a - b	
+			dwt2_inter_dtype src_a_p_b = src_a + src_b;
+			dwt2_inter_dtype src_a_m_b = src_a - src_b;
+			
+			//c + d	& c - d
+			dwt2_inter_dtype src_c_p_d = src_c + src_d;
+			dwt2_inter_dtype src_c_m_d = src_c - src_d;
+			
+			//F* F (a + b + c + d) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) (src_a_p_b + src_c_p_d);
+		
+			//F* F (a - b + c - d) - band H  (F*F is 1/2)
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) (src_a_m_b + src_c_m_d);
+
+			//F* F (a + b - c + d) - band V  (F*F is 1/2)
+            band_v[i*dst_px_stride+j] = (dwt2_dtype) (src_a_p_b - src_c_p_d);
+
+			//F* F (a - b - c - d) - band D  (F*F is 1/2)
+            band_d[i*dst_px_stride+j] = (dwt2_dtype) (src_a_m_b - src_c_m_d);
+
+			// printf("%d ",band_a[i*dst_px_stride+j]);	
+        }
+
+        if(last_col)
+        {
+			col_idx0 = width_div_2 << 1;
+			j = width_div_2;
+			
+			// a & b 2 values in adjacent rows at the last coloumn
+			dwt2_input_dtype src_a = tmp[row0_offset+ col_idx0];
+			dwt2_input_dtype src_b = tmp[row1_offset+ col_idx0];
+			//a + b	& a - b	
+			int src_a_p_b = src_a + src_b;
+			int src_a_m_b = src_a - src_b;
+			
+            //F* F (a + b + a + b) - band A  (F*F is 1/2)
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) (src_a_p_b);
+			
+			//F* F (a - b + a - b) - band H  (F*F is 1/2)
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) (src_a_m_b);
+			
+			//F* F (a + b - (a + b)) - band V, Last column V will always be 0            
+            band_v[i*dst_px_stride+j] = 0;
+
+			//F* F (a - b - (a -b)) - band D,  Last column D will always be 0
+            band_d[i*dst_px_stride+j] = 0;
+
+
+        }
+    }
+}
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height)
 {
@@ -158,7 +262,6 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
 	int last_col = width & 1;
 
     int i, j;
-
     for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
