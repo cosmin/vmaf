@@ -87,10 +87,10 @@ typedef struct IntFunqueState
 
     size_t i_dwt2_stride;
     spat_fil_output_dtype *spat_filter;
-    i_dwt2buffers i_ref_dwt2out;
-    i_dwt2buffers i_dist_dwt2out;
-    i_dwt2buffers i_prev_ref;
-    i_dwt2buffers i_prev_dist;
+    i_dwt2buffers i_ref_dwt2out[4];
+    i_dwt2buffers i_dist_dwt2out[4];
+    i_dwt2buffers i_prev_ref[4];
+    i_dwt2buffers i_prev_dist[4];
 
     // funque configurable parameters
     bool enable_resize;
@@ -301,23 +301,39 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         if (!s->spat_filter)
             goto fail;
     }
+    // Here goes the wavelet filter CSF Code
 
-    // dwt output dimensions
-    s->i_ref_dwt2out.width = (int)(w + 1) / 2;
-    s->i_ref_dwt2out.height = (int)(h + 1) / 2;
-    s->i_dist_dwt2out.width = (int)(w + 1) / 2;
-    s->i_dist_dwt2out.height = (int)(h + 1) / 2;
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
+        // dwt output dimensions
+        s->i_ref_dwt2out[level].width = (int)(w + 1) / 2;
+        s->i_ref_dwt2out[level].height = (int)(h + 1) / 2;
+        s->i_dist_dwt2out[level].width = (int)(w + 1) / 2;
+        s->i_dist_dwt2out[level].height = (int)(h + 1) / 2;
 
-    // Memory allocation for dwt output bands
-    for (unsigned i = 0; i < 4; i++)
-    {
-        s->i_ref_dwt2out.bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out.height, 32);
-        if (!s->i_ref_dwt2out.bands[i])
-            goto fail;
+        s->i_prev_ref[level].width = (int)(w + 1) / 2;
+        s->i_prev_ref[level].height = (int)(h + 1) / 2;
+        s->i_prev_dist[level].width = (int)(w + 1) / 2;
+        s->i_prev_dist[level].height = (int)(h + 1) / 2;
 
-        s->i_dist_dwt2out.bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_dist_dwt2out.height, 32);
-        if (!s->i_dist_dwt2out.bands[i])
-            goto fail;
+        // Memory allocation for dwt output bands
+        for (unsigned i = 0; i < 4; i++)
+        {
+            s->i_ref_dwt2out[level].bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_ref_dwt2out[level].height, 32);
+            if (!s->i_ref_dwt2out[level].bands[i])
+                goto fail;
+
+            s->i_dist_dwt2out[level].bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_dist_dwt2out[level].height, 32);
+            if (!s->i_dist_dwt2out[level].bands[i])
+                goto fail;
+
+            s->i_prev_ref[level].bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_prev_ref[level].height, 32);
+            if (!s->i_prev_ref[level].bands[i])
+                goto fail;
+
+            s->i_prev_dist[level].bands[i] = aligned_malloc(s->i_dwt2_stride * s->i_prev_dist[level].height, 32);
+            if (!s->i_prev_dist[level].bands[i])
+                goto fail;
+        }
     }
 
     s->modules.integer_spatial_filter = integer_spatial_filter;
@@ -400,12 +416,17 @@ fail:
     if (s->spat_filter)
         aligned_free(s->spat_filter);
 
-    for (unsigned i = 0; i < 4; i++)
-    {
-        if (s->i_ref_dwt2out.bands[i])
-            aligned_free(s->i_ref_dwt2out.bands[i]);
-        if (s->i_dist_dwt2out.bands[i])
-            aligned_free(s->i_dist_dwt2out.bands[i]);
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
+        for (unsigned i = 0; i < 4; i++) {
+            if (s->i_ref_dwt2out[level].bands[i])
+                aligned_free(s->i_ref_dwt2out[level].bands[i]);
+            if (s->i_dist_dwt2out[level].bands[i])
+                aligned_free(s->i_dist_dwt2out[level].bands[i]);
+            if (s->i_prev_ref[level].bands[i])
+                aligned_free(s->i_prev_ref[level].bands[i]);
+            if (s->i_prev_dist[level].bands[i])
+                aligned_free(s->i_prev_dist[level].bands[i]);
+        }
     }
     vmaf_dictionary_free(&s->feature_name_dict);
     return -ENOMEM;
@@ -485,18 +506,18 @@ static int extract(VmafFeatureExtractor *fex,
 
     for(int level = 0; level < s->needed_dwt_levels; level++)
     {
-//        if (level+1 < s->needed_dwt_levels) {
-//            if (level+1 > s->needed_full_dwt_levels - 1) {
-//                // from here on out we only need approx band for VIF
-//                integer_funque_vifdwt2_band0(s->i_ref_dwt2out[level].bands[0], s->i_ref_dwt2out[level + 1].bands[0],  ((s->i_dwt2_stride + 1) / 2), s->i_ref_dwt2out.width, s->i_ref_dwt2out.height);
-//            } else {
-//                // compute full DWT if either SSIM or ADM need it for this level
-//                integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0], &s->i_ref_dwt2out[level + 1], s->i_dwt2_stride, s->i_ref_dwt2out[level].width,
-//                            s->i_ref_dwt2out[level].height);
-//                integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0], &s->i_dist_dwt2out[level + 1],s->i_dwt2_stride,
-//                            s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height);
-//            }
-//        }
+        if (level+1 < s->needed_dwt_levels) {
+            if (level+1 > s->needed_full_dwt_levels - 1) {
+                // from here on out we only need approx band for VIF
+                integer_funque_vifdwt2_band0(s->i_ref_dwt2out[level].bands[0], s->i_ref_dwt2out[level + 1].bands[0],  ((s->i_dwt2_stride + 1) / 2), s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height);
+            } else {
+                // compute full DWT if either SSIM or ADM need it for this level
+                integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0], &s->i_ref_dwt2out[level + 1], s->i_dwt2_stride, s->i_ref_dwt2out[level].width,
+                            s->i_ref_dwt2out[level].height);
+                integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0], &s->i_dist_dwt2out[level + 1],s->i_dwt2_stride,
+                            s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height);
+            }
+        }
 //
 //        if (!s->enable_spatial_csf) {
 //            if (level < s->adm_levels || level < s->ssim_levels) {
@@ -510,12 +531,12 @@ static int extract(VmafFeatureExtractor *fex,
 //            }
 //        }
 
-        err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out, s->i_dist_dwt2out, &adm_score[level], &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height, 0.2, s->adm_div_lookup);
+        err = integer_compute_adm_funque(s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level], &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 0.2, s->adm_div_lookup);
 
         if (err)
             return err;
 
-        err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out, &s->i_dist_dwt2out, &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
+        err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
 
         if (err)
             return err;
@@ -523,10 +544,10 @@ static int extract(VmafFeatureExtractor *fex,
         if (level == 0)
         {
 #if USE_DYNAMIC_SIGMA_NSQ
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18, 0);
 #else
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[0], s->i_dist_dwt2out.bands[0], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &vif_score[0], &vif_score_num[0], &vif_score_den[0], 9, 1, (double)5.0, (int16_t) pending_div_factor, s->log_18);
 #endif
 
@@ -535,25 +556,26 @@ static int extract(VmafFeatureExtractor *fex,
         else
         {
             int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
-            int vifdwt_width  = s->i_ref_dwt2out.width;
-            int vifdwt_height = s->i_ref_dwt2out.height;
+            int vifdwt_width  = s->i_ref_dwt2out[level].width;
+            int vifdwt_height = s->i_ref_dwt2out[level].height;
             //The VIF function reuses the band1, band2, band3 of s->ref_dwt2out &   s->dist_dwt2out
             //Hence VIF is called in the end
             //If the individual modules(VIF,ADM,motion,ssim) are moved to different     files,
             // separate memory allocation for higher level VIF buffers might be needed
 
             int16_t vif_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
-            s->modules.integer_funque_vifdwt2_band0(s->i_ref_dwt2out.bands[level-1],    s->i_ref_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
-            s->modules.integer_funque_vifdwt2_band0(s->i_dist_dwt2out.bands[level-1],   s->i_dist_dwt2out.bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
+            s->modules.integer_funque_vifdwt2_band0(s->i_ref_dwt2out[level].bands[level-1],    s->i_ref_dwt2out[level].bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
+            s->modules.integer_funque_vifdwt2_band0(s->i_dist_dwt2out[level].bands[level-1],   s->i_dist_dwt2out[level].bands[level], vifdwt_stride, vifdwt_width, vifdwt_height);
             vifdwt_stride = (vifdwt_stride + 1)/2;
             vifdwt_width = (vifdwt_width + 1)/2;
             vifdwt_height = (vifdwt_height + 1)/2;
 
+            // TODO: The below code looks phishy
 #if USE_DYNAMIC_SIGMA_NSQ
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], vifdwt_width, vifdwt_height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[level], s->i_dist_dwt2out[level].bands[level], vifdwt_width, vifdwt_height,
                                     &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18, level);
 #else
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], vifdwt_width, vifdwt_height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[level], s->i_dist_dwt2out[level].bands[level], vifdwt_width, vifdwt_height,
                                     &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, (int16_t) vif_pending_div, s->log_18);
 #endif
 
@@ -566,20 +588,20 @@ static int extract(VmafFeatureExtractor *fex,
 
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
-                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width,
-                    s->i_ref_dwt2out.height);
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             }
             else {
                 err |= s->modules.integer_compute_strred_funque(
-                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
-                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width, s->i_ref_dwt2out.height,
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 6);
 
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    s->i_ref_dwt2out.bands[level], s->i_dist_dwt2out.bands[level], s->i_prev_ref.bands[level],
-                    s->i_prev_dist.bands[level], s->i_ref_dwt2out.width,
-                    s->i_ref_dwt2out.height);
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             }
             if (err) return err;
         }
@@ -665,6 +687,9 @@ static int extract(VmafFeatureExtractor *fex,
 //        }
 //    }
 
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
+                                         s->strred_scores[0].strred_vals[0], index);
+
     return err;
 }
 
@@ -678,12 +703,18 @@ static int close(VmafFeatureExtractor *fex)
     if (s->spat_filter)
         aligned_free(s->spat_filter);
 
-    for (unsigned i = 0; i < 4; i++)
-    {
-        if (s->i_ref_dwt2out.bands[i])
-            aligned_free(s->i_ref_dwt2out.bands[i]);
-        if (s->i_dist_dwt2out.bands[i])
-            aligned_free(s->i_dist_dwt2out.bands[i]);
+    for(int level = 0; level < 4; level++) {
+        for (unsigned i = 0; i < 4; i++)
+        {
+            if (s->i_ref_dwt2out[level].bands[i])
+                aligned_free(s->i_ref_dwt2out[level].bands[i]);
+            if (s->i_dist_dwt2out[level].bands[i])
+                aligned_free(s->i_dist_dwt2out[level].bands[i]);
+            if (s->i_prev_ref[level].bands[i])
+                aligned_free(s->i_prev_ref[level].bands[i]);
+            if (s->i_prev_dist[level].bands[i])
+                aligned_free(s->i_prev_dist[level].bands[i]);
+        }
     }
     vmaf_dictionary_free(&s->feature_name_dict);
     return 0;

@@ -308,24 +308,24 @@ void integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* 
 #endif
 }
 
-int integer_copy_prev_frame_strred_funque_c(const dwt2_dtype* ref, const dwt2_dtype* dist,
-                                  dwt2_dtype* prev_ref, dwt2_dtype* prev_dist,
+int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
+                                  struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                                   size_t width, size_t height)
 {
     int subband;
     int total_subbands = DEFAULT_STRRED_SUBBANDS;
 
     for(subband = 1; subband < total_subbands; subband++) {
-        memcpy(prev_ref, ref, width * height * sizeof(dwt2_dtype));
-        memcpy(prev_dist, dist, width * height * sizeof(dwt2_dtype));
+        memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(dwt2_dtype));
+        memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(dwt2_dtype));
     }
 
     return 0;
 }
 
 
-int integer_compute_strred_funque_c(const dwt2_dtype* ref, const dwt2_dtype* dist,
-                          dwt2_dtype* prev_ref, dwt2_dtype* prev_dist,
+int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
+                          struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
                           int block_size, int level, uint32_t *log_18, int32_t sigma_nsq_t, int32_t shift_val)
 {
@@ -351,7 +351,7 @@ int integer_compute_strred_funque_c(const dwt2_dtype* ref, const dwt2_dtype* dis
         size_t i, j;
         spat_abs = 0;
 
-        integer_rred_entropies_and_scales(ref, dist, width, height, log_18, sigma_nsq_t, shift_val);
+        integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val);
     }
 
 
