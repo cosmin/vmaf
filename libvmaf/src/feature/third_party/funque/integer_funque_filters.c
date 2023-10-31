@@ -28,8 +28,10 @@
 #include <time.h>
 
 
-void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf, int level)
 {
+
+    int src_px_stride = src_stride / sizeof(dwt2_dtype);
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
 
     /**
@@ -38,14 +40,14 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
      * Hence the value becomes 1/2, and this is handled using shifts
      * Also extra required out shift is done along with filter shift itself
      */
-    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
-    const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
+    int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    int8_t filter_shift_rnd = 1<<(filter_shift - 1);
     /**
      * Last column due to padding the values are left shifted and then right shifted
      * Hence using updated shifts. Subtracting 1 due to left shift
      */
-    const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
-    const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
+    int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
 
     dwt2_dtype *band_a = dwt2_dst->bands[0];
     dwt2_dtype *band_h = dwt2_dst->bands[1];
@@ -60,14 +62,30 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 	int last_col = width & 1;
 
     int i, j;
-    
+
+	/* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift is required */
+	if(spatial_csf == 0)
+	{
+		if(level == 3)
+		{
+	    	filter_shift = DWT2_OUT_SHIFT;
+	    	filter_shift_rnd = 1<<(filter_shift - 1);
+		}
+		else{
+	    	filter_shift = 0;
+	    	filter_shift_rnd = 0;
+		}
+    	filter_shift_lcpad = 0;
+    	filter_shift_lcpad_rnd = 0;
+	}
+
     for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-		row0_offset = (row_idx0)*width;
-		row1_offset = (row_idx1)*width;
+		row0_offset = (row_idx0)*src_stride;
+		row1_offset = (row_idx1)*src_stride;
         
         for(j=0; j< width_div_2; ++j)
 		{
@@ -302,7 +320,7 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
 
 }
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth)
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth)
 {
 
     const spat_fil_coeff_dtype i_filter_coeffs[21] = {
@@ -311,7 +329,7 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, in
     };
 
     int src_px_stride = width;
-    int dst_px_stride = width;
+    int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);
 
     spat_fil_inter_dtype *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(spat_fil_inter_dtype)), MAX_ALIGN);
 
@@ -541,4 +559,39 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, in
     aligned_free(tmp);
 
     return;
+}
+
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, float factors[4], int min_theta, int max_theta)
+{
+//    float *src_ptr;
+//    float *dst_ptr;
+//
+//    /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
+//    float *angles[4] = { src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+//
+//    int px_stride = src->stride / sizeof(float);
+//
+//    /* The computation of the csf values is not required for the regions which lie outside the frame borders */
+//    int left = 0;
+//    int top = 0;
+//    int right = src->width;
+//    int bottom = src->height;
+//
+//    int i, j, theta, src_offset, dst_offset;
+//    float dst_val;
+//
+//    for (theta = min_theta; theta <= max_theta; ++theta) {
+//        src_ptr = angles[theta];
+//        dst_ptr = angles[theta];
+//
+//        for (i = top; i < bottom; ++i) {
+//            src_offset = i * px_stride;
+//            dst_offset = i * px_stride;
+//
+//            for (j = left; j < right; ++j) {
+//                dst_val = factors[theta] * src_ptr[src_offset + j];
+//                dst_ptr[dst_offset + j] = dst_val;
+//            }
+//        }
+//    }
 }
