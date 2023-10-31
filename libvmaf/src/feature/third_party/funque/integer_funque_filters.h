@@ -60,15 +60,18 @@ typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
     int width;
     int height;
+    int stride;
 }i_dwt2buffers;
 
 typedef struct ModuleFunqueState
 {
     //function pointers
-    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth);
-    void (*integer_funque_dwt2)(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+    void (*integer_funque_picture_copy)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
+    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
+    void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
+    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
     double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den);
@@ -102,10 +105,12 @@ typedef struct ModuleFunqueState
 
 }ModuleFunqueState;
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth);
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
 
-void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
+
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, float factors[4], int min_theta, int max_theta);
 
 #endif /* FILTERS_FUNQUE_H_ */
