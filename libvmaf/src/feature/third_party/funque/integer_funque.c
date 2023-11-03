@@ -309,7 +309,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
     s->wavelet_csfs = "nadenau_weight";
-    
+
     if (s->enable_spatial_csf) {
         s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)), 32);
         if (!s->spat_tmp_buf) 
@@ -387,6 +387,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_picture_copy = integer_funque_picture_copy;
     s->modules.integer_spatial_filter = integer_spatial_filter;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    //s->modules.integer_funque_dwt2_wavelet = integer_funque_dwt2_wavelet;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
     s->modules.integer_compute_ms_ssim_funque = integer_compute_ssim_funque; // TODO:@niranjankumar-ittiam Assign your function call
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
@@ -595,6 +596,8 @@ static int extract(VmafFeatureExtractor *fex,
         if (err)
             return err;
 
+        if (err)
+            return err;
 
 #if 0 // VIF and ssim is not used
         err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);

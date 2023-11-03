@@ -45,6 +45,7 @@ typedef int16_t spat_fil_output_dtype;
 #define DWT2_OUT_SHIFT     1  //Shifting to make the output have Q16 format
 
 typedef int16_t dwt2_dtype;
+typedef int8_t dwt2_input_dtype;
 typedef int32_t dwt2_accum_dtype;
 typedef int16_t dwt2_inter_dtype;
 
@@ -69,7 +70,7 @@ typedef struct ModuleFunqueState
 {
     //function pointers
     void (*integer_funque_picture_copy)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
-    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp,int num_taps);
+    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
     void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
@@ -123,6 +124,8 @@ static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
+
+void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
