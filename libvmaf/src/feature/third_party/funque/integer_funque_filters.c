@@ -84,8 +84,8 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
         row_idx0 = 2*i;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-		row0_offset = (row_idx0)*src_stride;
-		row1_offset = (row_idx1)*src_stride;
+		row0_offset = (row_idx0)*src_px_stride;
+		row1_offset = (row_idx1)*src_px_stride;
         
         for(j=0; j< width_div_2; ++j)
 		{
@@ -320,18 +320,27 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
 
 }
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth)
-{
-
-    const spat_fil_coeff_dtype i_filter_coeffs[21] = {
+const spat_fil_coeff_dtype i_ngan_filter_coeffs[21] = {
         -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
         14498, 4677, -66, -1547, -1798, -1669, -1452, -1239, -1054, -900
     };
 
+const spat_fil_coeff_dtype i_nadeanu_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658 };
+
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps)
+{	
+	int fwidth;
+    const spat_fil_coeff_dtype *i_filter_coeffs;
+    if(num_taps == 5) {
+        fwidth = 5;
+        i_filter_coeffs = i_nadeanu_filter_coeffs;
+    } else {
+        fwidth = 21;
+        i_filter_coeffs = i_ngan_filter_coeffs;
+    }
+
     int src_px_stride = width;
     int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);
-
-    spat_fil_inter_dtype *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(spat_fil_inter_dtype)), MAX_ALIGN);
 
     // spat_fil_inter_dtype imgcoeff;
 	uint8_t *src_8b = NULL;
@@ -342,7 +351,7 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
     int i, j, fi, ii, ii1, ii2;
 	// int fj, jj, jj1, jj;
     // spat_fil_coeff_dtype *coeff_ptr;
-    int fwidth = 21;
+
     int half_fw = fwidth / 2;
 	
 	if(8 == bitdepth)
@@ -556,42 +565,43 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 
     }
 
-    aligned_free(tmp);
-
     return;
 }
 
-void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, float factors[4], int min_theta, int max_theta)
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], 
+	int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4])
 {
-//    float *src_ptr;
-//    float *dst_ptr;
-//
-//    /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
-//    float *angles[4] = { src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
-//
-//    int px_stride = src->stride / sizeof(float);
-//
-//    /* The computation of the csf values is not required for the regions which lie outside the frame borders */
-//    int left = 0;
-//    int top = 0;
-//    int right = src->width;
-//    int bottom = src->height;
-//
-//    int i, j, theta, src_offset, dst_offset;
-//    float dst_val;
-//
-//    for (theta = min_theta; theta <= max_theta; ++theta) {
-//        src_ptr = angles[theta];
-//        dst_ptr = angles[theta];
-//
-//        for (i = top; i < bottom; ++i) {
-//            src_offset = i * px_stride;
-//            dst_offset = i * px_stride;
-//
-//            for (j = left; j < right; ++j) {
-//                dst_val = factors[theta] * src_ptr[src_offset + j];
-//                dst_ptr[dst_offset + j] = dst_val;
-//            }
-//        }
-//    }
+	dwt2_dtype *src_ptr;
+	dwt2_dtype *dst_ptr;
+
+	/* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
+	dwt2_dtype *angles[4] = { src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+
+	int px_stride = src->stride / sizeof(dwt2_dtype);
+
+	/* The computation of the csf values is not required for the regions which lie outside the frame borders */
+	int left = 0;
+	int top = 0;
+	int right = src->width;
+	int bottom = src->height;
+
+	int i, j, theta, src_offset, dst_offset;
+	spat_fil_accum_dtype mul_val;
+	dwt2_dtype dst_val;
+
+	for (theta = min_theta; theta <= max_theta; ++theta) {
+		src_ptr = angles[theta];
+		dst_ptr = angles[theta];
+
+		for (i = top; i < bottom; ++i) {
+			src_offset = i * px_stride;
+			dst_offset = i * px_stride;
+
+			for (j = left; j < right; ++j) {
+				mul_val = (spat_fil_accum_dtype) factors[theta] * src_ptr[src_offset + j];
+				dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[theta]) >> interim_shift_factors[theta]);
+				dst_ptr[dst_offset + j] = dst_val;
+			}
+		}
+	}
 }
