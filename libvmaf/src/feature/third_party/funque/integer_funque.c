@@ -422,7 +422,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #endif
 #endif
 
-    funque_log_generate(s->log_18);
+    //funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
 #if USE_LOG_18
     strred_funque_log_generate(s->log_18);

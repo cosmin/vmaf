@@ -236,7 +236,9 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
         int_1_y = interim_1_y[j] + int_1_y;
         int_2_x = interim_2_x[j] + int_2_x;
         int_2_y = interim_2_y[j] + int_2_y;
+    }
 
+    {
         mx = int_1_x;
         my = int_1_y;
         var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> STRRED_COMPUTE_METRIC_R_SHIFT;
@@ -245,28 +247,18 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
-
-//        var_x = var_x << knorm_shift;
-//        var_y = var_y << knorm_shift;
-
-#if !USE_LOG_18
-
+#if USE_FLOAT_CODE
+        const_val = (1 << 32);
         fentropy_x = log((var_x + sigma_nsq) * entr_const);
         fentropy_y = log((var_y + sigma_nsq) * entr_const);
-        fscale_x = log(1 + var_x);
-        fscale_y = log(1 + var_y);
+        fscale_x = log(const_val + var_x);
+        fscale_y = log(const_val + var_y);
 
-        mul_x = (var_x + sigma_nsq) * entr_const;
-        mul_y = (var_y + sigma_nsq) * entr_const;
-        entropy_x = strred_get_best_u16_from_u64((int64_t)mul_x, &ex);
-        entropy_y = strred_get_best_u16_from_u64((int64_t)mul_y, &ey);
+        spat_aggregate = fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+        *spat_abs_accum += spat_aggregate;
 
-        const_val = (1 << 32);
-        mul_x = (var_x + const_val);
-        mul_y = (var_y + const_val);
-        scale_x = strred_get_best_u16_from_u64((int64_t)mul_x, &sx);
-        scale_y = strred_get_best_u16_from_u64((int64_t)mul_y, &sy);
 #else
+
         mul_x = (int64_t)(var_x + sigma_nsq) * entr_const;
         mul_y = (int64_t)(var_y + sigma_nsq) * entr_const;
         look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
@@ -282,7 +274,6 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
         look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
         scale_x = log_18[look_x];
         scale_y = log_18[look_y];
-#endif
 
 #if KEEP_SPAT_IN_INTEGER
 
@@ -314,6 +305,8 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
         //*spat_abs_accum += spat_aggregate;
 
 #endif
+#endif
+
 
     }
 
@@ -338,6 +331,19 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
 
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
+
+#if USE_FLOAT_CODE
+
+        const_val = (1 << 32);
+        fentropy_x = log((var_x + sigma_nsq) * entr_const);
+        fentropy_y = log((var_y + sigma_nsq) * entr_const);
+        fscale_x = log(const_val + var_x);
+        fscale_y = log(const_val + var_y);
+
+        spat_aggregate = fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+        *spat_abs_accum += spat_aggregate;
+
+#else
 
 #if !USE_LOG_18
         entropy_x = log(var_x + sigma_nsq) + entr_const;
@@ -385,7 +391,7 @@ static inline void strred_horz_integralsum(int kw, int width_p1,
         *spat_abs_accum += spat_aggregate;
 
 #endif
-
+#endif
 
         // TODO: Add Support ffor log2 for entropy and scale
     }
