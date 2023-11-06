@@ -84,8 +84,8 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
         row_idx0 = 2*i;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-		row0_offset = (row_idx0)*src_stride;
-		row1_offset = (row_idx1)*src_stride;
+		row0_offset = (row_idx0)*src_px_stride;
+		row1_offset = (row_idx1)*src_px_stride;
         
         for(j=0; j< width_div_2; ++j)
 		{

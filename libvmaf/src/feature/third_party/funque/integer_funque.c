@@ -111,6 +111,7 @@ typedef struct IntFunqueState
     double vif_enhn_gain_limit;
     double vif_kernelscale;
     uint32_t log_18[262144];
+    uint32_t log_16[65536];
 
     // ADM extra variables
     double adm_enhn_gain_limit;
@@ -139,7 +140,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
     },
     {
         .name = "enable_spatial_csf",
@@ -423,7 +424,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
+#if USE_LOG_18
     strred_funque_log_generate(s->log_18);
+#else
+    strred_log_generate(s->log_16);
+#endif
 
     return 0;
 
@@ -624,11 +629,17 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height);
             }
             else {
+#if USE_LOG_18
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 6);
-
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 1);
+#else
+                err |= s->modules.integer_compute_strred_funque(
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_16, strred_pending_div, 1);
+#endif
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,

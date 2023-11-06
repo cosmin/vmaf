@@ -22,6 +22,12 @@
 #define STRRED_STABILITY 0
 #define STRRED_COMPUTE_METRIC_R_SHIFT 6
 
+#define USE_LOG_18 1
+#define Q_FORMAT_TO_MULTIPLY_LOG 26
+
+#define KEEP_SPAT_IN_INTEGER 0
+#define DEBUG_STRRED 1
+
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];
     double trred_vals[MAX_LEVELS];
@@ -34,7 +40,7 @@ typedef struct strred_results {
 int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level, uint32_t *log_18, int32_t sigma_nsq_t, int32_t shift_val);
+                          int block_size, int level, uint32_t *log_18, int32_t shift_val, uint32_t sigma_nsq_t);
 
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                                   struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
