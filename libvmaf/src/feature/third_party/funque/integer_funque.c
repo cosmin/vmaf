@@ -397,12 +397,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #elif ARCH_X86
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
-        s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
-        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
+        s->modules.integer_spatial_filter = integer_spatial_filter;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx2;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
@@ -532,7 +532,7 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
-    for(int level = 0; level < s->needed_dwt_levels; level++)
+    for(int level = 0; level < 1 /*s->needed_dwt_levels*/; level++) // For ST-RRED Debugging level set to 0
     {
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
