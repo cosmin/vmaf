@@ -328,6 +328,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->i_prev_dist[level].height = (int)(last_h + 1) / 2;
         s->i_prev_dist[level].stride = (int)ALIGN_CEIL(s->i_prev_dist[level].width * sizeof(dwt2_dtype));
 
+        s->i_prev_ref[level].bands[0] = NULL;
+        s->i_prev_dist[level].bands[0] = NULL;
+
         // Memory allocation for dwt output bands
         for (unsigned i = 0; i < 4; i++)
         {
@@ -532,7 +535,7 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
-    for(int level = 0; level < 1 /*s->needed_dwt_levels*/; level++) // For ST-RRED Debugging level set to 0
+    for(int level = 0; level < s->needed_dwt_levels; level++) // For ST-RRED Debugging level set to 0
     {
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
@@ -730,7 +733,24 @@ static int extract(VmafFeatureExtractor *fex,
 //    }
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores[0].strred_vals[0], index);
+                                         s->strred_scores[0].srred_vals[0], index);
+    if (s->strred_levels > 1) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_integer_feature_strred_scale1_score",
+                                                       s->strred_scores[1].srred_vals[1], index);
+
+        if (s->strred_levels > 2) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_integer_feature_strred_scale2_score",
+                                                           s->strred_scores[2].srred_vals[2], index);
+
+            if (s->strred_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_integer_feature_strred_scale3_score",
+                                                               s->strred_scores[3].srred_vals[3], index);
+            }
+        }
+    }
 
     return err;
 }
@@ -769,6 +789,11 @@ static const char *provided_features[] = {
     "FUNQUE_integer_feature_adm_score", "FUNQUE_integer_feature_adm_scale0_score",
 
     "FUNQUE_integer_feature_ssim_scale0_score",
+
+    "FUNQUE_integer_feature_strred_scale0_score",
+    "FUNQUE_integer_feature_strred_scale1_score",
+    "FUNQUE_integer_feature_strred_scale2_score",
+    "FUNQUE_integer_feature_strred_scale3_score",
 
     NULL};
 

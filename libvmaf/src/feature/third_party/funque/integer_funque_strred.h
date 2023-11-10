@@ -27,7 +27,7 @@
 
 #define KEEP_SPAT_IN_INTEGER 0
 #define DEBUG_STRRED 1
-#define USE_FLOAT_CODE 1
+#define USE_FLOAT_CODE 0
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];
     double trred_vals[MAX_LEVELS];
