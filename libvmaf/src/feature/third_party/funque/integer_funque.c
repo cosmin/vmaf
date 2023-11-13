@@ -323,15 +323,16 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_factors[level][2] = i_nadenau_weight_coeffs[level][2];
                 s->csf_factors[level][3] = i_nadenau_weight_coeffs[level][3];
 
-                s->csf_interim_rnd[level][0] = i_nadenau_weight_interim_rnd[level][0];
-                s->csf_interim_rnd[level][1] = i_nadenau_weight_interim_rnd[level][1];
-                s->csf_interim_rnd[level][2] = i_nadenau_weight_interim_rnd[level][2];
-                s->csf_interim_rnd[level][3] = i_nadenau_weight_interim_rnd[level][3];
-
                 s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
                 s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
                 s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
                 s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+
             }
         }
     }
@@ -540,7 +541,7 @@ static int extract(VmafFeatureExtractor *fex,
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride, res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf, 0);
 
-        s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+        s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride, res_dist_pic->w[0], res_dist_pic->h[0], s->enable_spatial_csf, 0);
     }
 
@@ -577,12 +578,12 @@ static int extract(VmafFeatureExtractor *fex,
         if (!s->enable_spatial_csf) {
             if (level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level]);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level]);
+                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             } else {
                 // we only need CSF on approx band
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level]);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level]);
+                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             }
         }
 

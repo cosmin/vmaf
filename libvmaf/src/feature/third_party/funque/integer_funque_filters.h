@@ -72,6 +72,7 @@ typedef struct ModuleFunqueState
     void (*integer_funque_picture_copy)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
     void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
     void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
+    void (*integer_funque_dwt2_inplace_csf)(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level); 
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
     int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
@@ -108,17 +109,10 @@ static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
     /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
 };
 
-static const uint16_t i_nadenau_weight_interim_rnd[4][4] = {
-    {16384, 16, 2, 16},
-    {16384, 512, 256, 512},
-    {16384, 4096, 4096, 4096},
-    {16384, 8192, 8192, 8192},
-};
-
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
-    {15, 5, 2, 5},
-    {15, 10, 9, 10},
-    {15, 13, 13, 13},
+    {10, 5, 2, 5},
+    {15, 13, 12, 13},
+    {15, 14, 14, 14},
     {15, 14, 14, 14},
 };
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
@@ -129,6 +123,6 @@ void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t d
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
-void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4]);
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level);
 
 #endif /* FILTERS_FUNQUE_H_ */

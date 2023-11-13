@@ -14,7 +14,7 @@
         "feature_opts_dicts": [
             {
                 "num_taps": 5,
-                "enable_resize": false
+                "enable_resize": true
             },
             {
                 "adm_levels": 2

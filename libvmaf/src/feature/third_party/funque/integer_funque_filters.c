@@ -33,7 +33,7 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
 
     int src_px_stride = src_stride / sizeof(dwt2_dtype);
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
-
+	int8_t const_2_wl0 = 1;
     /**
      * Absolute value of filter coefficients are 1/sqrt(2)
      * The filter is handled by multiplying square of coefficients in final stage
@@ -65,18 +65,15 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
 
 	/* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift is required */
 	if(spatial_csf == 0)
-	{
-		if(level == 3)
+	{	
+		if(level == 0)
 		{
-	    	filter_shift = DWT2_OUT_SHIFT;
-	    	filter_shift_rnd = 1<<(filter_shift - 1);
-		}
-		else{
 	    	filter_shift = 0;
 	    	filter_shift_rnd = 0;
-		}
-    	filter_shift_lcpad = 0;
-    	filter_shift_lcpad_rnd = 0;
+			const_2_wl0 = 2;
+			filter_shift_lcpad = 0;
+    		filter_shift_lcpad_rnd = 0;
+		}   	
 	}
 
     for (i=0; i < (height+1)/2; ++i)
@@ -135,10 +132,10 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
 			int src_a_m_b = src_a - src_b;
 			
             //F* F (a + b + a + b) - band A  (F*F is 1/2)
-			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b * const_2_wl0 + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
 			
 			//F* F (a - b + a - b) - band H  (F*F is 1/2)
-            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_m_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_m_b * const_2_wl0 + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
 			
 			//F* F (a + b - (a + b)) - band V, Last column V will always be 0            
             band_v[i*dst_px_stride+j] = 0;
@@ -673,7 +670,7 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 }
 
 void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], 
-	int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4])
+	int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level)
 {
 	dwt2_dtype *src_ptr;
 	dwt2_dtype *dst_ptr;
