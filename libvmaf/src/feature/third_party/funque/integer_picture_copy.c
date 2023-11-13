@@ -33,9 +33,9 @@ void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_
 
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                dst[j] = (spat_fil_output_dtype) src_8b[j];
+                dst[i*width+j] = (spat_fil_output_dtype) src_8b[i*width+j];
             }
-            dst += dst_stride / sizeof(spat_fil_output_dtype);
+            //dst += dst_stride / sizeof(spat_fil_output_dtype);
         }
     }
     else

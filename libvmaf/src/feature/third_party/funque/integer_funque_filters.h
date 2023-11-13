@@ -28,6 +28,8 @@
 
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
 
+#define NGAN_21_TAP_FILTER 21
+#define NADENAU_SPAT_5_TAP_FILTER 5
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))
@@ -43,6 +45,7 @@ typedef int16_t spat_fil_output_dtype;
 #define DWT2_OUT_SHIFT     1  //Shifting to make the output have Q16 format
 
 typedef int16_t dwt2_dtype;
+typedef int8_t dwt2_input_dtype;
 typedef int32_t dwt2_accum_dtype;
 typedef int16_t dwt2_inter_dtype;
 
@@ -67,8 +70,9 @@ typedef struct ModuleFunqueState
 {
     //function pointers
     void (*integer_funque_picture_copy)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
-    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
+    void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
     void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
+    void (*integer_funque_dwt2_inplace_csf)(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level); 
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
     int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
@@ -105,12 +109,30 @@ typedef struct ModuleFunqueState
 
 }ModuleFunqueState;
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
+/* filter format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal as in funque_dwt2_inplace_csf */
+/* All the coefficients are in Q15 format*/
+static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
+    {32767, 22544, 23331, 22544},
+    {32767, 27836, 24297, 27836},
+    {32767, 26081, 20876, 26081},
+    {32767, 30836, 29061, 30836},
+    /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
+};
+
+static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
+    {10, 9, 9, 9},
+    {15, 14, 14, 14},
+    {15, 14, 14, 14},
+    {15, 14, 14, 14},
+};
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);
 
+void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
-void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, float factors[4], int min_theta, int max_theta);
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level);
 
 #endif /* FILTERS_FUNQUE_H_ */

@@ -86,8 +86,13 @@ typedef struct IntFunqueState
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
-    float csf_factors[4][4];
+    const char *wavelet_csfs;
+    spat_fil_coeff_dtype csf_factors[4][4];
+    uint16_t csf_interim_rnd[4][4];
+    uint8_t csf_interim_shift[4][4];
+
     size_t resizer_out_stride;
+    spat_fil_inter_dtype *spat_tmp_buf;
     spat_fil_output_dtype *filter_buffer;
     size_t filter_buffer_stride;
     i_dwt2buffers i_ref_dwt2out[4];
@@ -98,6 +103,7 @@ typedef struct IntFunqueState
     // funque configurable parameters
     bool enable_resize;
     bool enable_spatial_csf;
+    int num_taps;
     int vif_levels;
     int adm_levels;
     int needed_dwt_levels;
@@ -147,8 +153,18 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
+    },
+    {
+        .name = "num_taps",
+        .alias = "ntaps",
+        .help = "Select number of taps to be used for spatial filter",
+        .offset = offsetof(IntFunqueState, num_taps),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.b = NADENAU_SPAT_5_TAP_FILTER,
+        .min = NADENAU_SPAT_5_TAP_FILTER,
+        .max = NGAN_21_TAP_FILTER,
     },
 {
         .name = "norm_view_dist",
@@ -305,6 +321,36 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         goto fail;
     s->filter_buffer_stride = w * sizeof(spat_fil_output_dtype);
 
+    /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
+    s->wavelet_csfs = "nadenau_weight";
+
+    if (s->enable_spatial_csf) {
+        s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)), 32);
+        if (!s->spat_tmp_buf) 
+            goto fail;
+        //memset(s->spat_tmp_buf, 0, ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)));
+    } else {
+        if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_nadenau_weight_coeffs[level][0];
+                s->csf_factors[level][1] = i_nadenau_weight_coeffs[level][1];
+                s->csf_factors[level][2] = i_nadenau_weight_coeffs[level][2];
+                s->csf_factors[level][3] = i_nadenau_weight_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+
+            }
+        }
+    }
+    
     int last_w, last_h;
     last_w = w;
     last_h = h;
@@ -356,6 +402,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_funque_picture_copy = integer_funque_picture_copy;
     s->modules.integer_spatial_filter = integer_spatial_filter;
     s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+    //s->modules.integer_funque_dwt2_wavelet = integer_funque_dwt2_wavelet;
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
     s->modules.integer_compute_ms_ssim_funque = integer_compute_ssim_funque; // TODO:@niranjankumar-ittiam Assign your function call
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
@@ -366,8 +413,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->resize_module.hbd_resizer_step = hbd_step;
     s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
 
-    s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
-    s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 
 #if ARCH_AARCH64
     unsigned flags = vmaf_get_cpu_flags();
@@ -434,6 +479,8 @@ fail:
         aligned_free(s->res_dist_pic.data[0]);
     if (s->filter_buffer)
         aligned_free(s->filter_buffer);
+    if (s->spat_tmp_buf) 
+        aligned_free(s->spat_tmp_buf);
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         for (unsigned i = 0; i < 4; i++) {
@@ -500,16 +547,16 @@ static int extract(VmafFeatureExtractor *fex,
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
     if (s->enable_spatial_csf) {
-        s->modules.integer_spatial_filter(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+        s->modules.integer_spatial_filter(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride, res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf, -1);
-        s->modules.integer_spatial_filter(res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
+        s->modules.integer_spatial_filter(res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride, res_dist_pic->w[0], res_dist_pic->h[0], s->enable_spatial_csf, -1);
     } else {
         // TODO: Add a function to convert 8-bit buffer to 16-bit buuffer picture
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride, res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf, 0);
 
-        s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+        s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride, res_dist_pic->w[0], res_dist_pic->h[0], s->enable_spatial_csf, 0);
     }
 
@@ -546,12 +593,12 @@ static int extract(VmafFeatureExtractor *fex,
         if (!s->enable_spatial_csf) {
             if (level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3);
+                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             } else {
                 // we only need CSF on approx band
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0);
+                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0, s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             }
         }
 
@@ -564,7 +611,6 @@ static int extract(VmafFeatureExtractor *fex,
 
         if (err)
             return err;
-
 
 #if 0 // VIF and ssim is not used
         err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
@@ -613,31 +659,6 @@ static int extract(VmafFeatureExtractor *fex,
             if (err) return err;
         }
 #endif
-
-        if(level <= s->strred_levels - 1) {
-            int16_t strred_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
-
-            if(index == 0) {
-                err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height);
-            }
-            else {
-                err |= s->modules.integer_compute_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 6);
-
-                err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height);
-            }
-            if (err) return err;
-        }
-
-
 
     }
 
@@ -718,8 +739,6 @@ static int extract(VmafFeatureExtractor *fex,
 //        }
 //    }
 
-    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores[0].strred_vals[0], index);
 
     return err;
 }
@@ -733,6 +752,9 @@ static int close(VmafFeatureExtractor *fex)
         aligned_free(s->res_dist_pic.data[0]);
     if (s->filter_buffer)
         aligned_free(s->filter_buffer);
+    if (s->spat_tmp_buf) 
+        aligned_free(s->spat_tmp_buf);
+    
 
     for(int level = 0; level < 4; level++) {
         for (unsigned i = 0; i < 4; i++)

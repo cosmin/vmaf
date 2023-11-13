@@ -13,6 +13,7 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
+                "num_taps": 5,
                 "enable_resize": true,
                 "vif_levels": 2
             },
