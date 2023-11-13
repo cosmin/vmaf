@@ -36,7 +36,7 @@ void strred_funque_log_generate(uint32_t* log_18)
     uint64_t end = (unsigned int)pow(2, 18);
 	for (i = start; i < end; i++)
     {
-		log_18[i] = (uint32_t)round(log2((double)i) * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+		log_18[i] = (uint32_t)round(log2((double)i) * TWO_POW_Q_FACT);
     }
 }
 
@@ -168,9 +168,9 @@ void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t heig
 
 //This function does summation of horizontal intermediate_vertical_sums & then 
 //numerator denominator score calculations are done
-float strred_spat_horz_integralsum(int kw, int width_p1, 
+float strred_horz_integralsum(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   uint32_t entr_const, uint32_t sigma_nsq, uint32_t *log_18,
+                                   uint32_t entr_const, uint64_t sigma_nsq, uint32_t *log_18,
                                    int32_t *interim_1_x, int64_t *interim_2_x,
                                    int32_t *interim_1_y, int64_t *interim_2_y, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y, int32_t spat_row_idx)
 {
@@ -193,7 +193,7 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
      * The previous kw col interim metric sum is not subtracted since it is not available here
      */
     int64_t mul_x, mul_y;
-    int32_t add_x, add_y;
+    int64_t add_x, add_y;
     uint64_t const_val;
     int16_t ex, ey, sx, sy;
     uint32_t e_look_x, e_look_y;
@@ -201,6 +201,17 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
     float fentropy_x, fentropy_y, fscale_x, fscale_y;
     float aggregate = 0;
     int64_t div_fac;
+
+    div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
+    sigma_nsq = div_fac * 0.1;
+    const_val = (uint64_t)1 * div_fac;
+
+#if TRY_MAX_PRECESSION
+    float sub_val_temp = (float)log2f(255 * 255 * 81) + PENDING_SHIFT_FACTOR;
+    int64_t sub_val = (int64_t)(sub_val_temp * TWO_POW_Q_FACT);
+#else
+    float sub_val = (float)log2f(255 * 255 * 81) + PENDING_SHIFT_FACTOR;
+#endif
 
     for (int j=1; j<kw+1; j++)
     {
@@ -220,7 +231,7 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
 
 #if USE_FLOAT_CODE
 
-        int64_t div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
+        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
 // log2(255 * 255 * 81) + 12
         float fvar_x = (float) var_x / div_fac;
         float fvar_y = (float) var_y / div_fac;
@@ -228,12 +239,11 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
         fvar_x = (fvar_x < 0) ? 0 : fvar_x;
         fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
-
         const_val = 1;
-        fentropy_x = log2f(fvar_x + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
-        fentropy_y = log2f(fvar_y + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
-        fscale_x = log2f(const_val + fvar_x);
-        fscale_y = log2f(const_val + fvar_y);
+        fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+        fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+        fscale_x = log(const_val + fvar_x);
+        fscale_y = log(const_val + fvar_y);
 
         if(enable_temporal == 1)
         {
@@ -252,46 +262,50 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
         }
 
 #else
-        div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
-        sigma_nsq = div_fac * 0.1;
-        const_val = (uint64_t)1 * div_fac;
-
-        mul_x = (int64_t)(var_x + sigma_nsq); // * entr_const;
-        mul_y = (int64_t)(var_y + sigma_nsq); // * entr_const;
+        mul_x = (int64_t)(var_x + sigma_nsq);
+        mul_y = (int64_t)(var_y + sigma_nsq);
         e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
         e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[e_look_x] +  (ex * (1 << Q_FORMAT_TO_MULTIPLY_LOG)) + entr_const; // Add entropy constant value
+        entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const; // Add entropy constant value
         // Div by Q26 to compare with float  log(mul_x)     mul_x = look_x * power(2, ex)      
         // log(look_x * power(2, ex))  -> log(look_x) + log(power(2, ex)) -> log(lookx) + ex
-        entropy_y = log_18[e_look_y] + (ey * (1 << Q_FORMAT_TO_MULTIPLY_LOG)) + entr_const; // Add entropy constant value
+        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const; // Add entropy constant value
 
         add_x = (int64_t)var_x + const_val;
         add_y = (int64_t)var_y + const_val;
         s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
         s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
-        scale_x = log_18[s_look_x] + (sx * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
-        scale_y = log_18[s_look_y] + (sy * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
+        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
 
-        fentropy_x = (entropy_x / (1 << (Q_FORMAT_TO_MULTIPLY_LOG ))) - (12 + log2f(255 * 255 * 81)); 
+#if TRY_MAX_PRECESSION
+        fentropy_x = entropy_x - sub_val;
+        fentropy_y = entropy_y - sub_val;
+        fscale_x = scale_x - sub_val;
+        fscale_y = scale_y - sub_val;
+
+        fentropy_x = (fentropy_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fentropy_y = (fentropy_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fscale_x = (fscale_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fscale_y = (fscale_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+
+#else
+        fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
         // Divide here by the Q-Factor to match score with Float
-        fentropy_y = (entropy_y / (1 << (Q_FORMAT_TO_MULTIPLY_LOG ))) - (12 + log2f(255 * 255 * 81)); 
-        fscale_x = (scale_x  / (1 << (Q_FORMAT_TO_MULTIPLY_LOG))) - (12 + log2f(255 * 255 * 81)); 
-        fscale_y = (scale_y  / (1 << (Q_FORMAT_TO_MULTIPLY_LOG))) - (12 + log2f(255 * 255 * 81)); 
-
-//        entropy_x = log_18[e_look_x] + (ex * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
-//        entropy_x -= (12 + log2f(255 * 255 * 81)) * (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-//        fentropy_x = (float)entropy_x / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-//        entropy_y = log_18[e_look_y] + (ey * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+        fentropy_y = (entropy_y / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
+        fscale_x = (scale_x  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
+        fscale_y = (scale_y  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
+#endif
 
         if(enable_temporal == 1)
         {
-            aggregate += abs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
+            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
         }
         else
         {
             spat_scales_x[spat_row_idx] = fscale_x;
             spat_scales_y[spat_row_idx] = fscale_y;
-            aggregate += abs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
         }
 #endif
     }
@@ -318,7 +332,7 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
         var_y = (var_y < 0) ? 0 : var_y;
 
 #if USE_FLOAT_CODE
-        int64_t div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
+        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
 
         float fvar_x = (float) var_x / div_fac;
         float fvar_y = (float) var_y / div_fac;
@@ -328,10 +342,10 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
 
 
         const_val = 1;
-        fentropy_x = log2f(fvar_x + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
-        fentropy_y = log2f(fvar_y + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
-        fscale_x = log2f(const_val + fvar_x);
-        fscale_y = log2f(const_val + fvar_y);
+        fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+        fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+        fscale_x = log(const_val + fvar_x);
+        fscale_y = log(const_val + fvar_y);
 
         if(enable_temporal == 1)
         {
@@ -356,36 +370,43 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
 
 
 #else
-        div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
-        sigma_nsq = div_fac * 0.1;
-        const_val = (uint64_t)1 * div_fac;
-
         mul_x = (uint64_t)(var_x + sigma_nsq);
         mul_y = (uint64_t)(var_y + sigma_nsq);
         e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
         e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[e_look_x] + (ex * (1 << Q_FORMAT_TO_MULTIPLY_LOG)) + entr_const; 
+        entropy_x = log_18[e_look_x] + (ex * TWO_POW_Q_FACT) + entr_const; 
         // Div by Q26 to compare with float  log(mul_x)     mul_x = look_x * power(2, ex)      
         // log(look_x * power(2, ex))  -> log(look_x) + log(power(2, ex)) -> log(lookx) + ex
-        entropy_y = log_18[e_look_y] + (ey * (1 << Q_FORMAT_TO_MULTIPLY_LOG)) + entr_const;
+        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
 
         add_x = (uint64_t)var_x + const_val;
         add_y = (uint64_t)var_y + const_val;
         s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
         s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
-        scale_x = log_18[s_look_x] + (sx * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
-        scale_y = log_18[s_look_y] + (sy * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
+        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
 
-        fentropy_x = (entropy_x / (1 << (Q_FORMAT_TO_MULTIPLY_LOG))) - (12 + log2f(255 * 255 * 81)); 
+#if TRY_MAX_PRECESSION
+        fentropy_x = entropy_x - sub_val;
+        fentropy_y = entropy_y - sub_val;
+        fscale_x = scale_x - sub_val;
+        fscale_y = scale_y - sub_val;
+
+        fentropy_x = (fentropy_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fentropy_y = (fentropy_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fscale_x = (fscale_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fscale_y = (fscale_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+#else
+        fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
         // Divide here by the Q-Factor to match score with Float
-        fentropy_y = (entropy_y / (1 << (Q_FORMAT_TO_MULTIPLY_LOG ))) - (12 + log2f(255 * 255 * 81)); 
-        fscale_x = (scale_x  / (1 << (Q_FORMAT_TO_MULTIPLY_LOG))) - (12 + log2f(255 * 255 * 81)); 
-        fscale_y = (scale_y  / (1 << (Q_FORMAT_TO_MULTIPLY_LOG))) - (12 + log2f(255 * 255 * 81)); 
-
+        fentropy_y = (entropy_y / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
+        fscale_x = (scale_x  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
+        fscale_y = (scale_y  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
+#endif
 
         if(enable_temporal == 1)
         {
-            aggregate += abs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx + j - kw]);
+            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx + j - kw]);
 
 //            FILE *fptr;
 //            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/used.csv", "w+");
@@ -396,7 +417,7 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
         {
             spat_scales_x[spat_row_idx + j - kw] = fscale_x;
             spat_scales_y[spat_row_idx + j - kw] = fscale_y;
-            aggregate += abs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
 
 //            FILE *fptr;
 //            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/stored.csv", "w+");
@@ -411,7 +432,7 @@ float strred_spat_horz_integralsum(int kw, int width_p1,
     return aggregate;
 }
 
-float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t sigma_nsq_arg, int32_t shift_val, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y)
+float integer_rred_aggregate(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t sigma_nsq_arg, int32_t shift_val, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y)
 {
     int ret = 1;
 
@@ -431,7 +452,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     strred_height = height - (2 * x_reflect);
 #endif
 
-    size_t r_width = strred_width + (2 * x_reflect); // after reflect pad
+    size_t r_width = strred_width + (2 * x_reflect);
     size_t r_height = strred_height + (2 * x_reflect);
     dwt2_dtype* x_pad_t;
     dwt2_dtype* y_pad_t;
@@ -450,13 +471,11 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
 
     int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
-    float spat_agg_abs_accum = 0;
-    float temp_agg_abs_accum = 0;
-    int16_t power_fac = 0;
+    float agg_abs_accum = 0;
     float entr_const_temp = log2f(2 * M_PI * EULERS_CONSTANT);
-    uint32_t entr_const = (uint32_t) entr_const_temp * (1 << Q_FORMAT_TO_MULTIPLY_LOG);
+    uint32_t entr_const = (uint32_t) (entr_const_temp * TWO_POW_Q_FACT);
 
-    uint32_t sigma_nsq_t = (uint32_t)4*knorm_fact*knorm_fact;
+    uint64_t sigma_nsq_t = (uint64_t)4*knorm_fact*knorm_fact;
 
     {
         int width_p1 = r_width + 1;
@@ -466,9 +485,6 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
         int32_t *interim_1_y = (int32_t*)calloc(width_p1, sizeof(int32_t));
         int64_t *interim_2_x = (int64_t*)calloc(width_p1, sizeof(int64_t));
         int64_t *interim_2_y = (int64_t*)calloc(width_p1, sizeof(int64_t));
-
-        float *spat_scale_x = (float*)calloc(width_p1, sizeof(float));
-        float *spat_scale_y = (float*)calloc(width_p1, sizeof(float));
 
         int i = 0;
         dwt2_dtype src_x_val, src_y_val;
@@ -510,7 +526,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
          */
         //score computation for 1st row of variance & covariance i.e. kh row of padded img
 
-        spat_agg_abs_accum += strred_spat_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
+        agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                              entr_const, sigma_nsq_t, log_18,
                              interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, i-kh);
 
@@ -547,7 +563,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
             }
 
             //horizontal summation and score compuations
-            spat_agg_abs_accum += strred_spat_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
+            agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                                  entr_const, sigma_nsq_t, log_18,
                                  interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, (i-kh)*width_p1);
         }
@@ -562,7 +578,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     free(x_pad_t);
     free(y_pad_t);
 #endif
-    return spat_agg_abs_accum;
+    return agg_abs_accum;
 }
 
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
@@ -619,22 +635,22 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         size_t i, j;
         spat_values[subband] = 0;
 
-        spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
+        spat_values[subband] = integer_rred_aggregate(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
         fspat_val[subband] = spat_values[subband] / (width * height);
 
-        if(prev_ref != NULL && prev_dist != NULL) {
-            enable_temp = 1;
-            dwt2_dtype* ref_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
-            dwt2_dtype* dist_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
-            temp_values[subband] = 0;
-
-            integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
-            temp_values[subband] = integer_rred_entropies_and_scales(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
-            ftemp_val[subband] = temp_values[subband] / (width * height);
-
-            free(ref_temporal);
-            free(dist_temporal);
-        }
+//        if(prev_ref != NULL && prev_dist != NULL) {
+//            enable_temp = 1;
+//            dwt2_dtype* ref_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
+//            dwt2_dtype* dist_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
+//            temp_values[subband] = 0;
+//
+//            integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
+//            temp_values[subband] = integer_rred_aggregate(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
+//            ftemp_val[subband] = temp_values[subband] / (width * height);
+//
+//            free(ref_temporal);
+//            free(dist_temporal);
+//        }
 
     }
     strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;

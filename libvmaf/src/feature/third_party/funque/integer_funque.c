@@ -733,21 +733,21 @@ static int extract(VmafFeatureExtractor *fex,
 //    }
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores[0].trred_vals[0], index);
+                                         s->strred_scores[0].srred_vals[0], index);
     if (s->strred_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_integer_feature_strred_scale1_score",
-                                                       s->strred_scores[1].trred_vals[1], index);
+                                                       s->strred_scores[1].srred_vals[1], index);
 
         if (s->strred_levels > 2) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                            s->feature_name_dict, "FUNQUE_integer_feature_strred_scale2_score",
-                                                           s->strred_scores[2].trred_vals[2], index);
+                                                           s->strred_scores[2].srred_vals[2], index);
 
             if (s->strred_levels > 3) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                s->feature_name_dict, "FUNQUE_integer_feature_strred_scale3_score",
-                                                               s->strred_scores[3].trred_vals[3], index);
+                                                               s->strred_scores[3].srred_vals[3], index);
             }
         }
     }
