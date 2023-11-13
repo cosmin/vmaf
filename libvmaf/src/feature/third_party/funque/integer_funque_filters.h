@@ -102,16 +102,16 @@ typedef struct ModuleFunqueState
 /* filter format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal as in funque_dwt2_inplace_csf */
 /* All the coefficients are in Q15 format*/
 static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
-    {32767, 1408, 182, 1408},
-    {32767, 13918, 6074, 13918},
-    {32767, 26080, 20875, 26080},
-    {32767, 30836, 29060, 30836},
+    {32767, 22544, 23331, 22544},
+    {32767, 27836, 24297, 27836},
+    {32767, 26081, 20876, 26081},
+    {32767, 30836, 29061, 30836},
     /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
 };
 
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
-    {10, 5, 2, 5},
-    {15, 13, 12, 13},
+    {10, 9, 9, 9},
+    {15, 14, 14, 14},
     {15, 14, 14, 14},
     {15, 14, 14, 14},
 };
