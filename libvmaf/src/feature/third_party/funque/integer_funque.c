@@ -517,7 +517,7 @@ static int extract(VmafFeatureExtractor *fex,
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride, res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf, 0);
 
-        s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0], res_ref_pic->h[0], (int) res_ref_pic->bpc);
+        s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0], res_dist_pic->h[0], (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride, &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride, res_dist_pic->w[0], res_dist_pic->h[0], s->enable_spatial_csf, 0);
     }
 
@@ -733,21 +733,21 @@ static int extract(VmafFeatureExtractor *fex,
 //    }
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores[0].srred_vals[0], index);
+                                         s->strred_scores[0].trred_vals[0], index);
     if (s->strred_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                        s->feature_name_dict, "FUNQUE_integer_feature_strred_scale1_score",
-                                                       s->strred_scores[1].srred_vals[1], index);
+                                                       s->strred_scores[1].trred_vals[1], index);
 
         if (s->strred_levels > 2) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                            s->feature_name_dict, "FUNQUE_integer_feature_strred_scale2_score",
-                                                           s->strred_scores[2].srred_vals[2], index);
+                                                           s->strred_scores[2].trred_vals[2], index);
 
             if (s->strred_levels > 3) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                s->feature_name_dict, "FUNQUE_integer_feature_strred_scale3_score",
-                                                               s->strred_scores[3].srred_vals[3], index);
+                                                               s->strred_scores[3].trred_vals[3], index);
             }
         }
     }
