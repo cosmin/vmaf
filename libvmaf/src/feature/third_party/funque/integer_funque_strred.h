@@ -25,6 +25,10 @@
 #define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE 26
 #define TWO_POW_Q_FACT (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE)
 #define HALF_ROUND_FACTOR (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE - 1))
+#define USE_FLOAT_CODE 1
+
+#define LOG2_E_POWER_2 2.0813689810056100    // Converted log2 to base e and multiplied by power of 2
+#define LOG2_E_POWER_3 3.0027807071569100
 
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];

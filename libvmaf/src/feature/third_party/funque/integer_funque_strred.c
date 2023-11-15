@@ -129,11 +129,9 @@ float strred_horz_integralsum(int kw, int width_p1,
     float aggregate = 0;
     int64_t div_fac;
 
-    float log2toe = 0.693147;
-    float div_factor = log2toe * TWO_POW_Q_FACT;
     div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
     sigma_nsq = div_fac * 0.1;
-    const_val = (uint64_t)1 * div_fac;
+    const_val = div_fac;
 
     float sub_val_temp = (float)log2f(255 * 255 * 81) + PENDING_SHIFT_FACTOR;
     int64_t sub_val = (int64_t)(sub_val_temp * TWO_POW_Q_FACT);
@@ -153,32 +151,19 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
+#if USE_FLOAT_CODE
+        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
+        float fvar_x = (float) var_x / div_fac;
+        float fvar_y = (float) var_y / div_fac;
 
-        /* Convert var_x and var_y to fixed-point, calculate entropy with 
-            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
-        mul_x = (int64_t)(var_x + sigma_nsq);
-        mul_y = (int64_t)(var_y + sigma_nsq);
-        e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
-        e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const;
-        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
+        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
+        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
-        add_x = (int64_t)var_x + const_val;
-        add_y = (int64_t)var_y + const_val;
-        s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
-        s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
-        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
-        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
-
-        fentropy_x = entropy_x - sub_val;
-        fentropy_y = entropy_y - sub_val;
-        fscale_x = scale_x - sub_val;
-        fscale_y = scale_y - sub_val;
-
-        fentropy_x = fentropy_x / div_factor;
-        fentropy_y = fentropy_y / div_factor;
-        fscale_x = fscale_x / div_factor;
-        fscale_y = fscale_y / div_factor;
+        const_val = 1;
+        fentropy_x = log2f(fvar_x + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
+        fentropy_y = log2f(fvar_y + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
+        fscale_x = log2f(const_val + fvar_x);
+        fscale_y = log2f(const_val + fvar_y);
 
         if(enable_temporal == 1)
         {
@@ -190,6 +175,44 @@ float strred_horz_integralsum(int kw, int width_p1,
             spat_scales_y[spat_row_idx] = fscale_y;
             aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
         }
+#else
+        /* Convert var_x and var_y to fixed-point, calculate entropy with 
+            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
+        mul_x = (uint64_t)(var_x + sigma_nsq);
+        mul_y = (uint64_t)(var_y + sigma_nsq);
+        e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
+        e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
+        entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const;
+        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
+
+        add_x = (uint64_t)(var_x + const_val);
+        add_y = (uint64_t)(var_y + const_val);
+        s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
+        s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
+        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
+        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
+
+        fentropy_x = entropy_x - sub_val;
+        fentropy_y = entropy_y - sub_val;
+        fscale_x = scale_x - sub_val;
+        fscale_y = scale_y - sub_val;
+
+        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
+        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
+        fscale_x = fscale_x / TWO_POW_Q_FACT;
+        fscale_y = fscale_y / TWO_POW_Q_FACT;
+
+        if(enable_temporal == 1)
+        {
+            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
+        }
+        else
+        {
+            spat_scales_x[spat_row_idx] = fscale_x;
+            spat_scales_y[spat_row_idx] = fscale_y;
+            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+        }
+#endif
     }
 
     /**
@@ -212,32 +235,20 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
+#if USE_FLOAT_CODE
+        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
 
-        /* Convert var_x and var_y to fixed-point, calculate entropy with 
-            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
-        mul_x = (uint64_t)(var_x + sigma_nsq);
-        mul_y = (uint64_t)(var_y + sigma_nsq);
-        e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
-        e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[e_look_x] + (ex * TWO_POW_Q_FACT) + entr_const; 
-        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
+        float fvar_x = (float) var_x / div_fac;
+        float fvar_y = (float) var_y / div_fac;
 
-        add_x = (uint64_t)var_x + const_val;
-        add_y = (uint64_t)var_y + const_val;
-        s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
-        s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
-        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
-        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
+        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
+        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
-        fentropy_x = entropy_x - sub_val;
-        fentropy_y = entropy_y - sub_val;
-        fscale_x = scale_x - sub_val;
-        fscale_y = scale_y - sub_val;
-
-        fentropy_x = fentropy_x / div_factor;
-        fentropy_y = fentropy_y / div_factor;
-        fscale_x = fscale_x / div_factor;
-        fscale_y = fscale_y / div_factor;
+        const_val = 1;
+        fentropy_x = log2f(fvar_x + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
+        fentropy_y = log2f(fvar_y + 0.1) + log2f(2 * M_PI * EULERS_CONSTANT);
+        fscale_x = log2f(const_val + fvar_x);
+        fscale_y = log2f(const_val + fvar_y);
 
         if(enable_temporal == 1)
         {
@@ -249,6 +260,44 @@ float strred_horz_integralsum(int kw, int width_p1,
             spat_scales_y[spat_row_idx + j - kw] = fscale_y;
             aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
         }
+#else
+        /* Convert var_x and var_y to fixed-point, calculate entropy with 
+            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
+        mul_x = (uint64_t)(var_x + sigma_nsq);
+        mul_y = (uint64_t)(var_y + sigma_nsq);
+        e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
+        e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
+        entropy_x = log_18[e_look_x] + (ex * TWO_POW_Q_FACT) + entr_const; 
+        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
+
+        add_x = (uint64_t)(var_x + const_val);
+        add_y = (uint64_t)(var_y + const_val);
+        s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
+        s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
+        scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
+        scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
+
+        fentropy_x = entropy_x - sub_val;
+        fentropy_y = entropy_y - sub_val;
+        fscale_x = scale_x - sub_val;
+        fscale_y = scale_y - sub_val;
+
+        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
+        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
+        fscale_x = fscale_x / TWO_POW_Q_FACT;
+        fscale_y = fscale_y / TWO_POW_Q_FACT;
+
+        if(enable_temporal == 1)
+        {
+            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx + j - kw]);
+        }
+        else
+        {
+            spat_scales_x[spat_row_idx + j - kw] = fscale_x;
+            spat_scales_y[spat_row_idx + j - kw] = fscale_y;
+            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+        }
+#endif
     }
     return aggregate;
 }
@@ -459,7 +508,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         spat_values[subband] = 0;
 
         spat_values[subband] = integer_rred_aggregate(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
-        fspat_val[subband] = spat_values[subband] / (width * height);
+        fspat_val[subband] = spat_values[subband] / (width * height * LOG2_E_POWER_2);
 
         if(prev_ref != NULL && prev_dist != NULL) {
             enable_temp = 1;
@@ -469,7 +518,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
 
             integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
             temp_values[subband] = integer_rred_aggregate(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
-            ftemp_val[subband] = temp_values[subband] / (width * height);
+            ftemp_val[subband] = temp_values[subband] / (width * height * LOG2_E_POWER_3);
 
             free(ref_temporal);
             free(dist_temporal);
