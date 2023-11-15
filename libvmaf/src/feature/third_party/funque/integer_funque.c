@@ -117,6 +117,7 @@ typedef struct IntFunqueState
     double vif_enhn_gain_limit;
     double vif_kernelscale;
     uint32_t log_18[262144];
+    uint32_t log_16[65536];
 
     // ADM extra variables
     double adm_enhn_gain_limit;
@@ -145,7 +146,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
     },
     {
         .name = "enable_spatial_csf",
@@ -373,6 +374,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->i_prev_dist[level].height = (int)(last_h + 1) / 2;
         s->i_prev_dist[level].stride = (int)ALIGN_CEIL(s->i_prev_dist[level].width * sizeof(dwt2_dtype));
 
+        s->i_prev_ref[level].bands[0] = NULL;
+        s->i_prev_dist[level].bands[0] = NULL;
+
         // Memory allocation for dwt output bands
         for (unsigned i = 0; i < 4; i++)
         {
@@ -441,12 +445,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #elif ARCH_X86
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
-        s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
-        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
+        s->modules.integer_spatial_filter = integer_spatial_filter;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx2;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
@@ -466,7 +470,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #endif
 #endif
 
-    funque_log_generate(s->log_18);
+    //funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
     strred_funque_log_generate(s->log_18);
 
@@ -574,7 +578,7 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
 
-    for(int level = 0; level < s->needed_dwt_levels; level++)
+    for(int level = 0; level < s->needed_dwt_levels; level++) // For ST-RRED Debugging level set to 0
     {
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
@@ -660,6 +664,28 @@ static int extract(VmafFeatureExtractor *fex,
         }
 #endif
 
+        if(level <= s->strred_levels - 1) {
+            int16_t strred_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
+
+            if(index == 0) {
+                err |= s->modules.integer_copy_prev_frame_strred_funque(
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
+            }
+            else {
+                err |= s->modules.integer_compute_strred_funque(
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 1);
+
+                err |= s->modules.integer_copy_prev_frame_strred_funque(
+                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
+            }
+            if (err) return err;
+        }
     }
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
@@ -739,6 +765,25 @@ static int extract(VmafFeatureExtractor *fex,
 //        }
 //    }
 
+    err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
+                                         s->strred_scores[0].strred_vals[0], index);
+    if (s->strred_levels > 1) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_integer_feature_strred_scale1_score",
+                                                       s->strred_scores[1].strred_vals[1], index);
+
+        if (s->strred_levels > 2) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_integer_feature_strred_scale2_score",
+                                                           s->strred_scores[2].strred_vals[2], index);
+
+            if (s->strred_levels > 3) {
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_integer_feature_strred_scale3_score",
+                                                               s->strred_scores[3].strred_vals[3], index);
+            }
+        }
+    }
 
     return err;
 }
@@ -780,6 +825,11 @@ static const char *provided_features[] = {
     "FUNQUE_integer_feature_adm_score", "FUNQUE_integer_feature_adm_scale0_score",
 
     "FUNQUE_integer_feature_ssim_scale0_score",
+
+    "FUNQUE_integer_feature_strred_scale0_score",
+    "FUNQUE_integer_feature_strred_scale1_score",
+    "FUNQUE_integer_feature_strred_scale2_score",
+    "FUNQUE_integer_feature_strred_scale3_score",
 
     NULL};
 

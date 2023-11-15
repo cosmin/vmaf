@@ -20,7 +20,15 @@
 
 #define STRRED_REFLECT_PAD 1
 #define STRRED_STABILITY 0
-#define STRRED_COMPUTE_METRIC_R_SHIFT 6
+#define PENDING_SHIFT_FACTOR 12
+
+#define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE 26
+#define TWO_POW_Q_FACT (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE)
+#define HALF_ROUND_FACTOR (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE - 1))
+#define USE_FLOAT_CODE 1
+
+#define LOG2_E_POWER_2 2.0813689810056100    // Converted log2 to base e and multiplied by power of 2
+#define LOG2_E_POWER_3 3.0027807071569100
 
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];
@@ -34,7 +42,7 @@ typedef struct strred_results {
 int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level, uint32_t *log_18, int32_t sigma_nsq_t, int32_t shift_val);
+                          int block_size, int level, uint32_t *log_18, int32_t shift_val, uint32_t sigma_nsq_t);
 
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                                   struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
