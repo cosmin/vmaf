@@ -284,10 +284,10 @@ float strred_horz_integralsum(int kw, int width_p1,
         fscale_x = scale_x - sub_val;
         fscale_y = scale_y - sub_val;
 
-        fentropy_x = (fentropy_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fentropy_y = (fentropy_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fscale_x = (fscale_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fscale_y = (fscale_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
+        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
+        fscale_x = fscale_x / TWO_POW_Q_FACT;
+        fscale_y = fscale_y / TWO_POW_Q_FACT;
 
 #else
         fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
@@ -392,10 +392,10 @@ float strred_horz_integralsum(int kw, int width_p1,
         fscale_x = scale_x - sub_val;
         fscale_y = scale_y - sub_val;
 
-        fentropy_x = (fentropy_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fentropy_y = (fentropy_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fscale_x = (fscale_x + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
-        fscale_y = (fscale_y + HALF_ROUND_FACTOR) / TWO_POW_Q_FACT;
+        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
+        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
+        fscale_x = fscale_x / TWO_POW_Q_FACT;
+        fscale_y = fscale_y / TWO_POW_Q_FACT;
 #else
         fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
         // Divide here by the Q-Factor to match score with Float
@@ -638,23 +638,24 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         spat_values[subband] = integer_rred_aggregate(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
         fspat_val[subband] = spat_values[subband] / (width * height);
 
-//        if(prev_ref != NULL && prev_dist != NULL) {
-//            enable_temp = 1;
-//            dwt2_dtype* ref_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
-//            dwt2_dtype* dist_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
-//            temp_values[subband] = 0;
-//
-//            integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
-//            temp_values[subband] = integer_rred_aggregate(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
-//            ftemp_val[subband] = temp_values[subband] / (width * height);
-//
-//            free(ref_temporal);
-//            free(dist_temporal);
-//        }
+        if(prev_ref != NULL && prev_dist != NULL) {
+            enable_temp = 1;
+            dwt2_dtype* ref_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
+            dwt2_dtype* dist_temporal = (dwt2_dtype*) calloc(width * height, sizeof(dwt2_dtype));
+            temp_values[subband] = 0;
+
+            integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
+            temp_values[subband] = integer_rred_aggregate(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
+            ftemp_val[subband] = temp_values[subband] / (width * height);
+
+            free(ref_temporal);
+            free(dist_temporal);
+        }
 
     }
     strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;
     strred_scores->temp_vals[level] = (ftemp_val[1] + ftemp_val[2] + ftemp_val[3]) / 3;
+    strred_scores->spat_temp_vals[level] = strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     // Add equations to compute ST-RRED using norm factors
     int norm_factor;
@@ -665,15 +666,18 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
     if(level == 0) {
         spat_vals_cumsum = strred_scores->spat_vals[level];
         temp_vals_cumsum = strred_scores->temp_vals[level];
+        spat_temp_vals_cumsum = strred_scores->spat_temp_vals[level];
     } else {
         for(num_level = 1; num_level <= level; num_level++) {
             spat_vals_cumsum += strred_scores->spat_vals[num_level];
             temp_vals_cumsum += strred_scores->temp_vals[num_level];
+            spat_temp_vals_cumsum += strred_scores->spat_temp_vals[num_level];
         }
     }
 
     strred_scores->srred_vals[level] = spat_vals_cumsum / norm_factor;
     strred_scores->trred_vals[level] = temp_vals_cumsum / norm_factor;
+    strred_scores->strred_vals[level] = spat_temp_vals_cumsum / norm_factor;
 
     free(scales_spat_x);
     free(scales_spat_y);
