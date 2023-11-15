@@ -202,6 +202,8 @@ float strred_horz_integralsum(int kw, int width_p1,
     float aggregate = 0;
     int64_t div_fac;
 
+    float log2toe = 0.693147;
+    float div_factor = log2toe * TWO_POW_Q_FACT;
     div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
     sigma_nsq = div_fac * 0.1;
     const_val = (uint64_t)1 * div_fac;
@@ -284,10 +286,10 @@ float strred_horz_integralsum(int kw, int width_p1,
         fscale_x = scale_x - sub_val;
         fscale_y = scale_y - sub_val;
 
-        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
-        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
-        fscale_x = fscale_x / TWO_POW_Q_FACT;
-        fscale_y = fscale_y / TWO_POW_Q_FACT;
+        fentropy_x = fentropy_x / div_factor;
+        fentropy_y = fentropy_y / div_factor;
+        fscale_x = fscale_x / div_factor;
+        fscale_y = fscale_y / div_factor;
 
 #else
         fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
@@ -392,10 +394,10 @@ float strred_horz_integralsum(int kw, int width_p1,
         fscale_x = scale_x - sub_val;
         fscale_y = scale_y - sub_val;
 
-        fentropy_x = fentropy_x / TWO_POW_Q_FACT;
-        fentropy_y = fentropy_y / TWO_POW_Q_FACT;
-        fscale_x = fscale_x / TWO_POW_Q_FACT;
-        fscale_y = fscale_y / TWO_POW_Q_FACT;
+        fentropy_x = fentropy_x / div_factor;
+        fentropy_y = fentropy_y / div_factor;
+        fscale_x = fscale_x / div_factor;
+        fscale_y = fscale_y / div_factor;
 #else
         fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
         // Divide here by the Q-Factor to match score with Float
