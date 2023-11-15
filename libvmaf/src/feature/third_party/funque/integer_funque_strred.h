@@ -22,17 +22,9 @@
 #define STRRED_STABILITY 0
 #define PENDING_SHIFT_FACTOR 12
 
-#define USE_LOG_18 1
 #define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE 26
 #define TWO_POW_Q_FACT (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE)
 #define HALF_ROUND_FACTOR (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE - 1))
-
-#define KEEP_SPAT_IN_INTEGER 0
-#define DEBUG_STRRED 1
-#define USE_FLOAT_CODE 0
-
-
-#define TRY_MAX_PRECESSION 1
 
 typedef struct strred_results {
     double srred_vals[MAX_LEVELS];

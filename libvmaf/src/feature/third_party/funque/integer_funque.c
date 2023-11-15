@@ -427,11 +427,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     //funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
-#if USE_LOG_18
     strred_funque_log_generate(s->log_18);
-#else
-    strred_log_generate(s->log_16);
-#endif
 
     return 0;
 
@@ -632,17 +628,11 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height);
             }
             else {
-#if USE_LOG_18
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 1);
-#else
-                err |= s->modules.integer_compute_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_16, strred_pending_div, 1);
-#endif
+
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
@@ -650,9 +640,6 @@ static int extract(VmafFeatureExtractor *fex,
             }
             if (err) return err;
         }
-
-
-
     }
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;

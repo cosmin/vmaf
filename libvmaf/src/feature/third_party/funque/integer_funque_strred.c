@@ -27,7 +27,6 @@
 #include "common/macros.h"
 #include "integer_funque_strred.h"
 
-#if USE_LOG_18
 // just change the store offset to reduce multiple calculation when getting log value
 void strred_funque_log_generate(uint32_t* log_18)
 {
@@ -69,78 +68,6 @@ uint32_t strred_get_best_u18_from_u64(uint64_t temp, int *x)
 
     return (uint32_t)temp;
 }
-
-#else
-
-uint32_t strred_get_best_u18_from_u32(uint32_t temp, int *x)
-{
-    int k = __builtin_clzll(temp);
-
-    if (k > 14)
-    {
-        k -= 14;
-        temp = temp << k;
-        *x = -k;
-
-    }
-    else if (k < 13)
-    {
-        k = 14 - k;
-        temp = temp >> k;
-        *x = k;
-    }
-    else
-    {
-        *x = 0;
-        if (temp >> 18)
-        {
-            temp = temp >> 1;
-            *x = 1;
-        }
-    }
-
-    return (uint32_t)temp;
-}
-
-
-void strred_log_generate(uint16_t *log_16)
-{
-    for (unsigned i = 32767; i < 65536; ++i) {
-        log_16[i] = (uint16_t)round(log2f((float)i) * 2048);
-    }
-}
-
-uint16_t strred_get_best_u16_from_u64(uint64_t temp, int *x)
-{
-    int k = __builtin_clzll(temp);
-
-    if (k > 48)
-    {
-        k -= 48;
-        temp = temp << k;
-        *x = -k;
-
-    }
-    else if (k < 47)
-    {
-        k = 48 - k;
-        temp = temp >> k;
-        *x = k;
-    }
-    else
-    {
-        *x = 0;
-        if (temp >> 16)
-        {
-            temp = temp >> 1;
-            *x = 1;
-        }
-    }
-
-    return (uint16_t)temp;
-}
-
-#endif
 
 void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
 {
@@ -208,12 +135,8 @@ float strred_horz_integralsum(int kw, int width_p1,
     sigma_nsq = div_fac * 0.1;
     const_val = (uint64_t)1 * div_fac;
 
-#if TRY_MAX_PRECESSION
     float sub_val_temp = (float)log2f(255 * 255 * 81) + PENDING_SHIFT_FACTOR;
     int64_t sub_val = (int64_t)(sub_val_temp * TWO_POW_Q_FACT);
-#else
-    float sub_val = (float)log2f(255 * 255 * 81) + PENDING_SHIFT_FACTOR;
-#endif
 
     for (int j=1; j<kw+1; j++)
     {
@@ -231,47 +154,14 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
-#if USE_FLOAT_CODE
-
-        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
-// log2(255 * 255 * 81) + 12
-        float fvar_x = (float) var_x / div_fac;
-        float fvar_y = (float) var_y / div_fac;
-
-        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
-        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
-
-        const_val = 1;
-        fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fscale_x = log(const_val + fvar_x);
-        fscale_y = log(const_val + fvar_y);
-
-        if(enable_temporal == 1)
-        {
-            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
-
-//            FILE *fptr;
-//            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/used.csv", "w+");
-//            fprintf(fptr, "%.10f, ", spat_scales_x[spat_row_idx]);
-//            fclose(fptr);
-        }
-        else
-        {
-            spat_scales_x[spat_row_idx] = fscale_x;
-            spat_scales_y[spat_row_idx] = fscale_y;
-            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
-        }
-
-#else
+        /* Convert var_x and var_y to fixed-point, calculate entropy with 
+            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
         mul_x = (int64_t)(var_x + sigma_nsq);
         mul_y = (int64_t)(var_y + sigma_nsq);
         e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
         e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const; // Add entropy constant value
-        // Div by Q26 to compare with float  log(mul_x)     mul_x = look_x * power(2, ex)      
-        // log(look_x * power(2, ex))  -> log(look_x) + log(power(2, ex)) -> log(lookx) + ex
-        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const; // Add entropy constant value
+        entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const;
+        entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
 
         add_x = (int64_t)var_x + const_val;
         add_y = (int64_t)var_y + const_val;
@@ -280,7 +170,6 @@ float strred_horz_integralsum(int kw, int width_p1,
         scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
         scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
 
-#if TRY_MAX_PRECESSION
         fentropy_x = entropy_x - sub_val;
         fentropy_y = entropy_y - sub_val;
         fscale_x = scale_x - sub_val;
@@ -291,14 +180,6 @@ float strred_horz_integralsum(int kw, int width_p1,
         fscale_x = fscale_x / div_factor;
         fscale_y = fscale_y / div_factor;
 
-#else
-        fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
-        // Divide here by the Q-Factor to match score with Float
-        fentropy_y = (entropy_y / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
-        fscale_x = (scale_x  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
-        fscale_y = (scale_y  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
-#endif
-
         if(enable_temporal == 1)
         {
             aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
@@ -309,7 +190,6 @@ float strred_horz_integralsum(int kw, int width_p1,
             spat_scales_y[spat_row_idx] = fscale_y;
             aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
         }
-#endif
     }
 
     /**
@@ -333,52 +213,13 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
-#if USE_FLOAT_CODE
-        int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
-
-        float fvar_x = (float) var_x / div_fac;
-        float fvar_y = (float) var_y / div_fac;
-
-        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
-        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
-
-
-        const_val = 1;
-        fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fscale_x = log(const_val + fvar_x);
-        fscale_y = log(const_val + fvar_y);
-
-        if(enable_temporal == 1)
-        {
-            aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx + j - kw]);
-
-//            FILE *fptr;
-//            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/used.csv", "w+");
-//            fprintf(fptr, "%.10f, ", spat_scales_x[spat_row_idx + j - kw]);
-//            fclose(fptr);
-        }
-        else
-        {
-            spat_scales_x[spat_row_idx + j - kw] = fscale_x;
-            spat_scales_y[spat_row_idx + j - kw] = fscale_y;
-            aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
-//
-//            FILE *fptr;
-//            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/stored.csv", "w+");
-//            fprintf(fptr, "%.10f, ", spat_scales_x[spat_row_idx + j - kw]);
-//            fclose(fptr);
-        }
-
-
-#else
+        /* Convert var_x and var_y to fixed-point, calculate entropy with 
+            strred_get_best_u18_from_u64, scale by 2^TWO_POW_Q_FACT, and add constant.*/
         mul_x = (uint64_t)(var_x + sigma_nsq);
         mul_y = (uint64_t)(var_y + sigma_nsq);
         e_look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
         e_look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
         entropy_x = log_18[e_look_x] + (ex * TWO_POW_Q_FACT) + entr_const; 
-        // Div by Q26 to compare with float  log(mul_x)     mul_x = look_x * power(2, ex)      
-        // log(look_x * power(2, ex))  -> log(look_x) + log(power(2, ex)) -> log(lookx) + ex
         entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
 
         add_x = (uint64_t)var_x + const_val;
@@ -388,7 +229,6 @@ float strred_horz_integralsum(int kw, int width_p1,
         scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT);
         scale_y = log_18[s_look_y] + (sy * TWO_POW_Q_FACT);
 
-#if TRY_MAX_PRECESSION
         fentropy_x = entropy_x - sub_val;
         fentropy_y = entropy_y - sub_val;
         fscale_x = scale_x - sub_val;
@@ -398,38 +238,17 @@ float strred_horz_integralsum(int kw, int width_p1,
         fentropy_y = fentropy_y / div_factor;
         fscale_x = fscale_x / div_factor;
         fscale_y = fscale_y / div_factor;
-#else
-        fentropy_x = (entropy_x / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
-        // Divide here by the Q-Factor to match score with Float
-        fentropy_y = (entropy_y / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE ))) - sub_val;
-        fscale_x = (scale_x  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
-        fscale_y = (scale_y  / (1 << (Q_FORMAT_MULTIPLIED_IN_LOG_TABLE))) - sub_val;
-#endif
 
         if(enable_temporal == 1)
         {
             aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] - fentropy_y * fscale_y * spat_scales_y[spat_row_idx + j - kw]);
-
-//            FILE *fptr;
-//            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/used.csv", "w+");
-//            fprintf(fptr, "%.10f, ", spat_scales_x[spat_row_idx + j - kw]);
-//            fclose(fptr);
         }
         else
         {
             spat_scales_x[spat_row_idx + j - kw] = fscale_x;
             spat_scales_y[spat_row_idx + j - kw] = fscale_y;
             aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
-
-//            FILE *fptr;
-//            fptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temporal_debug/stored.csv", "w+");
-//            fprintf(fptr, "%.10f, ", spat_scales_x[spat_row_idx + j - kw]);
-//            fclose(fptr);
         }
-
-#endif
-
-        // TODO: Add Support ffor log2 for entropy and scale
     }
     return aggregate;
 }
@@ -442,8 +261,9 @@ float integer_rred_aggregate(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_
     int kw = STRRED_WINDOW_SIZE;
     int k_norm = kw * kh;
 
-    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
-    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
+    /* amount of reflecting */
+    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
     size_t strred_width, strred_height;
 
 #if STRRED_REFLECT_PAD
@@ -625,9 +445,10 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
     float fspat_val[DEFAULT_STRRED_SUBBANDS], ftemp_val[DEFAULT_STRRED_SUBBANDS];
     uint8_t enable_temp = 0;
 
-    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
-    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
-    size_t r_width = width + (2 * x_reflect);            // after reflect pad
+    /* amount of reflecting */
+    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+    size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
 
     float *scales_spat_x = (float*)calloc(r_width * r_height, sizeof(float));
