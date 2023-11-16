@@ -14,15 +14,13 @@
         "feature_opts_dicts": [
             {
                 "enable_resize": false,
-                "vif_levels": 4
+                "vif_levels": 4,
+                "strred_levels": 4
             },
             {},
             {},
             {},
-            {},
-            {
-                "strred_levels": 4
-            }
+            {}
         ],
         "feature_names": [
             "FUNQUE_integer_feature_vif_scale0_score",
