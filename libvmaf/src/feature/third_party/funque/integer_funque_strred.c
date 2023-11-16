@@ -185,6 +185,8 @@ float strred_horz_integralsum(int kw, int width_p1,
         entropy_x = log_18[e_look_x] +  (ex * TWO_POW_Q_FACT) + entr_const;
         entropy_y = log_18[e_look_y] + (ey * TWO_POW_Q_FACT) + entr_const;
 
+        add_x = (uint64_t)(var_x + const_val);
+        add_y = (uint64_t)(var_y + const_val);
         //s_look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
         //s_look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
         //scale_x = log_18[s_look_x] + (sx * TWO_POW_Q_FACT); // 
