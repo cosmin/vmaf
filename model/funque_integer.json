@@ -15,15 +15,13 @@
             {
                 "num_taps": 5,
                 "enable_resize": true,
-                "vif_levels": 2
+                "vif_levels": 2,
+                "strred_levels": 4
             },
             {},
             {},
             {},
-            {},
-            {
-                "strred_levels": 4
-            }
+            {}
         ],
         "feature_names": [
             "FUNQUE_integer_feature_vif_scale0_score",
