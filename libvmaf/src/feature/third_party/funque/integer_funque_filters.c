@@ -320,14 +320,15 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
 
 }
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth)
-{
+//const spat_fil_coeff_dtype i_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658 };
 
     const spat_fil_coeff_dtype i_filter_coeffs[21] = {
         -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
         14498, 4677, -66, -1547, -1798, -1669, -1452, -1239, -1054, -900
     };
 
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth)
+{
     int src_px_stride = width;
     int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);
 
@@ -343,6 +344,7 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 	// int fj, jj, jj1, jj;
     // spat_fil_coeff_dtype *coeff_ptr;
     int fwidth = 21;
+//    int fwidth = 5;
     int half_fw = fwidth / 2;
 	
 	if(8 == bitdepth)

@@ -14,7 +14,8 @@
         "feature_opts_dicts": [
             {
                 "enable_resize": false,
-                "vif_levels": 2
+                "vif_levels": 2,
+                "strred_levels": 2
             },
             {},
             {},
@@ -25,7 +26,8 @@
             "FUNQUE_integer_feature_vif_scale0_score",
             "FUNQUE_integer_feature_adm_score",
             "FUNQUE_integer_feature_adm_scale0_score",
-            "FUNQUE_integer_feature_ssim_scale0_score"
+            "FUNQUE_integer_feature_ssim_scale0_score",
+            "FUNQUE_integer_feature_strred_scale0_score"
         ],
         "slopes": [
             0.013377926421404682,
@@ -50,7 +52,8 @@
                 "ssim_scale0",
                 "adm_score",
                 "adm_scale0",
-                "vif_scale0"
+                "vif_scale0",
+                "strred_scale0"
             ]
         },
         "score_clip": [

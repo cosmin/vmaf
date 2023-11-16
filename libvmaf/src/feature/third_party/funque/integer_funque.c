@@ -730,7 +730,7 @@ static int extract(VmafFeatureExtractor *fex,
 //    }
 
     err |= vmaf_feature_collector_append(feature_collector, "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores[0].strred_vals[0], index);
+                                         s->strred_scores[0].srred_vals[0], index);
 
     return err;
 }
@@ -769,6 +769,8 @@ static const char *provided_features[] = {
     "FUNQUE_integer_feature_adm_score", "FUNQUE_integer_feature_adm_scale0_score",
 
     "FUNQUE_integer_feature_ssim_scale0_score",
+
+    "FUNQUE_integer_feature_strred_scale0_score",
 
     NULL};
 

@@ -28,7 +28,7 @@
 #include "integer_funque_strred.h"
 
 #if USE_LOG_18
-// just change the store offset to reduce multiple calculation when getting log value
+// just change the store offset to reduce multiple calculation when getting log2f value
 void strred_funque_log_generate(uint32_t* log_18)
 {
     uint64_t i;
@@ -36,7 +36,7 @@ void strred_funque_log_generate(uint32_t* log_18)
     uint64_t end = (unsigned int)pow(2, 18);
 	for (i = start; i < end; i++)
     {
-		log_18[i] = (uint32_t)round(log((double)i) * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+		log_18[i] = (uint32_t)round(log2((double)i) * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
     }
 }
 
@@ -182,6 +182,10 @@ void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t heig
     }
 }
 
+#define PENDING_SHIFT_FACTOR_NEW 12
+#define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW 26
+#define TWO_POW_Q_FACT_NEW (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW)
+
 //This function does summation of horizontal intermediate_vertical_sums & then 
 //numerator denominator score calculations are done
 #if STRRED_STABILITY
@@ -228,6 +232,26 @@ float strred_horz_integralsum(int kw, int width_p1,
     //float *spat_aggregate = (float*) calloc (width_p1, sizeof(float));
     float spat_aggregate = 0;
 
+           int64_t mul_x_new, mul_y_new;
+           int64_t add_x_new, add_y_new;
+           int16_t ex_new, ey_new, sx_new, sy_new;
+           uint32_t e_look_x_new, e_look_y_new;
+           uint32_t s_look_x_new, s_look_y_new;
+           float fentropy_x_new, fentropy_y_new, fscale_x_new, fscale_y_new;
+           int64_t entropy_x_new, entropy_y_new, scale_x_new, scale_y_new;
+           // TODO:@MallikarjunKamble - Changed above variable from //uint32 to int64 since it was overflowing
+
+           float aggregate_new = 0;
+           int64_t div_fac_new;
+           div_fac_new = (int64_t)(1 << PENDING_SHIFT_FACTOR_NEW) * 255 * 255 * 81;
+           uint64_t sigma_nsq_new = div_fac_new * 0.1;
+           uint64_t const_val_new = div_fac_new;
+           double sub_val_temp_new = log2(255.0 * 255 * 81) + PENDING_SHIFT_FACTOR_NEW;
+           int64_t sub_val_new = (int64_t)(sub_val_temp_new * TWO_POW_Q_FACT_NEW);
+           float entr_const_temp_new = log2f(2 * M_PI * EULERS_CONSTANT);
+           uint32_t entr_const_new = (uint32_t) (entr_const_temp_new * TWO_POW_Q_FACT_NEW);
+            float temp_divFac = 255*255*81;
+
     for (int j=1; j<kw+1; j++)
     {
         // int j_minus1 = j-1;
@@ -254,15 +278,46 @@ float strred_horz_integralsum(int kw, int width_p1,
         fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
 
-        const_val = 1;
-        fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-        fscale_x = log(const_val + fvar_x);
-        fscale_y = log(const_val + fvar_y);
-        // fprintf(ffptr, "%.10f, ", fscale_x);
+            const_val = 1;
+            fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+            fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+            fscale_x = log(const_val + fvar_x);
+            fscale_y = log(const_val + fvar_y);
+//            fprintf(ffptr, "%.10f, ", fvar_x);
+    
+            spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
 
-        spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
 
+                   mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
+                   mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
+                   e_look_x_new = strred_get_best_u18_from_u64((uint64_t)mul_x_new, &ex_new);
+                   e_look_y_new = strred_get_best_u18_from_u64((uint64_t)mul_y_new, &ey_new);
+                   entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+
+                   add_x_new = (uint64_t)(var_x + const_val_new);
+                   add_y_new = (uint64_t)(var_y + const_val_new);
+                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
+                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
+                   scale_x_new = log_18[s_look_x_new] + (sx_new * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_18[s_look_y_new] + (sy_new * TWO_POW_Q_FACT_NEW); // 
+                   //fscale_x_new = log2f(add_x_new) * TWO_POW_Q_FACT_NEW;
+                   //fscale_y_new = log2f(add_y_new) * TWO_POW_Q_FACT_NEW;
+
+                   entropy_x_new = entropy_x_new - sub_val_new;
+                   entropy_y_new = entropy_y_new - sub_val_new;
+                   scale_x_new = scale_x_new - sub_val_new;
+                   scale_y_new = scale_y_new - sub_val_new;
+
+                   fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+
+                   aggregate_new += fabs(fentropy_x_new * fscale_x - fentropy_y_new * fscale_y);
+
+                   int tempp;
+                   tempp = 0;
 /*
 
         mul_x = (int64_t)(var_x + sigma_nsq) * entr_const;
@@ -347,16 +402,47 @@ float strred_horz_integralsum(int kw, int width_p1,
         fvar_x = (fvar_x < 0) ? 0 : fvar_x;
         fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
+// Add new code and check the difference in variables
 
         const_val = 1;
         fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-//        fprintf(ffptr, "%.10f, ", fentropy_x);
         fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
         fscale_x = log(const_val + fvar_x);
         fscale_y = log(const_val + fvar_y);
-        // fprintf(ffptr, "%.10f, ", fscale_x);
+
+//        fprintf(ffptr, "%.10f, ", fvar_x);
 
         spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+
+
+                   mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
+                   mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
+                   e_look_x_new = strred_get_best_u18_from_u64((uint64_t)mul_x_new, &ex_new);
+                   e_look_y_new = strred_get_best_u18_from_u64((uint64_t)mul_y_new, &ey_new);
+                   entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+
+                   add_x_new = (uint64_t)(var_x + const_val_new);
+                   add_y_new = (uint64_t)(var_y + const_val_new);
+                   //s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx);
+                   //s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy);
+                   //scale_x_new = log_18[s_look_x_new] + (sx_new * TWO_POW_Q_FACT_NEW); // 
+                   //scale_y_new = log_18[s_look_y_new] + (sy_new * TWO_POW_Q_FACT_NEW); // 
+                   scale_x_new = log2f(add_x_new / temp_divFac) * TWO_POW_Q_FACT_NEW;
+                   scale_y_new = log2f(add_y_new / temp_divFac) * TWO_POW_Q_FACT_NEW;
+
+                   entropy_x_new = entropy_x_new - sub_val_new;
+                   entropy_y_new = entropy_y_new - sub_val_new;
+                   scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
+                   scale_y_new = scale_y_new - (12 * TWO_POW_Q_FACT_NEW);
+
+                   fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+
+                   aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
+
 
 /*
         mul_x = (uint64_t)(var_x + sigma_nsq) * entr_const;
@@ -402,7 +488,7 @@ float strred_horz_integralsum(int kw, int width_p1,
 
         // TODO: Add Support ffor log2 for entropy and scale
     }
-    return spat_aggregate;
+    return aggregate_new;
 }
 
 
@@ -493,9 +579,8 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
 	sigma_nsq_t = (int64_t)((int64_t)(sigma_nsq_base*shift_val*shift_val*k_norm)) >> STRRED_COMPUTE_METRIC_R_SHIFT ;
 #endif
 
-            FILE *fffptr;
-            fffptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/temp.csv", "w+");
-
+//    FILE *fffptr;
+//    fffptr = fopen("/mnt/d/FUNQUE/repos/debug_strred/New_folder/entropies_scales/fbb7_variance_x.csv", "w+");
     {
         int width_p1 = r_width + 1;
         int height_p1 = r_height + 1;
@@ -556,7 +641,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
         spat_agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                              entr_const, sigma_nsq_t, log_18,
                              interim_1_x, interim_2_x, interim_1_y, interim_2_y);
-//        Q_Fact += power_fac;
+            //fprintf(fffptr, "\n");
 
 #endif
 
@@ -592,7 +677,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
                 interim_2_x[j] = interim_2_x[j] + src_xx_val - src_xx_prekh_val;
                 interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
             }
-//            fprintf(fffptr, "\n");
+            //fprintf(fffptr, "\n");
 
             //horizontal summation and score compuations
 #if STRRED_STABILITY
@@ -633,7 +718,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     free(x_pad_t);
     free(y_pad_t);
 #endif
-    fclose(fffptr);
+//    fclose(fffptr);
     //*Q_Fact = power_fac + 2 * Q_FORMAT_TO_MULTIPLY_LOG;
     return spat_agg_abs_accum;
 
@@ -697,6 +782,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, &Q_Factor);
 
         fspat_val[subband] = spat_values[subband] / (width * height);
+//        fspat_val[subband] = spat_values[subband] / (width * height * 2.08136898100561000);
 
     }
         strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;
