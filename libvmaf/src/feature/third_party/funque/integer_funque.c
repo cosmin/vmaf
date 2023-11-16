@@ -417,6 +417,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->resize_module.hbd_resizer_step = hbd_step;
     s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
 
+    s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+    s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 
 #if ARCH_AARCH64
     unsigned flags = vmaf_get_cpu_flags();
