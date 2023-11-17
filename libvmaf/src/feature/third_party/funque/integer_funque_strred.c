@@ -210,8 +210,6 @@ float strred_horz_integralsum(int kw, int width_p1,
     int32_t mx, my;
     int32_t var_x, var_y;
 
-    uint32_t entropy_x, entropy_y, scale_x, scale_y;
-
     //1st column vals are 0, hence intialising to 0
     int_1_x = 0;
     int_1_y = 0;
@@ -223,32 +221,23 @@ float strred_horz_integralsum(int kw, int width_p1,
      * metric_sum = prev_col_metric_sum + interim_metric_vertical_sum
      * The previous kw col interim metric sum is not subtracted since it is not available here
      */
-    int64_t mul_x, mul_y;
-    int32_t add_x, add_y;
-    uint64_t const_val;
-    int16_t ex, ey, sx, sy;
-    uint32_t look_x, look_y;
-    float fentropy_x, fentropy_y, fscale_x, fscale_y;
 
            int64_t mul_x_new, mul_y_new;
            int64_t add_x_new, add_y_new;
-           int16_t ex_new, ey_new, sx_new, sy_new;
+           int ex_new, ey_new, sx_new, sy_new;
            uint32_t e_look_x_new, e_look_y_new;
            uint32_t s_look_x_new, s_look_y_new;
            float fentropy_x_new, fentropy_y_new, fscale_x_new, fscale_y_new;
            int64_t entropy_x_new, entropy_y_new, scale_x_new, scale_y_new;
-           // TODO:@MallikarjunKamble - Changed above variable from //uint32 to int64 since it was overflowing
 
            float aggregate_new = 0;
            int64_t div_fac_new;
            div_fac_new = (int64_t)(1 << PENDING_SHIFT_FACTOR_NEW) * 255 * 255 * 81;
            uint64_t sigma_nsq_new = div_fac_new * 0.1;
            uint64_t const_val_new = div_fac_new;
-           double sub_val_temp_new = log2(255.0 * 255 * 81) + PENDING_SHIFT_FACTOR_NEW;
-           int64_t sub_val_new = (int64_t)(sub_val_temp_new * TWO_POW_Q_FACT_NEW);
-           float entr_const_temp_new = log2f(2 * M_PI * EULERS_CONSTANT);
-           uint32_t entr_const_new = (uint32_t) (entr_const_temp_new * TWO_POW_Q_FACT_NEW);
-            float temp_divFac = 255*255*81;
+           int64_t sub_val_new = (int64_t)((log2(255.0 * 255 * 81) + PENDING_SHIFT_FACTOR_NEW) * TWO_POW_Q_FACT_NEW);
+           uint32_t entr_const_new = (uint32_t)(log2f(2 * M_PI * EULERS_CONSTANT) * TWO_POW_Q_FACT_NEW);
+            float temp_mul_fac = ((256 * 256 * 128) / (255.0*255*81));
 
     for (int j=1; j<kw+1; j++)
     {
@@ -267,14 +256,6 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
-        int64_t div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
-
-        float fvar_x = (float) var_x / div_fac;
-        float fvar_y = (float) var_y / div_fac;
-
-        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
-        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
-
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
                    mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
                    e_look_x_new = strred_get_best_u18_from_u64((uint64_t)mul_x_new, &ex_new);
@@ -282,9 +263,9 @@ float strred_horz_integralsum(int kw, int width_p1,
                    entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
                    entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
-                   add_x_new = (uint64_t)((var_x + const_val_new) * ((256 * 256 * 128) / temp_divFac));
-                   add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
-#if 1
+                   add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
+                   add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
+#if 0
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    float tempp_agg = 0;
                    tempp_agg = aggregate_new;
@@ -344,14 +325,6 @@ float strred_horz_integralsum(int kw, int width_p1,
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
-        int64_t div_fac = (int64_t)(1 << STRRED_COMPUTE_METRIC_R_SHIFT) * 255 * 255 * 81;
-
-        float fvar_x = (float) var_x / div_fac;
-        float fvar_y = (float) var_y / div_fac;
-
-        fvar_x = (fvar_x < 0) ? 0 : fvar_x;
-        fvar_y = (fvar_y < 0) ? 0 : fvar_y;
-
 
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
                    mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
@@ -360,9 +333,9 @@ float strred_horz_integralsum(int kw, int width_p1,
                    entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
                    entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
-                   add_x_new = (uint64_t)((var_x + const_val_new) * ((256 * 256 * 128) / temp_divFac));
-                   add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
-#if 1
+                   add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
+                   add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
+#if 0
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    float tempp_agg = 0;
                    tempp_agg = aggregate_new;
