@@ -14,9 +14,10 @@
         "feature_opts_dicts": [
             {
                 "num_taps": 21,
-                "enable_resize": false,
+                "enable_resize": true,
                 "vif_levels": 2,
-                "strred_levels": 2
+                "strred_levels": 2,
+                "enable_spatial_csf": false
             },
             {},
             {},

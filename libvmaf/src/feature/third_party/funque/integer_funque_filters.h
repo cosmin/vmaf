@@ -118,6 +118,14 @@ static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
     {32767, 30836, 29061, 30836},
     /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
 };
+#if 1
+static const uint8_t i_nadenau_pending_div_factors[4][4] = {
+    {6, 11, 11, 14}, // L0
+    {5, 11, 11, 15}, // L1
+    {4, 10, 10, 14}, // L2
+    {3,  9,  9, 13}, // L3
+};
+
 
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
     {10, 9, 9, 9},
@@ -125,6 +133,16 @@ static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
     {15, 14, 14, 14},
     {15, 14, 14, 14},
 };
+#else
+
+
+static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
+    {10,  5,  2,  5},
+    {15, 13, 12, 13},
+    {15, 14, 14, 14},
+    {15, 14, 14, 14},
+};
+#endif
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag, int level);

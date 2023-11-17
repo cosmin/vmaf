@@ -146,7 +146,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
     },
     {
         .name = "enable_spatial_csf",
@@ -154,7 +154,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -675,7 +675,7 @@ static int extract(VmafFeatureExtractor *fex,
 #endif
 
         if(level <= s->strred_levels - 1) {
-            int16_t strred_pending_div = (1 << ( spatfilter_shifts + (dwt_shifts <<    level))) * bitdepth_pow2;
+            int16_t strred_pending_div;
 
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
