@@ -288,11 +288,10 @@ float strred_horz_integralsum(int kw, int width_p1,
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    float tempp_agg = 0;
                    tempp_agg = aggregate_new;
-                   int16_t new_st_new = 0;
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &new_st_new);
+                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
                    aggregate_new = tempp_agg;
                    scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((new_st_new - 23) * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
 #else
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
@@ -367,11 +366,10 @@ float strred_horz_integralsum(int kw, int width_p1,
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    float tempp_agg = 0;
                    tempp_agg = aggregate_new;
-                   int16_t new_st_new = 0;
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &new_st_new);
+                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
                    aggregate_new = tempp_agg;
                    scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((new_st_new - 23) * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
 #else
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
