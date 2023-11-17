@@ -451,7 +451,6 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
     int i, j, fi, ii, ii1, ii2;
 	// int fj, jj, jj1, jj;
     // spat_fil_coeff_dtype *coeff_ptr;
-
     int half_fw = fwidth / 2;
 	
 	if(8 == bitdepth)
