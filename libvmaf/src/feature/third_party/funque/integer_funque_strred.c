@@ -295,26 +295,27 @@ float strred_horz_integralsum(int kw, int width_p1,
                    entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
                    entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
-                   add_x_new = (uint64_t)(var_x + const_val_new);
-                   add_y_new = (uint64_t)(var_y + const_val_new);
+                   add_x_new = (uint64_t)((var_x + const_val_new) * ((256 * 256 * 128) / temp_divFac));
+                   add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
-                   scale_x_new = log_18[s_look_x_new] + (sx_new * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + (sy_new * TWO_POW_Q_FACT_NEW); // 
+                   scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
+
                    //fscale_x_new = log2f(add_x_new) * TWO_POW_Q_FACT_NEW;
                    //fscale_y_new = log2f(add_y_new) * TWO_POW_Q_FACT_NEW;
 
                    entropy_x_new = entropy_x_new - sub_val_new;
                    entropy_y_new = entropy_y_new - sub_val_new;
-                   scale_x_new = scale_x_new - sub_val_new;
-                   scale_y_new = scale_y_new - sub_val_new;
+                   scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
+                   scale_y_new = scale_y_new - (12 * TWO_POW_Q_FACT_NEW);
 
                    fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
-                   aggregate_new += fabs(fentropy_x_new * fscale_x - fentropy_y_new * fscale_y);
+                   aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
 
                    int tempp;
                    tempp = 0;
