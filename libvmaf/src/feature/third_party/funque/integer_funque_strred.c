@@ -278,14 +278,14 @@ float strred_horz_integralsum(int kw, int width_p1,
         fvar_y = (fvar_y < 0) ? 0 : fvar_y;
 
 
-            const_val = 1;
-            fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-            fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
-            fscale_x = log(const_val + fvar_x);
-            fscale_y = log(const_val + fvar_y);
-//            fprintf(ffptr, "%.10f, ", fvar_x);
-    
-            spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+//           const_val = 1;
+//           fentropy_x = log(fvar_x + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+//           fentropy_y = log(fvar_y + 0.1) + log(2 * M_PI * EULERS_CONSTANT);
+//           fscale_x = log(const_val + fvar_x);
+//           fscale_y = log(const_val + fvar_y);
+////            fprintf(ffptr, "%.10f, ", fvar_x);
+//    
+//            spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
 
 
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
@@ -413,7 +413,7 @@ float strred_horz_integralsum(int kw, int width_p1,
 
 //        fprintf(ffptr, "%.10f, ", fvar_x);
 
-        spat_aggregate += fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
+        spat_aggregate = fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
 
 
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
@@ -426,9 +426,13 @@ float strred_horz_integralsum(int kw, int width_p1,
                    add_x_new = (uint64_t)((var_x + const_val_new) * ((256 * 256 * 128) / temp_divFac));
                    add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
+                   float tempp_agg = aggregate_new;
+                   int16_t new_st_new = 0;
+//                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
+                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &new_st_new);
+                   aggregate_new = tempp_agg;
                    scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_18[s_look_y_new] + ((new_st_new - 23) * TWO_POW_Q_FACT_NEW); // 
                    //scale_x_new = (log2f(add_x_new) - 23) * TWO_POW_Q_FACT_NEW;
                    //scale_y_new = (log2f(add_y_new) - 23) * TWO_POW_Q_FACT_NEW;
 
@@ -443,52 +447,9 @@ float strred_horz_integralsum(int kw, int width_p1,
                    fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                    aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
-
-
-/*
-        mul_x = (uint64_t)(var_x + sigma_nsq) * entr_const;
-        mul_y = (uint64_t)(var_y + sigma_nsq) * entr_const;
-        look_x = strred_get_best_u18_from_u64((uint64_t)mul_x, &ex);
-        look_y = strred_get_best_u18_from_u64((uint64_t)mul_y, &ey);
-        entropy_x = log_18[look_x]; // Divide here by the Q-Factor to match score with Float
-        entropy_y = log_18[look_y];
-
-        const_val = (uint64_t)1 << 32;
-        add_x = (uint64_t)var_x + const_val;
-        add_y = (uint64_t)var_y + const_val;
-        look_x = strred_get_best_u18_from_u64((uint64_t)add_x, &sx);
-        look_y = strred_get_best_u18_from_u64((uint64_t)add_y, &sy);
-        scale_x = log_18[look_x];
-        scale_y = log_18[look_y];
-
-#if KEEP_SPAT_IN_INTEGER
-        float fentropy_x = entropy_x / (1 << Q_FORMAT_TO_MULTIPLY_LOG); // Divide here by the Q-Factor to match score with Float
-        float fentropy_y = entropy_y / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-        float fscale_x = scale_x  / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-        float fscale_y = scale_y  / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-
-        spat_aggregate = abs(entropy_x * scale_x - entropy_y * scale_y);
-        *power_factor += ex * sx / ey * sy;
-        *spat_agg_abs_accum += spat_aggregate;
-#else
-        fentropy_x = entropy_x / (1 << ex); // Divide here by the Q-Factor to match score with Float
-        fentropy_y = entropy_y / (1 << ey);
-        fscale_x = scale_x  / (1 << sx);
-        fscale_y = scale_y  / (1 << sy);
-
-        fentropy_x = fentropy_x / (1 << Q_FORMAT_TO_MULTIPLY_LOG); // Divide here by the Q-Factor to match score with Float
-        fentropy_y = fentropy_y / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-        fscale_x = fscale_x  / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-        fscale_y = fscale_y  / (1 << Q_FORMAT_TO_MULTIPLY_LOG);
-
-        spat_aggregate = fabs(fentropy_x * fscale_x - fentropy_y * fscale_y);
-        *spat_agg_abs_accum += spat_aggregate;
-
-#endif
-*/
-
         // TODO: Add Support ffor log2 for entropy and scale
     }
+    spat_aggregate = 0;
     return aggregate_new;
 }
 
