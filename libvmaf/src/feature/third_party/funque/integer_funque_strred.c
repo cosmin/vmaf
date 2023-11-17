@@ -201,7 +201,7 @@ float strred_horz_integralsum(int kw, int width_p1,
                                    int16_t knorm_fact, int16_t knorm_shift, 
                                    uint32_t entr_const, uint32_t sigma_nsq, uint32_t *log_18,
                                    int32_t *interim_1_x, int64_t *interim_2_x,
-                                   int32_t *interim_1_y, int64_t *interim_2_y)
+                                   int32_t *interim_1_y, int64_t *interim_2_y, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y, int32_t spat_row_idx)
 #endif
 {
 
@@ -286,7 +286,8 @@ float strred_horz_integralsum(int kw, int width_p1,
                    add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
 #if 1
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   float tempp_agg = aggregate_new;
+                   float tempp_agg = 0;
+                   tempp_agg = aggregate_new;
                    int16_t new_st_new = 0;
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &new_st_new);
                    aggregate_new = tempp_agg;
@@ -311,7 +312,16 @@ float strred_horz_integralsum(int kw, int width_p1,
                    fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
-                   aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
+                    if(enable_temporal == 1)
+                    {
+                        aggregate_new += fabs(fentropy_x_new * fscale_x_new * spat_scales_x[spat_row_idx] - fentropy_y_new * fscale_y_new * spat_scales_y[spat_row_idx]);
+                    }
+                    else
+                    {
+                        spat_scales_x[spat_row_idx] = fscale_x_new;
+                        spat_scales_y[spat_row_idx] = fscale_y_new;
+                        aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
+                    }
     }
 
     /**
@@ -355,7 +365,8 @@ float strred_horz_integralsum(int kw, int width_p1,
                    add_y_new = (uint64_t)((var_y + const_val_new) * ((256 * 256 * 128) / temp_divFac));
 #if 1
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   float tempp_agg = aggregate_new;
+                   float tempp_agg = 0;
+                   tempp_agg = aggregate_new;
                    int16_t new_st_new = 0;
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &new_st_new);
                    aggregate_new = tempp_agg;
@@ -380,14 +391,22 @@ float strred_horz_integralsum(int kw, int width_p1,
                    fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
-                   aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
-        // TODO: Add Support ffor log2 for entropy and scale
+                    if(enable_temporal == 1)
+                    {
+                        aggregate_new += fabs(fentropy_x_new * fscale_x_new * spat_scales_x[spat_row_idx + j - kw] - fentropy_y_new * fscale_y_new * spat_scales_y[spat_row_idx + j - kw]);
+                    }
+                    else
+                    {
+                        spat_scales_x[spat_row_idx + j - kw] = fscale_x_new;
+                        spat_scales_y[spat_row_idx + j - kw] = fscale_y_new;
+                        aggregate_new += fabs(fentropy_x_new * fscale_x_new - fentropy_y_new * fscale_y_new);
+                    }
     }
     return aggregate_new;
 }
 
 
-float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t sigma_nsq_arg, int32_t shift_val, int32_t *Q_Fact)
+float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t sigma_nsq_arg, int32_t shift_val, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y)
 {
     int ret = 1;
 
@@ -427,7 +446,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
 
     int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
-    float spat_agg_abs_accum = 0;
+    float agg_abs_accum = 0;
     int16_t power_fac = 0;
     uint32_t entr_const = 2 * M_PI * EULERS_CONSTANT * k_norm * knorm_fact * knorm_shift;
 
@@ -495,9 +514,9 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power, shift_val, k_norm);
 #else
-        spat_agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
+        agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
                              entr_const, sigma_nsq_t, log_18,
-                             interim_1_x, interim_2_x, interim_1_y, interim_2_y);
+                             interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, i-kh);
 
 #endif
 
@@ -542,10 +561,10 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
                                  &score_num_t, &num_power, 
                                  &score_den_t, &den_power, shift_val, k_norm);
 #else
-            spat_agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
+            agg_abs_accum += strred_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
                                  entr_const, sigma_nsq_t, log_18, 
                                  interim_1_x, interim_2_x, 
-                                 interim_1_y, interim_2_y);
+                                 interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, (i-kh)*width_p1);
 #endif
         }
 
@@ -560,7 +579,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     free(y_pad_t);
 #endif
 
-    return spat_agg_abs_accum;
+    return agg_abs_accum;
 }
 
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
@@ -617,10 +636,11 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
     for(subband = 1; subband < total_subbands; subband++) {
         size_t i, j;
         float val;
+        enable_temp = 0;
         int32_t Q_Factor = 0;
         spat_values[subband] = 0;
 
-        spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, &Q_Factor);
+        spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
         fspat_val[subband] = spat_values[subband] / (width * height);
 
         if(prev_ref != NULL && prev_dist != NULL) {
@@ -630,8 +650,8 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
             temp_values[subband] = 0;
 
             integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
-            temp_values[subband] = integer_rred_entropies_and_scales(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, &Q_Factor);// enable_temp, scales_spat_x, scales_spat_y);
-            ftemp_val[subband] = temp_values[subband] / (width * height);// * LOG2_E_POWER_3);
+            temp_values[subband] = integer_rred_entropies_and_scales(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y);
+            ftemp_val[subband] = temp_values[subband] / (width * height);
 
             free(ref_temporal);
             free(dist_temporal);
