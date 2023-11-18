@@ -587,6 +587,7 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
+    int16_t strred_pending_div = spatfilter_shifts + dwt_shifts;
 
     for(int level = 0; level < s->needed_dwt_levels; level++) // For ST-RRED Debugging level set to 0
     {
@@ -675,7 +676,6 @@ static int extract(VmafFeatureExtractor *fex,
 #endif
 
         if(level <= s->strred_levels - 1) {
-            int16_t strred_pending_div;
 
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
@@ -688,7 +688,7 @@ static int extract(VmafFeatureExtractor *fex,
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 1);
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, strred_pending_div, 1, s->enable_spatial_csf);
 #else
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
