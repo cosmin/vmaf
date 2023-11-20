@@ -147,7 +147,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
     },
     {
         .name = "enable_spatial_csf",
@@ -155,7 +155,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -642,7 +642,7 @@ static int extract(VmafFeatureExtractor *fex,
             {
                 for(int j = 0; j < (width/2); j++)
                 {
-                    /* Accumulations are done while computing mean of 2x2 pixels */
+                    /* Accumulations are done using mean computations of 2x2 pixels */
                     index = i * cum_array_width + j;
                     var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
                                var_x_cum[index_cum + (cum_array_width)] +

@@ -251,9 +251,9 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             var_y  = (var_y  >> SSIM_INTER_VAR_SHIFTS);
             cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
 
-            var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
-            var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
-            cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
+            // var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
+            // var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
+            // cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
 
 
             var_x_cum[index_cum] += var_x;
