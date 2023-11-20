@@ -642,16 +642,23 @@ static int extract(VmafFeatureExtractor *fex,
             {
                 for(int j = 0; j < (width/2); j++)
                 {
+                    /* Accumulations are done while computing mean of 2x2 pixels */
                     index = i * cum_array_width + j;
                     var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
                                var_x_cum[index_cum + (cum_array_width)] +
                                var_x_cum[index_cum + (cum_array_width) + 1];
+                    var_x_cum[index] = (var_x_cum[index] + 2) >> 2;
+
                     var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
                                var_y_cum[index_cum + (cum_array_width)] +
                                var_y_cum[index_cum + (cum_array_width) + 1];
+                    var_y_cum[index] = (var_y_cum[index] + 2) >> 2;
+
                     cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
                                 cov_xy_cum[index_cum + (cum_array_width)] +
                                 cov_xy_cum[index_cum + (cum_array_width) + 1];
+                    cov_xy_cum[index] = (cov_xy_cum[index] + 2) >> 2;
+
                     index_cum += 2;
                 }
                 index_cum += ((cum_array_width * 2) - width);
