@@ -55,9 +55,11 @@ typedef int64_t motion_accum_dtype;
 typedef int32_t ssim_inter_dtype;
 typedef int64_t ssim_accum_dtype;
 #define SSIM_SHIFT_DIV 15 //Depends on ssim_accum_dtype datatype
+#define SSIM_SQ_ROW_SHIFT 9
+#define SSIM_SQ_COL_SHIFT 11
 #define SSIM_INTER_VAR_SHIFTS 1
-#define SSIM_INTER_L_SHIFT 1 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
-#define SSIM_INTER_CS_SHIFT 1 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
+#define SSIM_INTER_L_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
+#define SSIM_INTER_CS_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
 
 typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
@@ -65,6 +67,22 @@ typedef struct i_dwt2buffers {
     int height;
     int stride;
 }i_dwt2buffers;
+
+typedef struct MsSsimScore_int {
+    double ssim_mean;
+    double l_mean;
+    double cs_mean;
+    double ssim_cov;
+    double l_cov;
+    double cs_cov;
+
+    double ms_ssim_mean;
+    double ms_ssim_cov;
+
+    int32_t **var_x_cum;
+    int32_t **var_y_cum;
+    int32_t **cov_xy_cum;
+} MsSsimScore_int;
 
 typedef struct ModuleFunqueState
 {
@@ -75,7 +93,7 @@ typedef struct ModuleFunqueState
     void (*integer_funque_dwt2_inplace_csf)(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4], int min_theta, int max_theta, uint16_t interim_rnd_factors[4], uint8_t interim_shift_factors[4], int level); 
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
-    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
+    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels);
     double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den);

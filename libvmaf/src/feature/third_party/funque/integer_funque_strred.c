@@ -27,7 +27,6 @@
 #include "common/macros.h"
 #include "integer_funque_strred.h"
 
-#if USE_LOG_18
 // just change the store offset to reduce multiple calculation when getting log2f value
 void strred_funque_log_generate(uint32_t* log_18)
 {
@@ -70,94 +69,6 @@ uint32_t strred_get_best_u18_from_u64(uint64_t temp, int *x)
     return (uint32_t)temp;
 }
 
-#else
-
-uint32_t strred_get_best_u18_from_u32(uint32_t temp, int *x)
-{
-    int k = __builtin_clzll(temp);
-
-    if (k > 14)
-    {
-        k -= 14;
-        temp = temp << k;
-        *x = -k;
-
-    }
-    else if (k < 13)
-    {
-        k = 14 - k;
-        temp = temp >> k;
-        *x = k;
-    }
-    else
-    {
-        *x = 0;
-        if (temp >> 18)
-        {
-            temp = temp >> 1;
-            *x = 1;
-        }
-    }
-
-    return (uint32_t)temp;
-}
-
-
-void strred_log_generate(uint16_t *log_16)
-{
-    for (unsigned i = 32767; i < 65536; ++i) {
-        log_16[i] = (uint16_t)round(log2f((float)i) * 2048);
-    }
-}
-
-uint16_t strred_get_best_u16_from_u64(uint64_t temp, int *x)
-{
-    int k = __builtin_clzll(temp);
-
-    if (k > 48)
-    {
-        k -= 48;
-        temp = temp << k;
-        *x = -k;
-
-    }
-    else if (k < 47)
-    {
-        k = 48 - k;
-        temp = temp >> k;
-        *x = k;
-    }
-    else
-    {
-        *x = 0;
-        if (temp >> 16)
-        {
-            temp = temp >> 1;
-            *x = 1;
-        }
-    }
-
-    return (uint16_t)temp;
-}
-
-//int32_t strred_log2_32(const uint16_t log_16, uint32_t temp)
-//{
-//    int k = __builtin_clz(temp);
-//    k = 16 - k;
-//    temp = temp >> k;
-//    return log_16[temp] + 2048 * k;
-//}
-//
-//int32_t strred_log2_64(const uint16_t log_16, uint64_t x)
-//{
-//    //assert(temp >= 0x20000);
-//    int k = __builtin_clzll(x);
-//    k = 48 - k;
-//    x = x >> k;
-//    return log_16[x] + 2048 * k;
-//}
-#endif
-
 void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
 {
     size_t out_width = width + 2 * reflect;
@@ -184,12 +95,11 @@ void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t heig
 
 float strred_horz_integralsum_spatial_csf(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   uint32_t entr_const, uint32_t sigma_nsq, uint32_t *log_18,
+                                   uint32_t entr_const, uint64_t sigma_nsq, uint32_t *log_18,
                                    int32_t *interim_1_x, int64_t *interim_2_x,
                                    int32_t *interim_1_y, int64_t *interim_2_y, uint8_t enable_temporal,
                                    float *spat_scales_x, float *spat_scales_y, int32_t spat_row_idx, int32_t pending_div_fac)
 {
-
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
     int32_t mx, my;
@@ -226,7 +136,6 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
 
     for (int j=1; j<kw+1; j++)
     {
-        // int j_minus1 = j-1;
         int_1_x = interim_1_x[j] + int_1_x;
         int_1_y = interim_1_y[j] + int_1_y;
         int_2_x = interim_2_x[j] + int_2_x;
@@ -558,8 +467,9 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     int kw = STRRED_WINDOW_SIZE;
     int k_norm = kw * kh;
 
-    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
-    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2); // amount for reflecting
+    /* amount of reflecting */
+    int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
+    int y_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
     size_t strred_width, strred_height;
 
 #if STRRED_REFLECT_PAD
@@ -570,7 +480,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     strred_height = height - (2 * x_reflect);
 #endif
 
-    size_t r_width = strred_width + (2 * x_reflect); // after reflect pad
+    size_t r_width = strred_width + (2 * x_reflect);
     size_t r_height = strred_height + (2 * x_reflect);
     dwt2_dtype* x_pad_t;
     dwt2_dtype* y_pad_t;
@@ -586,7 +496,6 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     x_pad_t = x_t;
     y_pad_t = y_t;
 #endif
-
 
     int16_t knorm_fact = 25891;   // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21; 
@@ -611,6 +520,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
         int32_t *interim_1_y = (int32_t*)calloc(width_p1, sizeof(int32_t));
         int64_t *interim_2_x = (int64_t*)calloc(width_p1, sizeof(int64_t));
         int64_t *interim_2_y = (int64_t*)calloc(width_p1, sizeof(int64_t));
+
         int i = 0;
         dwt2_dtype src_x_val, src_y_val;
         int32_t src_xx_val, src_yy_val;
@@ -734,7 +644,6 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
     free(x_pad_t);
     free(y_pad_t);
 #endif
-
     return agg_abs_accum;
 }
 
@@ -823,7 +732,6 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         }
 
     }
-
     strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;
     strred_scores->temp_vals[level] = (ftemp_val[1] + ftemp_val[2] + ftemp_val[3]) / 3;
     strred_scores->spat_temp_vals[level] = strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
