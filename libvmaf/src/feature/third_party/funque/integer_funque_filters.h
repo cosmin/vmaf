@@ -120,7 +120,7 @@ typedef struct ModuleFunqueState
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
                           int block_size, int level, uint32_t *log_18, uint32_t *log_22, int32_t shift_val,
-                          uint32_t sigma_nsq_t, uint8_t enable_spatial_csf);
+                          double sigma_nsq_t, uint8_t enable_spatial_csf);
 
     int (*integer_copy_prev_frame_strred_funque)(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                                   struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,

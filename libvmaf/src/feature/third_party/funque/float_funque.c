@@ -112,7 +112,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(FunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -522,11 +522,11 @@ static int extract(VmafFeatureExtractor *fex,
             adm_num += adm_score_num[level];
             adm_den += adm_score_den[level];
         }
-
+#if 0
         if (level <= s->ssim_levels - 1) {
             err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
         }
-
+#endif
         if(level <= s->ssim_levels - 1) {
             err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
                                           &ms_ssim_score[level], 1, (float) 0.01, (float) 0.03,
@@ -569,7 +569,7 @@ static int extract(VmafFeatureExtractor *fex,
                 ms_ssim_score[level + 1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
             }
         }
-
+#if 0
         if (level <= s->vif_levels - 1) {
             #if USE_DYNAMIC_SIGMA_NSQ
             err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
@@ -581,7 +581,7 @@ static int extract(VmafFeatureExtractor *fex,
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
         }
-
+#endif
         if(level <= s->strred_levels - 1) {
             if(index == 0) {
                 err |= copy_prev_frame_strred_funque(

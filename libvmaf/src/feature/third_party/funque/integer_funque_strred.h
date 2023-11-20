@@ -19,17 +19,11 @@
 #include "funque_global_options.h"
 
 #define STRRED_REFLECT_PAD 1
-#define STRRED_STABILITY 0
+
 #define PENDING_SHIFT_FACTOR 12
+#define STRRED_Q_FORMAT 26
+#define TWO_POWER_Q_FACTOR (1 << STRRED_Q_FORMAT)
 
-#define PENDING_SHIFT_FACTOR_NEW 12
-#define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW 26
-#define TWO_POW_Q_FACT_NEW (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW)
-
-
-#define KEEP_SPAT_IN_INTEGER 0
-#define DEBUG_STRRED 1
-#define USE_FLOAT_CODE 1
 #define LOGE_BASE2 1.442684682
 
 typedef struct strred_results {
@@ -45,7 +39,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
                           int block_size, int level, uint32_t *log_18, uint32_t *log_22, int32_t shift_val,
-                          uint32_t sigma_nsq_t, uint8_t enable_spatial_csf);
+                          double sigma_nsq_t, uint8_t enable_spatial_csf);
 
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                                   struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,

@@ -118,7 +118,6 @@ typedef struct IntFunqueState
     double vif_kernelscale;
     uint32_t log_18[262144];
     uint32_t log_22[4194304];
-    uint32_t log_16[65536];
 
     // ADM extra variables
     double adm_enhn_gain_limit;
@@ -148,7 +147,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
     },
     {
         .name = "enable_spatial_csf",
@@ -156,7 +155,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -481,7 +480,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     //funque_log_generate(s->log_18);
 	div_lookup_generator(s->adm_div_lookup);
     strred_funque_log_generate(s->log_18);
-    strred_funque_log_generate_log22(s->log_22);
+    strred_funque_generate_log22(s->log_22);
 
     return 0;
 
@@ -736,7 +735,7 @@ static int extract(VmafFeatureExtractor *fex,
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, s->log_22, strred_pending_div, 1, s->enable_spatial_csf);
+                    &s->strred_scores[level], BLOCK_SIZE, level, s->log_18, s->log_22, strred_pending_div, (double)0.1, s->enable_spatial_csf);
 
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
