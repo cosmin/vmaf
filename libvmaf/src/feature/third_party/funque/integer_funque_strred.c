@@ -39,6 +39,17 @@ void strred_funque_log_generate(uint32_t* log_18)
     }
 }
 
+void strred_funque_log_generate_log22(uint32_t* log_22)
+{
+    uint64_t i;
+    uint64_t start = (unsigned int)pow(2, 21);
+    uint64_t end = (unsigned int)pow(2, 22);
+	for (i = start; i < end; i++)
+    {
+		log_22[i] = (uint32_t)round(log2((double)i) * (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW));
+    }
+}
+
 uint32_t strred_get_best_u18_from_u64(uint64_t temp, int *x)
 {
     int k = __builtin_clzll(temp);
@@ -60,6 +71,36 @@ uint32_t strred_get_best_u18_from_u64(uint64_t temp, int *x)
     {
         *x = 0;
         if (temp >> 18)
+        {
+            temp = temp >> 1;
+            *x = 1;
+        }
+    }
+
+    return (uint32_t)temp;
+}
+
+uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
+{
+    int k = __builtin_clzll(temp);
+
+    if (k > 42)
+    {
+        k -= 42;
+        temp = temp << k;
+        *x = -k;
+
+    }
+    else if (k < 41)
+    {
+        k = 42 - k;
+        temp = temp >> k;
+        *x = k;
+    }
+    else
+    {
+        *x = 0;
+        if (temp >> 22)
         {
             temp = temp >> 1;
             *x = 1;
@@ -95,7 +136,7 @@ void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t heig
 
 float strred_horz_integralsum_spatial_csf(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   uint32_t entr_const, uint64_t sigma_nsq, uint32_t *log_18,
+                                   uint32_t entr_const, uint64_t sigma_nsq, uint32_t *log_18, uint32_t *log_22,
                                    int32_t *interim_1_x, int64_t *interim_2_x,
                                    int32_t *interim_1_y, int64_t *interim_2_y, uint8_t enable_temporal,
                                    float *spat_scales_x, float *spat_scales_y, int32_t spat_row_idx, int32_t pending_div_fac)
@@ -152,37 +193,37 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
 
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
                    mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
-                   e_look_x_new = strred_get_best_u18_from_u64((uint64_t)mul_x_new, &ex_new);
-                   e_look_y_new = strred_get_best_u18_from_u64((uint64_t)mul_y_new, &ey_new);
-                   entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
-                   entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   e_look_x_new = strred_get_best_u22_from_u64((uint64_t)mul_x_new, &ex_new);
+                   e_look_y_new = strred_get_best_u22_from_u64((uint64_t)mul_y_new, &ey_new);
+                   entropy_x_new = log_22[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   entropy_y_new = log_22[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
-#if 0
-                   add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
-                   add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
-                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
-                   scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
+#if 1
+                   add_x_new = (uint64_t)((var_x + const_val_new));
+                   add_y_new = (uint64_t)((var_y + const_val_new));
+                   s_look_x_new = strred_get_best_u22_from_u64((uint64_t)add_x_new, &sx_new);
+                   s_look_y_new = strred_get_best_u22_from_u64((uint64_t)add_y_new, &sy_new);
+                   scale_x_new = log_22[s_look_x_new] + (sx_new * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_22[s_look_y_new] + (sy_new * TWO_POW_Q_FACT_NEW); // 
 #endif
                    //fscale_x_new = log2f(add_x_new) * TWO_POW_Q_FACT_NEW;
                    //fscale_y_new = log2f(add_y_new) * TWO_POW_Q_FACT_NEW;
 
-                   add_x_new = (uint64_t)(var_x + const_val_new);
-                   add_y_new = (uint64_t)(var_y + const_val_new);
-                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   add_x_new = (uint64_t)(var_x + const_val_new);
+//                   add_y_new = (uint64_t)(var_y + const_val_new);
+//                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
 
                    entropy_x_new = entropy_x_new - sub_val_new;
                    entropy_y_new = entropy_y_new - sub_val_new;
-                   scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
-                   scale_y_new = scale_y_new - (12 * TWO_POW_Q_FACT_NEW);
+                   scale_x_new = scale_x_new - sub_val_new;
+                   scale_y_new = scale_y_new - sub_val_new;
 
                    fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-//                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-//                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                     if(enable_temporal == 1)
                     {
@@ -220,38 +261,38 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
 
                    mul_x_new = (uint64_t)(var_x + sigma_nsq_new);
                    mul_y_new = (uint64_t)(var_y + sigma_nsq_new);
-                   e_look_x_new = strred_get_best_u18_from_u64((uint64_t)mul_x_new, &ex_new);
-                   e_look_y_new = strred_get_best_u18_from_u64((uint64_t)mul_y_new, &ey_new);
-                   entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
-                   entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   e_look_x_new = strred_get_best_u22_from_u64((uint64_t)mul_x_new, &ex_new);
+                   e_look_y_new = strred_get_best_u22_from_u64((uint64_t)mul_y_new, &ey_new);
+                   entropy_x_new = log_22[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
+                   entropy_y_new = log_22[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
 
-#if 0
+#if 1
 
-                   add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
-                   add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
-                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
-                   scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
+                   add_x_new = (uint64_t)((var_x + const_val_new));
+                   add_y_new = (uint64_t)((var_y + const_val_new));
+                   s_look_x_new = strred_get_best_u22_from_u64((uint64_t)add_x_new, &sx_new);
+                   s_look_y_new = strred_get_best_u22_from_u64((uint64_t)add_y_new, &sy_new);
+                   scale_x_new = log_22[s_look_x_new] + (sx_new * TWO_POW_Q_FACT_NEW); // 
+                   scale_y_new = log_22[s_look_y_new] + (sy_new * TWO_POW_Q_FACT_NEW); // 
 #endif
                    //scale_x_new = (log2f(add_x_new) - 23) * TWO_POW_Q_FACT_NEW;
                    //scale_y_new = (log2f(add_y_new) - 23) * TWO_POW_Q_FACT_NEW;
 
-                   add_x_new = (uint64_t)(var_x + const_val_new);
-                   add_y_new = (uint64_t)(var_y + const_val_new);
-                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   add_x_new = (uint64_t)(var_x + const_val_new);
+//                   add_y_new = (uint64_t)(var_y + const_val_new);
+//                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                    entropy_x_new = entropy_x_new - sub_val_new;
                    entropy_y_new = entropy_y_new - sub_val_new;
-                   scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
-                   scale_y_new = scale_y_new - (12 * TWO_POW_Q_FACT_NEW);
+                   scale_x_new = scale_x_new - sub_val_new;
+                   scale_y_new = scale_y_new - sub_val_new;
 
                    fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-//                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-//                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                     if(enable_temporal == 1)
                     {
@@ -459,7 +500,7 @@ float strred_horz_integralsum_wavelet(int kw, int width_p1,
 }
 
 
-float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t sigma_nsq_arg, int32_t shift_val, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y, uint8_t check_enable_spatial_csf)
+float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, uint32_t* log_18, uint32_t *log_22, uint32_t sigma_nsq_arg, int32_t shift_val, uint8_t enable_temporal, float *spat_scales_x, float *spat_scales_y, uint8_t check_enable_spatial_csf)
 {
     int ret = 1;
 
@@ -570,7 +611,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
 #else
         if(check_enable_spatial_csf == 1)
             agg_abs_accum += strred_horz_integralsum_spatial_csf(kw, width_p1, knorm_fact, knorm_shift, 
-                             entr_const, sigma_nsq_t, log_18,
+                             entr_const, sigma_nsq_t, log_18, log_22,
                              interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, i-kh, shift_val);
         else
             agg_abs_accum += strred_horz_integralsum_wavelet(kw, width_p1, knorm_fact, knorm_shift, 
@@ -622,7 +663,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype* x_t, const dwt2_dtype*
 #else
             if(check_enable_spatial_csf == 1)
                 agg_abs_accum += strred_horz_integralsum_spatial_csf(kw, width_p1, knorm_fact, knorm_shift,  
-                                 entr_const, sigma_nsq_t, log_18, 
+                                 entr_const, sigma_nsq_t, log_18, log_22,
                                  interim_1_x, interim_2_x, 
                                  interim_1_y, interim_2_y, enable_temporal, spat_scales_x, spat_scales_y, (i-kh)*width_p1, shift_val);
             else
@@ -679,7 +720,7 @@ void integer_subract_subbands(const dwt2_dtype* ref_src, const dwt2_dtype* ref_p
 int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level, uint32_t *log_18, int32_t shift_val,
+                          int block_size, int level, uint32_t *log_18, uint32_t *log_22, int32_t shift_val,
                           uint32_t sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
@@ -714,7 +755,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
            shift_val = 2 * i_nadenau_pending_div_factors[level][subband];
        }
 
-        spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
+        spat_values[subband] = integer_rred_entropies_and_scales(ref->bands[subband], dist->bands[subband], width, height, log_18, log_22, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
         fspat_val[subband] = spat_values[subband] / (width * height);
 
         if(prev_ref != NULL && prev_dist != NULL) {
@@ -724,7 +765,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
             temp_values[subband] = 0;
 
             integer_subract_subbands(ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband], prev_dist->bands[subband], dist_temporal, width, height);
-            temp_values[subband] = integer_rred_entropies_and_scales(ref_temporal, dist_temporal, width, height, log_18, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
+            temp_values[subband] = integer_rred_entropies_and_scales(ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val, enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
             ftemp_val[subband] = temp_values[subband] / (width * height);
 
             free(ref_temporal);

@@ -16,8 +16,8 @@
                 "num_taps": 5,
                 "enable_resize": false,
                 "vif_levels": 2,
-                "strred_levels": 2,
-                "ssim_levels": 2,
+                "strred_levels": 4,
+                "ssim_levels": 4,
                 "enable_spatial_csf": true
             },
             {},
@@ -30,8 +30,13 @@
             "FUNQUE_integer_feature_adm_score",
             "FUNQUE_integer_feature_adm_scale0_score",
             "FUNQUE_integer_feature_strred_scale0_score",
+            "FUNQUE_integer_feature_strred_scale1_score",
+            "FUNQUE_integer_feature_strred_scale2_score",
+            "FUNQUE_integer_feature_strred_scale3_score",
             "FUNQUE_integer_feature_ms_ssim_mean_scale0_score", "FUNQUE_integer_feature_ms_ssim_mean_scale1_score",
-            "FUNQUE_integer_feature_ms_ssim_cov_scale0_score", "FUNQUE_integer_feature_ms_ssim_cov_scale1_score"
+            "FUNQUE_integer_feature_ms_ssim_mean_scale2_score", "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
+            "FUNQUE_integer_feature_ms_ssim_cov_scale0_score", "FUNQUE_integer_feature_ms_ssim_cov_scale1_score",
+            "FUNQUE_integer_feature_ms_ssim_cov_scale2_score", "FUNQUE_integer_feature_ms_ssim_cov_scale3_score"
         ],
         "slopes": [
             0.013377926421404682,
