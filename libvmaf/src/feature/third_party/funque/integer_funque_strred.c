@@ -36,7 +36,7 @@ void strred_funque_log_generate(uint32_t* log_18)
     uint64_t end = (unsigned int)pow(2, 18);
 	for (i = start; i < end; i++)
     {
-		log_18[i] = (uint32_t)round(log2((double)i) * (1 << Q_FORMAT_TO_MULTIPLY_LOG));
+		log_18[i] = (uint32_t)round(log2((double)i) * (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW));
     }
 }
 
@@ -182,11 +182,6 @@ void strred_integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t heig
     }
 }
 
-#define PENDING_SHIFT_FACTOR_NEW 12
-#define Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW 26
-#define TWO_POW_Q_FACT_NEW (1 << Q_FORMAT_MULTIPLIED_IN_LOG_TABLE_NEW)
-
-
 float strred_horz_integralsum_spatial_csf(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
                                    uint32_t entr_const, uint32_t sigma_nsq, uint32_t *log_18,
@@ -253,17 +248,9 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
                    entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
                    entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
+#if 0
                    add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
                    add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
-#if 0
-                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   float tempp_agg = 0;
-                   tempp_agg = aggregate_new;
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
-                   aggregate_new = tempp_agg;
-                   scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
-#else
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
                    scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
@@ -272,6 +259,12 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
                    //fscale_x_new = log2f(add_x_new) * TWO_POW_Q_FACT_NEW;
                    //fscale_y_new = log2f(add_y_new) * TWO_POW_Q_FACT_NEW;
 
+                   add_x_new = (uint64_t)(var_x + const_val_new);
+                   add_y_new = (uint64_t)(var_y + const_val_new);
+                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+
+
                    entropy_x_new = entropy_x_new - sub_val_new;
                    entropy_y_new = entropy_y_new - sub_val_new;
                    scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
@@ -279,8 +272,8 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
 
                    fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                     if(enable_temporal == 1)
                     {
@@ -323,17 +316,11 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
                    entropy_x_new = log_18[e_look_x_new] + (ex_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
                    entropy_y_new = log_18[e_look_y_new] + (ey_new * TWO_POW_Q_FACT_NEW) + entr_const_new;
 
+
+#if 0
+
                    add_x_new = (uint64_t)((var_x + const_val_new) * temp_mul_fac);
                    add_y_new = (uint64_t)((var_y + const_val_new) * temp_mul_fac);
-#if 0
-                   s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
-                   float tempp_agg = 0;
-                   tempp_agg = aggregate_new;
-                   s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
-                   aggregate_new = tempp_agg;
-                   scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
-                   scale_y_new = log_18[s_look_y_new] + ((sy_new - 23) * TWO_POW_Q_FACT_NEW); // 
-#else
                    s_look_x_new = strred_get_best_u18_from_u64((uint64_t)add_x_new, &sx_new);
                    s_look_y_new = strred_get_best_u18_from_u64((uint64_t)add_y_new, &sy_new);
                    scale_x_new = log_18[s_look_x_new] + ((sx_new - 23) * TWO_POW_Q_FACT_NEW); // 
@@ -342,6 +329,11 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
                    //scale_x_new = (log2f(add_x_new) - 23) * TWO_POW_Q_FACT_NEW;
                    //scale_y_new = (log2f(add_y_new) - 23) * TWO_POW_Q_FACT_NEW;
 
+                   add_x_new = (uint64_t)(var_x + const_val_new);
+                   add_y_new = (uint64_t)(var_y + const_val_new);
+                   fscale_x_new = ((log2(add_x_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+                   fscale_y_new = ((log2(add_y_new) * TWO_POW_Q_FACT_NEW) - sub_val_new) / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+
                    entropy_x_new = entropy_x_new - sub_val_new;
                    entropy_y_new = entropy_y_new - sub_val_new;
                    scale_x_new = scale_x_new - (12 * TWO_POW_Q_FACT_NEW);
@@ -349,8 +341,8 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
 
                    fentropy_x_new = (float)entropy_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
                    fentropy_y_new = (float)entropy_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
-                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_x_new = (float)scale_x_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
+//                   fscale_y_new = (float)scale_y_new / (TWO_POW_Q_FACT_NEW * LOGE_BASE2);
 
                     if(enable_temporal == 1)
                     {
