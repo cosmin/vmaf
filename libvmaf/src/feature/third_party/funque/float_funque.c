@@ -125,7 +125,7 @@ static const VmafOption options[] = {
         .min = NADENAU_SPAT_5_TAP_FILTER,
         .max = NGAN_21_TAP_FILTER,
     },
-{
+    {
         .name = "norm_view_dist",
         .alias = "nvd",
         .help = "normalized viewing distance = viewing distance / ref display's physical height",
@@ -136,7 +136,7 @@ static const VmafOption options[] = {
         .max = 24.0,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
-{
+    {
         .name = "ref_display_height",
         .alias = "rdf",
         .help = "reference display height in pixels",
@@ -490,9 +490,9 @@ static int extract(VmafFeatureExtractor *fex,
     double vif_den = 0.0;
     double vif_num = 0.0;
 
-       s->strred_scores.spat_vals_cumsum = 0;
-       s->strred_scores.temp_vals_cumsum = 0;
-       s->strred_scores.spat_temp_vals_cumsum = 0;
+    s->strred_scores.spat_vals_cumsum = 0;
+    s->strred_scores.temp_vals_cumsum = 0;
+    s->strred_scores.spat_temp_vals_cumsum = 0;
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
@@ -526,11 +526,11 @@ static int extract(VmafFeatureExtractor *fex,
             adm_num += adm_score_num[level];
             adm_den += adm_score_den[level];
         }
-#if 0
+
         if (level <= s->ssim_levels - 1) {
             err |= compute_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level], &ssim_score[level], 1, (float)0.01, (float)0.03);
         }
-#endif
+
         if(level <= s->ssim_levels - 1) {
             err |= compute_ms_ssim_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],
                                           &ms_ssim_score[level], 1, (float) 0.01, (float) 0.03,
@@ -541,25 +541,23 @@ static int extract(VmafFeatureExtractor *fex,
             int index = 0;
             int index_cum = 0;
             int cum_array_width = (width) * (1 << (level + 1));
-            for(int i = 0; i < (height/2); i++)
-            {
-                for(int j = 0; j < (width/2); j++)
-                {
+            for(int i = 0; i < (height / 2); i++) {
+                for(int j = 0; j < (width / 2); j++) {
                     /* Accumulations are done using mean computations of 2x2 pixels */
                     index = i * cum_array_width + j;
                     var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
-                               var_x_cum[index_cum + (cum_array_width)] +
-                               var_x_cum[index_cum + (cum_array_width) + 1];
+                                       var_x_cum[index_cum + (cum_array_width)] +
+                                       var_x_cum[index_cum + (cum_array_width) + 1];
                     var_x_cum[index] = var_x_cum[index] / 4;
 
                     var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
-                               var_y_cum[index_cum + (cum_array_width)] +
-                               var_y_cum[index_cum + (cum_array_width) + 1];
+                                       var_y_cum[index_cum + (cum_array_width)] +
+                                       var_y_cum[index_cum + (cum_array_width) + 1];
                     var_y_cum[index] = var_y_cum[index] / 4;
 
                     cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
-                                cov_xy_cum[index_cum + (cum_array_width)] +
-                                cov_xy_cum[index_cum + (cum_array_width) + 1];
+                                        cov_xy_cum[index_cum + (cum_array_width)] +
+                                        cov_xy_cum[index_cum + (cum_array_width) + 1];
                     cov_xy_cum[index] = cov_xy_cum[index] / 4;
 
                     index_cum += 2;
@@ -573,19 +571,19 @@ static int extract(VmafFeatureExtractor *fex,
                 ms_ssim_score[level + 1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
             }
         }
-#if 0
+
         if (level <= s->vif_levels - 1) {
-            #if USE_DYNAMIC_SIGMA_NSQ
+#if USE_DYNAMIC_SIGMA_NSQ
             err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
                                         &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ, level);
-            #else
+#else
             err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
                                  &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ);
-            #endif
+#endif
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
         }
-#endif
+
         if(level <= s->strred_levels - 1) {
             if(index == 0) {
                 err |= copy_prev_frame_strred_funque(
@@ -715,9 +713,9 @@ static int extract(VmafFeatureExtractor *fex,
                                                        s->strred_scores.strred_vals[0], index);
 
         if(s->strred_levels > 1) {
-            err |= vmaf_feature_collector_append_with_dict(
-                feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                s->strred_scores.strred_vals[1], index);
+            err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                           "FUNQUE_feature_strred_scale1_score",
+                                                           s->strred_scores.strred_vals[1], index);
 
             if(s->strred_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(

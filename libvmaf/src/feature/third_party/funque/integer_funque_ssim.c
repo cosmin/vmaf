@@ -35,7 +35,7 @@ static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 
 static inline int16_t get_best_i16_from_u32(uint32_t temp, int *power)
 {
-    //assert(temp >= 0x20000);
+    assert(temp >= 0x20000);
     int k = __builtin_clz(temp);
     k = 17 - k;
     temp = temp >> k;
@@ -177,7 +177,9 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
     return ret;
 }
 
-int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels)
+int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score,
+                                   int max_val, float K1, float K2, int pending_div,
+                                   int32_t *div_lookup, int n_levels)
 {
     int ret = 1;
 
@@ -187,18 +189,19 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     int cum_array_width = (ref->width) * (1 << n_levels);
     int win_dim = (1 << n_levels);          // 2^L
     int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
-    pending_div = pending_div >> (n_levels -1);
+    pending_div = pending_div >> (n_levels - 1);
 
     int width = ref->width;
     int height = ref->height;
 
-    int64_t c1_mul = ((int64_t)(pending_div*pending_div) >> (SSIM_INTER_L_SHIFT));
-    int64_t c2_mul = ((int64_t)(pending_div*pending_div) >> (SSIM_INTER_VAR_SHIFTS+SSIM_INTER_CS_SHIFT));
+    int64_t c1_mul = ((int64_t) (pending_div * pending_div) >> (SSIM_INTER_L_SHIFT));
+    int64_t c2_mul =
+        ((int64_t) (pending_div * pending_div) >> (SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT));
 
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * c1_mul);
 
     ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * c2_mul);
-    
+
     ssim_inter_dtype var_x, var_y, cov_xy;
     ssim_inter_dtype map, l, cs;
     int16_t i16_map_den;
@@ -208,10 +211,9 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype l_num, l_den, cs_num, cs_den;
 
-    int32_t* var_x_cum = *(score->var_x_cum);
-    int32_t* var_y_cum = *(score->var_y_cum);
-    int32_t* cov_xy_cum = *(score->cov_xy_cum);
-
+    int32_t *var_x_cum = *(score->var_x_cum);
+    int32_t *var_y_cum = *(score->var_y_cum);
+    int32_t *cov_xy_cum = *(score->cov_xy_cum);
 
     ssim_accum_dtype accum_map = 0;
     ssim_accum_dtype accum_l = 0;
@@ -223,53 +225,48 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
 
     int index = 0;
     int index_cum = 0;
-    for (int i = 0; i < height; i++)
-    {
+    for(int i = 0; i < height; i++) {
         ssim_accum_dtype row_accum_sq_map = 0;
-        for (int j = 0; j < width; j++)
-        {
+        for(int j = 0; j < width; j++) {
             index = i * width + j;
 
             mx = ref->bands[0][index];
             my = dist->bands[0][index];
 
-            var_x  = 0;
-            var_y  = 0;
+            var_x = 0;
+            var_y = 0;
             cov_xy = 0;
 
-            for (int k = 1; k < 4; k++)
-            {
-                var_x  += ((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]);
-                var_y  += ((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]);
-                cov_xy += ((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]);
+            for(int k = 1; k < 4; k++) {
+                var_x += ((ssim_inter_dtype) ref->bands[k][index] * ref->bands[k][index]);
+                var_y += ((ssim_inter_dtype) dist->bands[k][index] * dist->bands[k][index]);
+                cov_xy += ((ssim_inter_dtype) ref->bands[k][index] * dist->bands[k][index]);
             }
-            var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_dim;
-            var_y_band0  = ((ssim_inter_dtype)my * my) >> win_dim;
-            cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_dim;
+            var_x_band0 = ((ssim_inter_dtype) mx * mx) >> win_dim;
+            var_y_band0 = ((ssim_inter_dtype) my * my) >> win_dim;
+            cov_xy_band0 = ((ssim_inter_dtype) mx * my) >> win_dim;
 
-            var_x  = (var_x  >> SSIM_INTER_VAR_SHIFTS);
-            var_y  = (var_y  >> SSIM_INTER_VAR_SHIFTS);
+            var_x = (var_x >> SSIM_INTER_VAR_SHIFTS);
+            var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
             cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
 
             // var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
             // var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
             // cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
 
-
             var_x_cum[index_cum] += var_x;
             var_y_cum[index_cum] += var_y;
             cov_xy_cum[index_cum] += cov_xy;
 
-            var_x  = (var_x_cum[index_cum]  >> win_dim);
-            var_y  = (var_y_cum[index_cum]  >> win_dim);
+            var_x = (var_x_cum[index_cum] >> win_dim);
+            var_y = (var_y_cum[index_cum] >> win_dim);
             cov_xy = (cov_xy_cum[index_cum] >> win_dim);
 
-            l_num = ((2>>SSIM_INTER_L_SHIFT)*cov_xy_band0 + C1);
-            l_den = (((var_x_band0 + var_y_band0)>>SSIM_INTER_L_SHIFT) + C1);
+            l_num = ((2 >> SSIM_INTER_L_SHIFT) * cov_xy_band0 + C1);
+            l_den = (((var_x_band0 + var_y_band0) >> SSIM_INTER_L_SHIFT) + C1);
 
-            cs_num = ((2>>SSIM_INTER_CS_SHIFT)*cov_xy+C2);
-            cs_den = (((var_x+var_y)>>SSIM_INTER_CS_SHIFT)+C2);
-            
+            cs_num = ((2 >> SSIM_INTER_CS_SHIFT) * cov_xy + C2);
+            cs_den = (((var_x + var_y) >> SSIM_INTER_CS_SHIFT) + C2);
 
             int power_val_l;
             i16_l_den = get_best_i16_from_u32((uint32_t) l_den, &power_val_l);
@@ -282,23 +279,23 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
              * The division is done using LUT, results of div_lookup = 2^30/i16_map_den
              * map = map_num/map_den => map = map_num / (i16_map_den << power_val)
              * => map = (map_num >> power_val) / i16_map_den
-             * => map = (map_num >> power_val) * (div_lookup[i16_map_den + 32768] >> 30) //since it has -ve vals in 1st half
+             * => map = (map_num >> power_val) * (div_lookup[i16_map_den + 32768] >> 30) //since it
+             * has -ve vals in 1st half
              * => map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> 30
-             * Shift by 30 might be very high even for 32 bits precision, hence shift only by 15 
-            */
-           
+             * Shift by 30 might be very high even for 32 bits precision, hence shift only by 15
+             */
+
             l = ((l_num >> power_val_l) * div_lookup[i16_l_den + 32768]) >> SSIM_SHIFT_DIV;
             cs = ((cs_num >> power_val_cs) * div_lookup[i16_cs_den + 32768]) >> SSIM_SHIFT_DIV;
-            //map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
-            map = l*cs;
-
+            // map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
+            map = l * cs;
 
             accum_l += l;
             accum_cs += cs;
             accum_map += map;
             accum_sq_l += (l * l);
             accum_sq_cs += (cs * cs);
-            map_sq = ((int64_t)map * map) >> SSIM_SQ_ROW_SHIFT;
+            map_sq = ((int64_t) map * map) >> SSIM_SQ_ROW_SHIFT;
             row_accum_sq_map += map_sq;
 
             index_cum++;
@@ -308,15 +305,15 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
         index_cum += (cum_array_width - width);
     }
 
+    double l_mean = (double) accum_l / (height * width);
+    double cs_mean = (double) accum_cs / (height * width);
+    double ssim_mean = (double) accum_map / (height * width);
 
-    double l_mean = (double)accum_l / (height * width);
-    double cs_mean = (double)accum_cs / (height * width);
-    double ssim_mean = (double)accum_map / (height * width);
-
-    double l_var = ((double)accum_sq_l / (height * width)) - (l_mean * l_mean);
-    double cs_var = ((double)accum_sq_cs / (height * width)) - (cs_mean * cs_mean);
+    double l_var = ((double) accum_sq_l / (height * width)) - (l_mean * l_mean);
+    double cs_var = ((double) accum_sq_cs / (height * width)) - (cs_mean * cs_mean);
     double inter_shift_sq = 1 << (SSIM_SQ_ROW_SHIFT + SSIM_SQ_COL_SHIFT);
-    double ssim_var = (((double)accum_sq_map / (height * width)) * inter_shift_sq) - ((ssim_mean * ssim_mean));
+    double ssim_var =
+        (((double) accum_sq_map / (height * width)) * inter_shift_sq) - ((ssim_mean * ssim_mean));
 
     double l_std = sqrt(l_var);
     double cs_std = sqrt(cs_var);
@@ -326,9 +323,9 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     double cs_cov = cs_std / cs_mean;
     double ssim_cov = ssim_std / ssim_mean;
 
-    score->ssim_mean = ssim_mean/(1<<(SSIM_SHIFT_DIV * 2));
-    score->l_mean = l_mean/(1<<SSIM_SHIFT_DIV);
-    score->cs_mean = cs_mean/(1<<SSIM_SHIFT_DIV);
+    score->ssim_mean = ssim_mean / (1 << (SSIM_SHIFT_DIV * 2));
+    score->l_mean = l_mean / (1 << SSIM_SHIFT_DIV);
+    score->cs_mean = cs_mean / (1 << SSIM_SHIFT_DIV);
     score->ssim_cov = ssim_cov;
     score->l_cov = l_cov;
     score->cs_cov = cs_cov;
@@ -338,7 +335,7 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     return ret;
 }
 
-int integer_compute_ms_ssim_mean_scales(MsSsimScore_int* score, int n_levels)
+int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
 {
     int ret = 1;
 

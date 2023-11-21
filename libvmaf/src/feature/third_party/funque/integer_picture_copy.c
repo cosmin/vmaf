@@ -22,31 +22,27 @@
 
 #include "integer_funque_filters.h"
 
-void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth)
+void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+                                 int height, int bitdepth)
 {
-	uint8_t *src_8b = NULL;
-	uint16_t *src_hbd = NULL;
+    uint8_t *src_8b = NULL;
+    uint16_t *src_hbd = NULL;
 
-	if(bitdepth == 8)
-	{
-		src_8b = (uint8_t*)src;
+    if(bitdepth == 8) {
+        src_8b = (uint8_t *) src;
 
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) {
-                dst[i*width+j] = (spat_fil_output_dtype) src_8b[i*width+j];
+        for(int i = 0; i < height; i++) {
+            for(int j = 0; j < width; j++) {
+                dst[i * width + j] = (spat_fil_output_dtype) src_8b[i * width + j];
             }
-            //dst += dst_stride / sizeof(spat_fil_output_dtype);
         }
-    }
-    else
-    {
-		src_hbd = (uint16_t*)src;
+    } else {
+        src_hbd = (uint16_t *) src;
 
-        for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width; j++) {
-                dst[j] = (spat_fil_output_dtype) src_hbd[j];
+        for(int i = 0; i < height; i++) {
+            for(int j = 0; j < width; j++) {
+                dst[i * width + j] = (spat_fil_output_dtype) src_hbd[i * width + j];
             }
-            dst += dst_stride / sizeof(spat_fil_output_dtype);
         }
     }
 

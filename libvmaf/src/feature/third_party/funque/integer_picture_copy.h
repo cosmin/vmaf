@@ -18,4 +18,5 @@
 #include <stddef.h>
 #include "integer_funque_filters.h"
 
-void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth);
+void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+                                 int height, int bitdepth);

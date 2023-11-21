@@ -279,33 +279,18 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
     strred_scores->spat_temp_vals[level] =
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
-    // // Add equations to compute ST-RRED using norm factors
+    // Add equations to compute ST-RRED using norm factors
     int norm_factor;
-    // static double spat_vals_cumsum, temp_vals_cumsum, spat_temp_vals_cumsum;
-    for(num_level = 0; num_level <= level; num_level++) 
+    for(num_level = 0; num_level <= level; num_level++)
         norm_factor = num_level + 1;
 
-    // if(level == 0) {
-    //     spat_vals_cumsum = strred_scores->spat_vals[level];
-    //     temp_vals_cumsum = strred_scores->temp_vals[level];
-    //     spat_temp_vals_cumsum = strred_scores->spat_temp_vals[level];
-    // } else 
-    {
-        //for(num_level = 1; num_level <= level; num_level++) 
-        {
-            strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
-            strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];
-            strred_scores->spat_temp_vals_cumsum += strred_scores->spat_temp_vals[level];
-        }
-    }
+    strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
+    strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];
+    strred_scores->spat_temp_vals_cumsum += strred_scores->spat_temp_vals[level];
 
-    strred_scores->srred_vals[level]  = strred_scores->spat_vals_cumsum / norm_factor;
-    strred_scores->trred_vals[level]  = strred_scores->temp_vals_cumsum / norm_factor;
+    strred_scores->srred_vals[level] = strred_scores->spat_vals_cumsum / norm_factor;
+    strred_scores->trred_vals[level] = strred_scores->temp_vals_cumsum / norm_factor;
     strred_scores->strred_vals[level] = strred_scores->spat_temp_vals_cumsum / norm_factor;
-
-    // strred_scores->srred_vals[level] = spat_vals_cumsum / norm_factor;
-    // strred_scores->trred_vals[level] = temp_vals_cumsum / norm_factor;
-    // strred_scores->strred_vals[level] = spat_temp_vals_cumsum / norm_factor;
 
     free(entropies_ref);
     free(entropies_dist);
