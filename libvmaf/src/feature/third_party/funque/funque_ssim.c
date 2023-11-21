@@ -218,9 +218,9 @@ int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels)
 
     cum_prod_mean[0] = pow(score[0].cs_mean, exps[0]);
     cum_prod_cov[0] = pow(score[0].cs_cov, exps[0]);
-    for(int i = 1; i < (n_levels - 1); i++) {
-        cum_prod_mean[i] = cum_prod_mean[i - 1] + pow(score[i].cs_mean, exps[i]);
-        cum_prod_cov[i] = cum_prod_cov[i - 1] + pow(score[i].cs_cov, exps[i]);
+    for(int i = 1; i < n_levels; i++) {
+        cum_prod_mean[i] = cum_prod_mean[i - 1] * pow(score[i].cs_mean, exps[i]);
+        cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(score[i].cs_cov, exps[i]);
     }
 
     cum_prod_concat_mean[0] = 1;
