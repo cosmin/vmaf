@@ -33,6 +33,8 @@ typedef struct strred_results {
     double spat_vals[MAX_LEVELS];
     double temp_vals[MAX_LEVELS];
     double spat_temp_vals[MAX_LEVELS];
+    double spat_vals_cumsum, temp_vals_cumsum, spat_temp_vals_cumsum;
+
 } strred_results;
 
 int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,

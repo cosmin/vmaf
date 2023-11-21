@@ -60,7 +60,7 @@ typedef struct FunqueState {
     dwt2buffers dist_dwt2out[4];
     strredbuffers prev_ref[4];
     strredbuffers prev_dist[4];
-    strred_results strred_scores[4];
+    strred_results strred_scores;
 
     // funque configurable parameters
     const char *wavelet_csfs;
@@ -104,7 +104,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(FunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true,
+        .default_val.b = false,
     },
     {
         .name = "enable_spatial_csf",
@@ -112,7 +112,7 @@ static const VmafOption options[] = {
         .help = "enable the global CSF based on spatial filter",
         .offset = offsetof(FunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
@@ -490,6 +490,10 @@ static int extract(VmafFeatureExtractor *fex,
     double vif_den = 0.0;
     double vif_num = 0.0;
 
+       s->strred_scores.spat_vals_cumsum = 0;
+       s->strred_scores.temp_vals_cumsum = 0;
+       s->strred_scores.spat_temp_vals_cumsum = 0;
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
         if (level+1 < s->needed_dwt_levels) {
@@ -593,7 +597,7 @@ static int extract(VmafFeatureExtractor *fex,
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
                     &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
-                    &s->strred_scores[level], BLOCK_SIZE, level);
+                    &s->strred_scores, BLOCK_SIZE, level);
 
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
@@ -708,22 +712,22 @@ static int extract(VmafFeatureExtractor *fex,
     } else {
         err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                        "FUNQUE_feature_strred_scale0_score",
-                                                       s->strred_scores[0].strred_vals[0], index);
+                                                       s->strred_scores.strred_vals[0], index);
 
         if(s->strred_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale1_score",
-                s->strred_scores[1].strred_vals[1], index);
+                s->strred_scores.strred_vals[1], index);
 
             if(s->strred_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict, "FUNQUE_feature_strred_scale2_score",
-                    s->strred_scores[2].strred_vals[2], index);
+                    s->strred_scores.strred_vals[2], index);
 
                 if(s->strred_levels > 3) {
                     err |= vmaf_feature_collector_append_with_dict(
                         feature_collector, s->feature_name_dict,
-                        "FUNQUE_feature_strred_scale3_score", s->strred_scores[3].strred_vals[3],
+                        "FUNQUE_feature_strred_scale3_score", s->strred_scores.strred_vals[3],
                         index);
                 }
             }
