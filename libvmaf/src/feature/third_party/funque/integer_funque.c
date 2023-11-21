@@ -595,7 +595,6 @@ static int extract(VmafFeatureExtractor *fex,
     int16_t spatfilter_shifts = 2 * SPAT_FILTER_COEFF_SHIFT - SPAT_FILTER_INTER_SHIFT - SPAT_FILTER_OUT_SHIFT - (res_ref_pic->bpc - 8);
     int16_t dwt_shifts = 2 * DWT2_COEFF_UPSHIFT - DWT2_INTER_SHIFT - DWT2_OUT_SHIFT;
     float pending_div_factor = (1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2;
-    int16_t strred_pending_div = spatfilter_shifts + dwt_shifts;
 
     for(int level = 0; level < s->needed_dwt_levels; level++) // For ST-RRED Debugging level set to 0
     {
@@ -724,6 +723,7 @@ static int extract(VmafFeatureExtractor *fex,
 #endif
 
         if(level <= s->strred_levels - 1) {
+        int32_t strred_pending_div = spatfilter_shifts + dwt_shifts - level;
 
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(

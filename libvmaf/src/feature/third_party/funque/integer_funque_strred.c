@@ -169,17 +169,10 @@ float strred_horz_integralsum_spatial_csf(int kw, int width_p1,
            float fentropy_x, fentropy_y, fscale_x, fscale_y;
            float aggregate = 0;
 
-#if 1
-           int64_t div_fac = (int64_t)(1 << PENDING_SHIFT_FACTOR) * 255 * 255 * 81;
-           uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
-           uint64_t const_val = div_fac;
-           int64_t sub_val = (int64_t)((log2(255.0 * 255 * 81) + PENDING_SHIFT_FACTOR) * TWO_POWER_Q_FACTOR);
-#else
            int64_t div_fac = (int64_t)(1 << pending_div_fac) * 255 * 255 * 81;
            uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
            uint64_t const_val = div_fac;
            int64_t sub_val = (int64_t)((log2(255.0 * 255 * 81) + pending_div_fac) * TWO_POWER_Q_FACTOR);
-#endif
 
     for (int j=1; j<kw+1; j++)
     {
@@ -388,8 +381,8 @@ float strred_horz_integralsum_wavelet(int kw, int width_p1,
 #endif
                    entropy_x = entropy_x - sub_val;
                    entropy_y = entropy_y - sub_val;
-                   scale_x = scale_x - sub_val;
-                   scale_y = scale_y - sub_val;
+                   //scale_x = scale_x - sub_val;
+                   //scale_y = scale_y - sub_val;
 
                    fentropy_x = (float)entropy_x / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
                    fentropy_y = (float)entropy_y / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
@@ -666,7 +659,7 @@ void integer_subract_subbands(const dwt2_dtype* ref_src, const dwt2_dtype* ref_p
 int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
                           struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
                           size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level, uint32_t *log_18, uint32_t *log_22, int32_t shift_val,
+                          int block_size, int level, uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
                           double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
@@ -676,6 +669,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
     float spat_values[DEFAULT_STRRED_SUBBANDS], temp_values[DEFAULT_STRRED_SUBBANDS];
     float fspat_val[DEFAULT_STRRED_SUBBANDS], ftemp_val[DEFAULT_STRRED_SUBBANDS];
     uint8_t enable_temp = 0;
+    int32_t shift_val;
 
     /* amount of reflecting */
     int x_reflect = (int)((STRRED_WINDOW_SIZE - 1) / 2);
@@ -693,7 +687,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers* ref, const struc
         spat_values[subband] = 0;
 
         if(check_enable_spatial_csf == 1)
-            shift_val = 2 * shift_val;
+            shift_val = 2 * shift_val_arg;
         else
        {
            shift_val = 2 * i_nadenau_pending_div_factors[level][subband];
