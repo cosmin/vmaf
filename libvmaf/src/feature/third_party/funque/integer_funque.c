@@ -677,10 +677,9 @@ static int extract(VmafFeatureExtractor *fex,
         if(err)
             return err;
 
-        if(level < s->ssim_levels) {
-            err = s->modules.integer_compute_ms_ssim_funque(
-                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01,
-                0.03, pending_div_factor, s->adm_div_lookup, (level + 1));
+        if(level < s->ssim_levels)
+        {
+            err = s->modules.integer_compute_ms_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup, (level + 1), (int) (s->enable_spatial_csf == false));
 
             int width = s->i_ref_dwt2out[level].width;
             int height = s->i_ref_dwt2out[level].height;

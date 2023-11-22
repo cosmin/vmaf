@@ -101,9 +101,7 @@ typedef struct ModuleFunqueState
                                             uint8_t interim_shift_factors[4], int level);
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
-    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist,
-                                          MsSsimScore_int *score, int max_val, float K1, float K2,
-                                          int pending_div, int32_t *div_lookup, int n_levels);
+    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels, int is_pyr);
     double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den);
@@ -147,25 +145,25 @@ typedef struct ModuleFunqueState
  * funque_dwt2_inplace_csf */
 /* All the coefficients are in Q15 format*/
 static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
-    {32767, 22544, 23331, 22544},
-    {32767, 27836, 24297, 27836},
-    {32767, 26081, 20876, 26081},
-    {32767, 30836, 29061, 30836},
+    {16384, 22544, 23331, 22544},
+    {16384, 27836, 24297, 27836},
+    {16384, 26081, 20876, 26081},
+    {16384, 30836, 29061, 30836},
     /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
 };
 
 static const uint8_t i_nadenau_pending_div_factors[4][4] = {
-    {6, 11, 11, 14},  // L0
-    {5, 11, 11, 15},  // L1
-    {4, 10, 10, 14},  // L2
-    {3, 9, 9, 13},    // L3
+    {6, 11, 11, 14}, // L0
+    {5,  7,  7,  8}, // L1
+    {4,  5,  5,  5}, // L2
+    {3,  4,  4,  4}, // L3
 };
 
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
-    {10, 9, 9, 9},
-    {15, 14, 14, 14},
-    {15, 14, 14, 14},
-    {15, 14, 14, 14},
+    { 9,  9,  9,  9},
+    {11, 11, 11, 11},
+    {13, 13, 13, 13},
+    {13, 13, 13, 13},
 };
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,

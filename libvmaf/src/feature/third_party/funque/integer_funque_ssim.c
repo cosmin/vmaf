@@ -177,9 +177,7 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
     return ret;
 }
 
-int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score,
-                                   int max_val, float K1, float K2, int pending_div,
-                                   int32_t *div_lookup, int n_levels)
+int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels, int is_pyr)
 {
     int ret = 1;
 
@@ -189,14 +187,45 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     int cum_array_width = (ref->width) * (1 << n_levels);
     int win_dim = (1 << n_levels);          // 2^L
     int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
-    pending_div = pending_div >> (n_levels - 1);
-
+    pending_div = pending_div >> (n_levels -1);
+    int pending_div_c1 = pending_div;
+    int pending_div_c2 = pending_div;
+    int pending_div_offset = 0;
+    int pending_div_halfround = 0;
     int width = ref->width;
     int height = ref->height;
 
-    int64_t c1_mul = ((int64_t) (pending_div * pending_div) >> (SSIM_INTER_L_SHIFT));
-    int64_t c2_mul =
-        ((int64_t) (pending_div * pending_div) >> (SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT));
+    int32_t* var_x_cum = *(score->var_x_cum);
+    int32_t* var_y_cum = *(score->var_y_cum);
+    int32_t* cov_xy_cum = *(score->cov_xy_cum);
+
+    if (is_pyr)
+    {
+        pending_div_c1 = (1<<i_nadenau_pending_div_factors[n_levels-1][0]) * 255;
+        pending_div_c2 = (1<<i_nadenau_pending_div_factors[n_levels-1][1]) * 255;
+        pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels-1][3] - i_nadenau_pending_div_factors[n_levels-1][1]);
+        int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels-2][1] - i_nadenau_pending_div_factors[n_levels-1][1]);
+        pending_div_halfround = (1 << (pending_div_offset-1));
+        if (n_levels > 1)
+        {
+            int index_cum = 0;
+            for (int i = 0; i < height; i++)
+            {   
+                for (int j = 0; j < width; j++)
+                {
+                    
+                    var_x_cum[index_cum] = (var_x_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
+                    var_y_cum[index_cum] = (var_y_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
+                    cov_xy_cum[index_cum] = (cov_xy_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
+                    index_cum++;
+                }
+                index_cum += (cum_array_width - width);
+            }
+        }
+    }
+
+    int64_t c1_mul = (((int64_t) pending_div_c1*pending_div_c1) >> (SSIM_INTER_L_SHIFT));
+    int64_t c2_mul = (((int64_t) pending_div_c2*pending_div_c2) >> (SSIM_INTER_VAR_SHIFTS+SSIM_INTER_CS_SHIFT));
 
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * c1_mul);
 
@@ -210,10 +239,6 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype l_num, l_den, cs_num, cs_den;
-
-    int32_t *var_x_cum = *(score->var_x_cum);
-    int32_t *var_y_cum = *(score->var_y_cum);
-    int32_t *cov_xy_cum = *(score->cov_xy_cum);
 
     ssim_accum_dtype accum_map = 0;
     ssim_accum_dtype accum_l = 0;
@@ -236,15 +261,21 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             var_x = 0;
             var_y = 0;
             cov_xy = 0;
-
-            for(int k = 1; k < 4; k++) {
-                var_x += ((ssim_inter_dtype) ref->bands[k][index] * ref->bands[k][index]);
-                var_y += ((ssim_inter_dtype) dist->bands[k][index] * dist->bands[k][index]);
-                cov_xy += ((ssim_inter_dtype) ref->bands[k][index] * dist->bands[k][index]);
+            int k;
+            for (k = 1; k < 3; k++)
+            {
+                var_x  += ((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]);
+                var_y  += ((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]);
+                cov_xy += ((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]);
             }
-            var_x_band0 = ((ssim_inter_dtype) mx * mx) >> win_dim;
-            var_y_band0 = ((ssim_inter_dtype) my * my) >> win_dim;
-            cov_xy_band0 = ((ssim_inter_dtype) mx * my) >> win_dim;
+            //The extra right shift will be done for pyr since the upscale factors are different for subbands
+            var_x  += (((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
+            var_y  += (((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
+            cov_xy += (((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
+            
+            var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_dim;
+            var_y_band0  = ((ssim_inter_dtype)my * my) >> win_dim;
+            cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_dim;
 
             var_x = (var_x >> SSIM_INTER_VAR_SHIFTS);
             var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
