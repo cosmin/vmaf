@@ -14,7 +14,8 @@
         "feature_opts_dicts": [
             {
                 "num_taps": 5,
-                "enable_resize": false
+                "enable_resize": true,
+                "enable_spatial_csf": false
             },
             {
                 "adm_levels": 2

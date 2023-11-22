@@ -25,7 +25,7 @@
 
 static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 {
-    assert(temp >= 0x20000);
+    //assert(temp >= 0x20000);
     int k = __builtin_clzll(temp);
     k = 49 - k;
     temp = temp >> k;
@@ -35,7 +35,7 @@ static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 
 static inline int16_t get_best_i16_from_u32(uint32_t temp, int *power)
 {
-    assert(temp >= 0x20000);
+    //assert(temp >= 0x20000);
     int k = __builtin_clz(temp);
     k = 17 - k;
     temp = temp >> k;

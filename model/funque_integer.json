@@ -26,6 +26,7 @@
             {}
         ],
         "feature_names": [
+            "FUNQUE_integer_feature_vif_score",
             "FUNQUE_integer_feature_vif_scale0_score",
             "FUNQUE_integer_feature_adm_score",
             "FUNQUE_integer_feature_adm_scale0_score",

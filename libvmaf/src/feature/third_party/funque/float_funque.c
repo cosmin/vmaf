@@ -104,7 +104,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(FunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
     },
     {
         .name = "enable_spatial_csf",

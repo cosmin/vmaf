@@ -147,7 +147,7 @@ static const VmafOption options[] = {
         .help = "Enable resize for funque",
         .offset = offsetof(IntFunqueState, enable_resize),
         .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = false,
+        .default_val.b = true,
     },
     {
         .name = "enable_spatial_csf",
@@ -720,6 +720,7 @@ static int extract(VmafFeatureExtractor *fex,
 
         if(err)
             return err;
+
 #if 0
         err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup);
 
@@ -740,7 +741,7 @@ static int extract(VmafFeatureExtractor *fex,
         }
         else
         {
-            int vifdwt_stride = (s->i_dwt2_stride + 1)/2;
+            int vifdwt_stride = (s->i_ref_dwt2out[level].stride + 1)/2;
             int vifdwt_width  = s->i_ref_dwt2out[level].width;
             int vifdwt_height = s->i_ref_dwt2out[level].height;
             //The VIF function reuses the band1, band2, band3 of s->ref_dwt2out &   s->dist_dwt2out
@@ -796,11 +797,10 @@ static int extract(VmafFeatureExtractor *fex,
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
     double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
 
-#if 0
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_score",
                                                    vif, index);
-#endif
+
     err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                    s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
                                                    vif_score[0], index);
@@ -874,7 +874,7 @@ static int extract(VmafFeatureExtractor *fex,
     //        }
     //    }
 
-    err |= vmaf_feature_collector_append(feature_collector,
+    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                          "FUNQUE_integer_feature_strred_scale0_score",
                                          s->strred_scores.strred_vals[0], index);
     if(s->strred_levels > 1) {
@@ -974,7 +974,7 @@ static int close(VmafFeatureExtractor *fex)
 }
 
 static const char *provided_features[] = {
-
+    "FUNQUE_integer_feature_vif_score",
     "FUNQUE_integer_feature_vif_scale0_score",
 
     "FUNQUE_integer_feature_adm_score",
