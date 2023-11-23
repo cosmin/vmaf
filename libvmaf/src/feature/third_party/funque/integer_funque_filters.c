@@ -62,10 +62,9 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
 
     int i, j;
 
-    /* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift
-     * is required */
+    /* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift is required */
     if(spatial_csf == 0) {
-        if(level == 0) {
+        if(level != 3) {
             filter_shift = 0;
             filter_shift_rnd = 0;
             const_2_wl0 = 2;
