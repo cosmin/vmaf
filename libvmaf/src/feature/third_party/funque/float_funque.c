@@ -228,6 +228,7 @@ static const VmafOption options[] = {
 };
 
 static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
+    // TODO: Add temp = w >> levels and w = temp << levels;
     dwt2out->width = (int) (w+1)/2;
     dwt2out->height = (int) (h+1)/2;
     dwt2out->stride = ALIGN_CEIL(dwt2out->width * sizeof(float));
@@ -363,9 +364,22 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     int last_w = w;
     int last_h = h;
 
+    int rc_width, rc_height, dc_width, dc_height, crop_div_factor;
+    rc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+    rc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+    dc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+    dc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], last_w, last_h);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], last_w, last_h);
+
+        crop_div_factor = pow(2, (level+1));
+        s->ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
+        s->ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
+
+        s->dist_dwt2out[level].crop_width = rc_width / crop_div_factor;
+        s->dist_dwt2out[level].crop_height = rc_height / crop_div_factor;
 
         s->prev_ref[level].bands[0] = NULL;
         s->prev_dist[level].bands[0] = NULL;
@@ -499,13 +513,13 @@ static int extract(VmafFeatureExtractor *fex,
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
                 // from here on out we only need approx band for VIF
-                funque_vifdwt2_band0(s->ref_dwt2out[level].bands[0],  s->ref_dwt2out[level + 1].bands[0],  s->ref_dwt2out[level].stride, s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
+                funque_vifdwt2_band0(s->ref_dwt2out[level].bands[0],  s->ref_dwt2out[level + 1].bands[0],  s->ref_dwt2out[level].stride, s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
-                funque_dwt2(s->ref_dwt2out[level].bands[0], &s->ref_dwt2out[level + 1], s->ref_dwt2out[level].width,
-                            s->ref_dwt2out[level].height);
+                funque_dwt2(s->ref_dwt2out[level].bands[0], &s->ref_dwt2out[level + 1], s->ref_dwt2out[level].crop_width,
+                            s->ref_dwt2out[level].crop_height);
                 funque_dwt2(s->dist_dwt2out[level].bands[0], &s->dist_dwt2out[level + 1],
-                            s->dist_dwt2out[level].width, s->dist_dwt2out[level].height);
+                            s->dist_dwt2out[level].crop_width, s->dist_dwt2out[level].crop_height);
             }
         }
 
@@ -536,8 +550,8 @@ static int extract(VmafFeatureExtractor *fex,
                                           &ms_ssim_score[level], 1, (float) 0.01, (float) 0.03,
                                           (level + 1));
 
-            int width = s->ref_dwt2out[level].width;
-            int height = s->ref_dwt2out[level].height;
+            int width = s->ref_dwt2out[level].crop_width;
+            int height = s->ref_dwt2out[level].crop_height;
             int index = 0;
             int index_cum = 0;
             int cum_array_width = (width) * (1 << (level + 1));
@@ -574,10 +588,10 @@ static int extract(VmafFeatureExtractor *fex,
 
         if (level <= s->vif_levels - 1) {
 #if USE_DYNAMIC_SIGMA_NSQ
-            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
                                         &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ, level);
 #else
-            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
                                  &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ);
 #endif
             vif_num += vif_score_num[level];
@@ -588,19 +602,19 @@ static int extract(VmafFeatureExtractor *fex,
             if(index == 0) {
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].width,
-                    s->ref_dwt2out[level].height);
+                    &s->prev_dist[level], s->ref_dwt2out[level].crop_width,
+                    s->ref_dwt2out[level].crop_height);
             }
             else {
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+                    &s->prev_dist[level], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
                     &s->strred_scores, BLOCK_SIZE, level);
 
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].width,
-                    s->ref_dwt2out[level].height);
+                    &s->prev_dist[level], s->ref_dwt2out[level].crop_width,
+                    s->ref_dwt2out[level].crop_height);
             }
         }
 

@@ -159,8 +159,8 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
   const float cos_1deg_sq = cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0);
 #endif
   float eps = 1e-30;
-  int width = ref.width;
-  int height = ref.height;
+  int width = ref.crop_width;
+  int height = ref.crop_height;
   int i, j, k, index;
 
   // float *var_k;
@@ -267,8 +267,8 @@ void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers
 
 int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, float border_size)
 {
-  int width = ref.width;
-  int height = ref.height;
+  int width = ref.crop_width;
+  int height = ref.crop_height;
   int i, j, k, index;
   double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
   dwt2buffers dlm_rest, dlm_add, pyr_rest;

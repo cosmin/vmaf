@@ -31,8 +31,8 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
 
     int n_levels = 1;
 
-    int width = ref->width;
-    int height = ref->height;
+    int width = ref->crop_width;
+    int height = ref->crop_height;
 
     float C1 = (K1 * max_val) * (K1 * max_val);
     float C2 = (K2 * max_val) * (K2 * max_val);
@@ -105,10 +105,10 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     MsSsimScore ms_ssim_score;
     ms_ssim_score = *score;
 
-    int cum_array_width = (ref->width) * (1 << n_levels);
+    int cum_array_width = (ref->crop_width) * (1 << n_levels);
 
-    int width = ref->width;
-    int height = ref->height;
+    int width = ref->crop_width;
+    int height = ref->crop_height;
 
     float C1 = (K1 * max_val) * (K1 * max_val);
     float C2 = (K2 * max_val) * (K2 * max_val);

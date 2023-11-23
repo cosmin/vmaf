@@ -72,6 +72,8 @@ typedef struct dwt2buffers {
     float *bands[4];
     int width;
     int height;
+    int crop_width;
+    int crop_height;
     ptrdiff_t stride;
 }dwt2buffers;
 

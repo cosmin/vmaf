@@ -216,8 +216,8 @@ void funque_dwt2_inplace_csf(const dwt2buffers *src, float factors[4], int min_t
     /* The computation of the csf values is not required for the regions which lie outside the frame borders */
     int left = 0;
     int top = 0;
-    int right = src->width;
-    int bottom = src->height;
+    int right = src->crop_width;
+    int bottom = src->crop_height;
 
     int i, j, theta, src_offset, dst_offset;
     float dst_val;
