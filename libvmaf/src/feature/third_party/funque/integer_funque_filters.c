@@ -581,8 +581,8 @@ void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dt
      * borders */
     int left = 0;
     int top = 0;
-    int right = src->width;
-    int bottom = src->height;
+    int right = src->crop_width;
+    int bottom = src->crop_height;
 
     int i, j, theta, src_offset, dst_offset;
     spat_fil_accum_dtype mul_val;

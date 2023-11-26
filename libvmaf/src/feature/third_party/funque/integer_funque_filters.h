@@ -65,6 +65,8 @@ typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
     int width;
     int height;
+    int crop_width;
+    int crop_height;
     int stride;
 }i_dwt2buffers;
 
