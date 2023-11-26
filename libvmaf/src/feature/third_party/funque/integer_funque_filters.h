@@ -160,12 +160,40 @@ static const uint8_t i_nadenau_pending_div_factors[4][4] = {
     {4,  5,  5,  5}, // L2
     {3,  4,  4,  4}, // L3
 };
-
+//interim_shift is same for all nadenau_weight, li, hill filters
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
     { 9,  9,  9,  9},
     {11, 11, 11, 11},
     {13, 13, 13, 13},
     {13, 13, 13, 13},
+};
+
+static const spat_fil_coeff_dtype i_li_coeffs[4][4] = {
+    {16384, 22842, 30944, 22842},
+    {16384, 21867, 21362, 21867},
+    {16384, 21885, 25508, 21885},
+    {16384, 32318, 29061, 32318},
+};
+
+static const uint8_t i_li_pending_div_factors[4][4] = {
+    {6, 14, 14, 19}, // L0
+    {5,  8,  8,  10}, // L1
+    {4,  5,  5,  6}, // L2
+    {3,  4,  4,  4}, // L3
+};
+
+static const spat_fil_coeff_dtype i_hill_coeffs[4][4] = {
+    {16384,  22691,  20082,  22691},
+    {16384, -22164,  28535, -22164},
+    {16384, -17920, -26774, -17920},
+    {16384, -22347, -32484, -22347},
+};
+
+static const uint8_t i_hill_pending_div_factors[4][4] = {
+    {6, 10, 10, 11}, // L0
+    {5,  7,  7,  9}, // L1
+    {4,  8,  8,  7}, // L2
+    {3,  8,  8,  8}, // L3
 };
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
