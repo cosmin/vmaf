@@ -612,6 +612,18 @@ int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers *ref,
                width * height * sizeof(dwt2_dtype));
     }
 
+    prev_ref->width = ref->width;
+    prev_ref->height = ref->height;
+    prev_ref->stride = ref->stride;
+    prev_ref->crop_width = ref->crop_width;
+    prev_ref->crop_height = ref->crop_height;
+
+    prev_dist->width = dist->width;
+    prev_dist->height = dist->height;
+    prev_dist->stride = dist->stride;
+    prev_dist->crop_width = dist->crop_width;
+    prev_dist->crop_height = dist->crop_height;
+
     return 0;
 }
 

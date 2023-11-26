@@ -182,6 +182,17 @@ int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dw
         memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(float));
         memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(float));
     }
+    prev_ref->width = ref->width;
+    prev_ref->height = ref->height;
+    prev_ref->stride = ref->stride;
+    prev_ref->crop_width = ref->crop_width;
+    prev_ref->crop_height = ref->crop_height;
+
+    prev_dist->width = dist->width;
+    prev_dist->height = dist->height;
+    prev_dist->stride = dist->stride;
+    prev_dist->crop_width = dist->crop_width;
+    prev_dist->crop_height = dist->crop_height;
 
     return 0;
 }

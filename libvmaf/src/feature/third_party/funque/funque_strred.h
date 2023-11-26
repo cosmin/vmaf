@@ -23,6 +23,8 @@ typedef struct strredbuffers {
     float* bands[4];
     int width;
     int height;
+    int crop_width;
+    int crop_height;
     ptrdiff_t stride;
 } strredbuffers;
 

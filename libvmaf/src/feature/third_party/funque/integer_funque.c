@@ -112,6 +112,10 @@ typedef struct IntFunqueState
     int strred_levels;
     double norm_view_dist;
     int ref_display_height;
+    int i_process_ref_width;
+    int i_process_ref_height;
+    int i_process_dist_width;
+    int i_process_dist_height;
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -592,6 +596,10 @@ static int extract(VmafFeatureExtractor *fex,
     {
         res_ref_pic = ref_pic;
         res_dist_pic = dist_pic;
+        s->i_process_ref_width = (ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->i_process_ref_height = (ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->i_process_dist_width = (dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->i_process_dist_height = (dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
     }
 
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
@@ -601,31 +609,31 @@ static int extract(VmafFeatureExtractor *fex,
             res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0],
             res_ref_pic->h[0], (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride,
-                                       res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf,
+                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
+                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        -1);
         s->modules.integer_spatial_filter(
             res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0],
             res_dist_pic->h[0], (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride,
-                                       res_dist_pic->w[0], res_dist_pic->h[0],
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, -1);
     } else {
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer,
                                                s->filter_buffer_stride, res_ref_pic->w[0],
                                                res_ref_pic->h[0], (int) res_ref_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_ref_dwt2out[0], s->i_ref_dwt2out[0].stride,
-                                       res_ref_pic->w[0], res_ref_pic->h[0], s->enable_spatial_csf,
+                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
+                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        0);
 
         s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer,
                                                s->filter_buffer_stride, res_dist_pic->w[0],
                                                res_dist_pic->h[0], (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_dist_dwt2out[0], s->i_dist_dwt2out[0].stride,
-                                       res_dist_pic->w[0], res_dist_pic->h[0],
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, 0);
     }
 
@@ -671,14 +679,14 @@ static int extract(VmafFeatureExtractor *fex,
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
                 integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
-                                    s->i_ref_dwt2out[level].stride, &s->i_ref_dwt2out[level + 1],
-                                    s->i_ref_dwt2out[level + 1].stride,
-                                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
+                                    s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_ref_dwt2out[level + 1],
+                                    s->i_ref_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
+                                    s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
                                     s->enable_spatial_csf, level);
                 integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
-                                    s->i_dist_dwt2out[level].stride, &s->i_dist_dwt2out[level + 1],
-                                    s->i_dist_dwt2out[level + 1].stride,
-                                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
+                                    s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_dist_dwt2out[level + 1],
+                                    s->i_dist_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
+                                    s->i_dist_dwt2out[level].crop_width, s->i_dist_dwt2out[level].crop_height,
                                     s->enable_spatial_csf, level);
             }
         }
@@ -775,7 +783,7 @@ static int extract(VmafFeatureExtractor *fex,
         }
         else
         {
-            int vifdwt_stride = (s->i_ref_dwt2out[level].stride + 1)/2;
+            int vifdwt_stride = (s->i_ref_dwt2out[level].crop_width + 1)/2;
             int vifdwt_width  = s->i_ref_dwt2out[level].crop_width;
             int vifdwt_height = s->i_ref_dwt2out[level].crop_height;
             //The VIF function reuses the band1, band2, band3 of s->ref_dwt2out &   s->dist_dwt2out

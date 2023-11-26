@@ -75,6 +75,10 @@ typedef struct FunqueState {
     double norm_view_dist;
     int ref_display_height;
     int strred_levels;
+    int process_ref_width;
+    int process_ref_height;
+    int process_dist_width;
+    int process_dist_height;
 
     // VIF extra variables
     double vif_enhn_gain_limit;
@@ -459,6 +463,10 @@ static int extract(VmafFeatureExtractor *fex,
     {
         res_ref_pic = ref_pic;
         res_dist_pic = dist_pic;
+        s->process_ref_width = (ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->process_ref_height = (ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->process_dist_width = (dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+        s->process_dist_height = (dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
     }
     
     funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
@@ -473,14 +481,14 @@ static int extract(VmafFeatureExtractor *fex,
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
         spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->spat_tmp_buf, s->num_taps);
-        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
+        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], s->process_ref_width, s->process_ref_height);
         spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->spat_tmp_buf, s->num_taps);
-        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
 
     } else {
         // Wavelet Domain or pyramid is done
-        funque_dwt2(s->ref, &s->ref_dwt2out[0], res_ref_pic->w[0], res_ref_pic->h[0]);
-        funque_dwt2(s->dist, &s->dist_dwt2out[0], res_dist_pic->w[0], res_dist_pic->h[0]);
+        funque_dwt2(s->ref, &s->ref_dwt2out[0], s->process_ref_width, s->process_ref_height);
+        funque_dwt2(s->dist, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
     }
 
     double ssim_score[MAX_LEVELS];
@@ -513,7 +521,7 @@ static int extract(VmafFeatureExtractor *fex,
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
                 // from here on out we only need approx band for VIF
-                funque_vifdwt2_band0(s->ref_dwt2out[level].bands[0],  s->ref_dwt2out[level + 1].bands[0],  s->ref_dwt2out[level].stride, s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height);
+                funque_vifdwt2_band0(s->ref_dwt2out[level].bands[0],  s->ref_dwt2out[level + 1].bands[0],  s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
                 funque_dwt2(s->ref_dwt2out[level].bands[0], &s->ref_dwt2out[level + 1], s->ref_dwt2out[level].crop_width,
