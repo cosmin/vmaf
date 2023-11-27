@@ -381,9 +381,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         crop_div_factor = pow(2, (level+1));
         s->ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
         s->ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
+        s->ref_dwt2out[level].crop_stride = s->ref_dwt2out[level].crop_width * sizeof(float);
 
         s->dist_dwt2out[level].crop_width = dc_width / crop_div_factor;
         s->dist_dwt2out[level].crop_height = dc_height / crop_div_factor;
+        s->dist_dwt2out[level].crop_stride = s->dist_dwt2out[level].crop_width * sizeof(float);
 
         s->prev_ref[level].bands[0] = NULL;
         s->prev_dist[level].bands[0] = NULL;

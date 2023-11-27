@@ -29,7 +29,7 @@
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height)
 {
-    int dst_px_stride = dwt2_dst->stride / sizeof(float);
+    int dst_px_stride = dwt2_dst->crop_stride / sizeof(float);
     float filter_coeff = 1/sqrtf(2);
 
     float *tmplo = aligned_malloc(ALIGN_CEIL(width * sizeof(float)), MAX_ALIGN);

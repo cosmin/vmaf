@@ -72,9 +72,10 @@ typedef struct dwt2buffers {
     float *bands[4];
     int width;
     int height;
+    ptrdiff_t stride;
     int crop_width;
     int crop_height;
-    ptrdiff_t stride;
+    ptrdiff_t crop_stride;
 }dwt2buffers;
 
 /* filter format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal as in
