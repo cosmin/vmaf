@@ -144,14 +144,14 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
             my = dist->bands[0][index] / win_dim;
 
             for(int k = 1; k < 4; k++) {
-                var_x_cum[index_cum] += ref->bands[k][index] * ref->bands[k][index];
-                var_y_cum[index_cum] += dist->bands[k][index] * dist->bands[k][index];
-                cov_xy_cum[index_cum] += ref->bands[k][index] * dist->bands[k][index];
+                var_x_cum[index_cum] += ((ref->bands[k][index] * ref->bands[k][index]) / win_size);
+                var_y_cum[index_cum] += ((dist->bands[k][index] * dist->bands[k][index]) / win_size);
+                cov_xy_cum[index_cum] += ((ref->bands[k][index] * dist->bands[k][index]) / win_size);
             }
 
-            var_x = var_x_cum[index_cum] / win_size;
-            var_y = var_y_cum[index_cum] / win_size;
-            cov_xy = cov_xy_cum[index_cum] / win_size;
+            var_x = var_x_cum[index_cum];
+            var_y = var_y_cum[index_cum];
+            cov_xy = cov_xy_cum[index_cum];
 
             l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
             cs = (2 * cov_xy + C2) / (var_x + var_y + C2);
