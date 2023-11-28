@@ -57,7 +57,7 @@ typedef int64_t ssim_accum_dtype;
 #define SSIM_SHIFT_DIV 15 //Depends on ssim_accum_dtype datatype
 #define SSIM_SQ_ROW_SHIFT 9
 #define SSIM_SQ_COL_SHIFT 11
-#define SSIM_INTER_VAR_SHIFTS 1
+#define SSIM_INTER_VAR_SHIFTS 0
 #define SSIM_INTER_L_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
 #define SSIM_INTER_CS_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
 

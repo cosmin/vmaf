@@ -35,11 +35,35 @@ static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
 
 static inline int16_t get_best_i16_from_u32(uint32_t temp, int *power)
 {
-    //assert(temp >= 0x20000);
+    assert(temp >= 0x20000);
     int k = __builtin_clz(temp);
     k = 17 - k;
     temp = temp >> k;
     *power = k;
+    return (int16_t) temp;
+}
+
+static inline int16_t ms_ssim_get_best_i16_from_u32(uint32_t temp, int *x)
+{
+    int k = __builtin_clz(temp);
+
+    if(k > 17) {
+        k -= 17;
+        //temp = temp << k;
+        *x = 0;
+
+    } else if(k < 16) {
+        k = 17 - k;
+        temp = temp >> k;
+        *x = k;
+    } else {
+        *x = 0;
+        if(temp >> 15) {
+            temp = temp >> 1;
+            *x = 1;
+        }
+    }
+
     return (int16_t) temp;
 }
 
@@ -186,7 +210,7 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
 
     int cum_array_width = (ref->crop_width) * (1 << n_levels);
     int win_dim = (1 << n_levels);          // 2^L
-    int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
+    int win_size = (n_levels << 1); 
     pending_div = pending_div >> (n_levels -1);
     int pending_div_c1 = pending_div;
     int pending_div_c2 = pending_div;
@@ -273,25 +297,25 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             var_y  += (((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
             cov_xy += (((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
             
-            var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_dim;
-            var_y_band0  = ((ssim_inter_dtype)my * my) >> win_dim;
-            cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_dim;
+            var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_size;
+            var_y_band0  = ((ssim_inter_dtype)my * my) >> win_size;
+            cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_size;
 
-            var_x = (var_x >> SSIM_INTER_VAR_SHIFTS);
-            var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
-            cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
+            //var_x = (var_x >> SSIM_INTER_VAR_SHIFTS);
+            //var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
+            //cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
 
-            // var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
-            // var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
-            // cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
+            var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
+            var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
+            cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
 
-            var_x_cum[index_cum] += var_x;
-            var_y_cum[index_cum] += var_y;
-            cov_xy_cum[index_cum] += cov_xy;
+            var_x_cum[index_cum] += (var_x >> win_size);
+            var_y_cum[index_cum] += (var_y >> win_size);
+            cov_xy_cum[index_cum] += (cov_xy >> win_size);
 
-            var_x = (var_x_cum[index_cum] >> win_dim);
-            var_y = (var_y_cum[index_cum] >> win_dim);
-            cov_xy = (cov_xy_cum[index_cum] >> win_dim);
+            var_x = var_x_cum[index_cum];
+            var_y = var_y_cum[index_cum];
+            cov_xy = cov_xy_cum[index_cum];
 
             l_num = ((2 >> SSIM_INTER_L_SHIFT) * cov_xy_band0 + C1);
             l_den = (((var_x_band0 + var_y_band0) >> SSIM_INTER_L_SHIFT) + C1);
@@ -300,10 +324,10 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             cs_den = (((var_x + var_y) >> SSIM_INTER_CS_SHIFT) + C2);
 
             int power_val_l;
-            i16_l_den = get_best_i16_from_u32((uint32_t) l_den, &power_val_l);
+            i16_l_den = ms_ssim_get_best_i16_from_u32((uint32_t) l_den, &power_val_l);
 
             int power_val_cs;
-            i16_cs_den = get_best_i16_from_u32((uint32_t) cs_den, &power_val_cs);
+            i16_cs_den = ms_ssim_get_best_i16_from_u32((uint32_t) cs_den, &power_val_cs);
 
             /**
              * The actual equation of map is map_num/map_den
