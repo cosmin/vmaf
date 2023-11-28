@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include "funque_filters.h"
 #include "funque_ssim_options.h"
+#include <complex.h>
+#include <stdio.h>
 
 int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2)
 {
@@ -228,14 +230,23 @@ int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels)
     float cum_prod_mink3[5] = {0};
     float cum_prod_concat_mink3[5] = {0};
     float ms_ssim_mink3_scales[5] = {0};
+    
+    float sign_cum_prod_mean = (score[0].cs_mean) >= 0 ? 1 : -1;  
+    float sign_cum_prod_cov = (score[0].cs_cov) >= 0 ? 1 : -1;
+    float sign_cum_prod_mink3 = (score[0].cs_mink3) >= 0 ? 1 : -1;
 
-    cum_prod_mean[0] = pow(score[0].cs_mean, exps[0]);
-    cum_prod_cov[0] = pow(score[0].cs_cov, exps[0]);
-    cum_prod_mink3[0] = pow(score[0].cs_mink3, exps[0]);
+    cum_prod_mean[0] = pow(fabs(score[0].cs_mean), exps[0]) * sign_cum_prod_mean;
+    cum_prod_cov[0] = pow(fabs(score[0].cs_cov), exps[0]) * sign_cum_prod_cov;
+    cum_prod_mink3[0] = pow(fabs(score[0].cs_mink3), exps[0]) * sign_cum_prod_mink3;
+
     for(int i = 1; i < n_levels; i++) {
-        cum_prod_mean[i] = cum_prod_mean[i - 1] * pow(score[i].cs_mean, exps[i]);
-        cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(score[i].cs_cov, exps[i]);
-        cum_prod_mink3[i] = cum_prod_mink3[i - 1] * pow(score[i].cs_mink3, exps[i]);
+        sign_cum_prod_mean = (score[i].cs_mean) >= 0 ? 1 : -1;  
+        sign_cum_prod_cov = (score[i].cs_cov) >= 0 ? 1 : -1;
+        sign_cum_prod_mink3 = (score[i].cs_mink3) >= 0 ? 1 : -1;
+
+        cum_prod_mean[i] = cum_prod_mean[i-1] * pow(fabs(score[i].cs_mean), exps[i]) * sign_cum_prod_mean;
+        cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(fabs(score[i].cs_cov), exps[i]) * sign_cum_prod_cov;
+        cum_prod_mink3[i] = cum_prod_mink3[i - 1] * pow(fabs(score[i].cs_mink3), exps[i]) * sign_cum_prod_mink3;        
     }
 
     cum_prod_concat_mean[0] = 1;
@@ -248,9 +259,14 @@ int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels)
     }
 
     for(int i = 0; i < n_levels; i++) {
-        score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(score[i].ssim_mean, exps[i]);
-        score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(score[i].ssim_cov, exps[i]);
-        score[i].ms_ssim_mink3 = cum_prod_concat_mink3[i] * pow(score[i].ssim_mink3, exps[i]);
+        
+        float sign_mssim_mean = (score[i].ssim_mean) >= 0 ? 1 : -1;  
+        float sign_mssim_cov = (score[i].ssim_cov) >= 0 ? 1 : -1;
+        float sign_mssim_mink3 = (score[i].ssim_mink3) >= 0 ? 1 : -1;
+        score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(fabs(score[i].ssim_mean), exps[i]) * sign_mssim_mean;
+        score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(fabs(score[i].ssim_cov), exps[i])* sign_mssim_cov;
+        score[i].ms_ssim_mink3 = cum_prod_concat_mink3[i] * pow(fabs(score[i].ssim_mink3), exps[i])* sign_mssim_mink3;
+        
     }
 
     ret = 0;

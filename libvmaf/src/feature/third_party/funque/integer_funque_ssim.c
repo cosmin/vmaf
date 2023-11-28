@@ -402,11 +402,18 @@ int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
     double cum_prod_concat_cov[5] = {0};
     double ms_ssim_cov_scales[5] = {0};
 
-    cum_prod_mean[0] = pow(score[0].cs_mean, int_exps[0]);
-    cum_prod_cov[0] = pow(score[0].cs_cov, int_exps[0]);
+    float sign_cum_prod_mean = (score[0].cs_mean) >= 0 ? 1 : -1;  
+    float sign_cum_prod_cov = (score[0].cs_cov) >= 0 ? 1 : -1;
+
+    cum_prod_mean[0] = pow(fabs(score[0].cs_mean), int_exps[0]) * sign_cum_prod_mean;
+    cum_prod_cov[0] = pow(fabs(score[0].cs_cov), int_exps[0]) * sign_cum_prod_cov;
     for(int i = 1; i < n_levels; i++) {
-        cum_prod_mean[i] = cum_prod_mean[i - 1] * pow(score[i].cs_mean, int_exps[i]);
-        cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(score[i].cs_cov, int_exps[i]);
+        sign_cum_prod_mean = (score[i].cs_mean) >= 0 ? 1 : -1;  
+        sign_cum_prod_cov = (score[i].cs_cov) >= 0 ? 1 : -1;
+
+        cum_prod_mean[i] = cum_prod_mean[i-1] * pow(fabs(score[i].cs_mean), int_exps[i]) * sign_cum_prod_mean;
+        cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(fabs(score[i].cs_cov), int_exps[i]) * sign_cum_prod_cov;
+        
     }
 
     cum_prod_concat_mean[0] = 1;
@@ -417,8 +424,12 @@ int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
     }
 
     for(int i = 0; i < n_levels; i++) {
-        score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(score[i].ssim_mean, int_exps[i]);
-        score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(score[i].ssim_cov, int_exps[i]);
+        float sign_mssim_mean = (score[i].ssim_mean) >= 0 ? 1 : -1;  
+        float sign_mssim_cov = (score[i].ssim_cov) >= 0 ? 1 : -1;
+        
+        score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(fabs(score[i].ssim_mean), int_exps[i]) * sign_mssim_mean;
+        score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(fabs(score[i].ssim_cov), int_exps[i])* sign_mssim_cov;
+        
     }
 
     ret = 0;
