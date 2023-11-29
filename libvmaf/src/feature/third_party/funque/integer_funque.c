@@ -618,7 +618,8 @@ static int extract(VmafFeatureExtractor *fex,
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore_int ms_ssim_score[MAX_LEVELS];
-    s->score = &ms_ssim_score;
+    //s->score = &ms_ssim_score;
+    s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
 
