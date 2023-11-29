@@ -136,7 +136,7 @@ const float ngan_filter_coeffs[21] = {
 void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, int num_taps)
 {
     int fwidth;
-    float *filter_coeffs;
+    const float *filter_coeffs;
     if(num_taps == 5) {
         /*coefficients for 5 tap nadeanu_spat filter */
         fwidth = 5;

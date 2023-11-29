@@ -569,6 +569,7 @@ void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dt
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
 {
+    UNUSED(level);
     dwt2_dtype *src_ptr;
     dwt2_dtype *dst_ptr;
 

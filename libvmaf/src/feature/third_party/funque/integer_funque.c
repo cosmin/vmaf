@@ -284,27 +284,6 @@ static const VmafOption options[] = {
 
     {0}};
 
-static int i_alloc_dwt2buffers(i_dwt2buffers *i_dwt2out, int w, int h) {
-    i_dwt2out->width = (int) (w+1)/2;
-    i_dwt2out->height = (int) (h+1)/2;
-    i_dwt2out->stride = ALIGN_CEIL(i_dwt2out->width * sizeof(dwt2_dtype));
-
-    for(unsigned i=0; i < 4; i++)
-    {
-        i_dwt2out->bands[i] = aligned_malloc(i_dwt2out->stride * i_dwt2out->height, 32);
-        if (!i_dwt2out->bands[i]) goto fail;
-        memset(i_dwt2out->bands[i], 0, i_dwt2out->stride * i_dwt2out->height);
-    }
-    return 0;
-
-    fail:
-    for(unsigned i=0; i < 4; i++)
-    {
-        if (i_dwt2out->bands[i]) aligned_free(i_dwt2out->bands[i]);
-    }
-    return -ENOMEM;
-}
-
 static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {

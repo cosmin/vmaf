@@ -260,6 +260,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {
     (void)pix_fmt;
+    (void)bpc;
 
     FunqueState *s = fex->priv;
     s->feature_name_dict =
@@ -496,9 +497,9 @@ static int extract(VmafFeatureExtractor *fex,
     double ssim_score[MAX_LEVELS];
     MsSsimScore ms_ssim_score[MAX_LEVELS];
     s->score = &ms_ssim_score;
+    //s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
-    double strred_values[MAX_LEVELS];
 
     float *var_x_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));
     float *var_y_cum = (float *) calloc(res_ref_pic->w[0] * res_ref_pic->h[0], sizeof(float));

@@ -21,12 +21,13 @@
 #include <stdint.h>
 
 #include "config.h"
-
+#include "funque_global_options.h"
 #include "funque_vif_options.h"
 #define ADM_REFLECT_PAD 0
 #define VIF_REFLECT_PAD 1
 
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
+#define UNUSED(x) (void)(x)
 
 #define NGAN_21_TAP_FILTER 21
 #define NADENAU_SPAT_5_TAP_FILTER 5
@@ -85,6 +86,17 @@ typedef struct MsSsimScore_int {
     int32_t **var_y_cum;
     int32_t **cov_xy_cum;
 } MsSsimScore_int;
+
+typedef struct strred_results {
+    double srred_vals[MAX_LEVELS];
+    double trred_vals[MAX_LEVELS];
+    double strred_vals[MAX_LEVELS];
+    double spat_vals[MAX_LEVELS];
+    double temp_vals[MAX_LEVELS];
+    double spat_temp_vals[MAX_LEVELS];
+    double spat_vals_cumsum, temp_vals_cumsum, spat_temp_vals_cumsum;
+
+} strred_results;
 
 typedef struct ModuleFunqueState
 {

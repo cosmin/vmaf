@@ -104,8 +104,6 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
                            float K1, float K2, int n_levels)
 {
     int ret = 1;
-    MsSsimScore ms_ssim_score;
-    ms_ssim_score = *score;
 
     int cum_array_width = (ref->crop_width) * (1 << n_levels);
 
@@ -132,7 +130,7 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     int win_dim = (1 << n_levels);          // 2^L
     int win_size = (1 << (n_levels << 1));  // 2^(2L), i.e., a win_dim X win_dim square
 
-    float mx, my, l, cs, ssim;
+    float mx, my, l, cs;
     double ssim_sum = 0;
     double l_sum = 0;
     double cs_sum = 0;
@@ -159,7 +157,6 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
 
             l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
             cs = (2 * cov_xy + C2) / (var_x + var_y + C2);
-            ssim = l * cs;
 
             cube_1minus_l += pow((1 - l), 3);
             cube_1minus_cs += pow((1 - cs), 3);
@@ -221,16 +218,13 @@ int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels)
 
     float cum_prod_mean[5] = {0};
     float cum_prod_concat_mean[5] = {0};
-    float ms_ssim_mean_scales[5] = {0};
 
     float cum_prod_cov[5] = {0};
     float cum_prod_concat_cov[5] = {0};
-    float ms_ssim_cov_scales[5] = {0};
 
     float cum_prod_mink3[5] = {0};
     float cum_prod_concat_mink3[5] = {0};
-    float ms_ssim_mink3_scales[5] = {0};
-    
+
     float sign_cum_prod_mean = (score[0].cs_mean) >= 0 ? 1 : -1;  
     float sign_cum_prod_cov = (score[0].cs_cov) >= 0 ? 1 : -1;
     float sign_cum_prod_mink3 = (score[0].cs_mink3) >= 0 ? 1 : -1;

@@ -107,7 +107,7 @@ void strred_compute_entropy_scale(const double* int_1_x, const double* int_2_x, 
                                   float* scale)
 {
     float mu_x, var_x;
-    float entr_const = log(2 * M_PI * EULERS_CONSTANT);
+    float entr_const = log(2 * PI_CONSTANT * EULERS_CONSTANT);
     float sigma_nsq = STRRED_SIGMA_NSQ;
 
     for(size_t i = 0; i < (height - kh); i++) {
@@ -202,9 +202,9 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
                           size_t width, size_t height, struct strred_results* strred_scores,
                           int block_size, int level)
 {
-    size_t subband, num_level;
-    float spat_abs, spat_mean, spat_values[DEFAULT_STRRED_SUBBANDS];
-    float temp_abs, temp_mean, temp_values[DEFAULT_STRRED_SUBBANDS];
+    size_t subband;
+    float spat_abs, spat_values[DEFAULT_STRRED_SUBBANDS];
+    float temp_abs, temp_values[DEFAULT_STRRED_SUBBANDS];
 
     size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
     size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
@@ -291,7 +291,7 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     // Add equations to compute ST-RRED using norm factors
-    int norm_factor;
+    int norm_factor, num_level;
     for(num_level = 0; num_level <= level; num_level++)
         norm_factor = num_level + 1;
 

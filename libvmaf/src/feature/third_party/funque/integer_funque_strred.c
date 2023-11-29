@@ -154,7 +154,6 @@ float strred_horz_integralsum_spatial_csf(
     uint32_t s_look_x, s_look_y;
     int64_t entropy_x, entropy_y, scale_x, scale_y;
 
-    float temp_mul_fac = ((256 * 256 * 128) / (255.0 * 255 * 81));
     float fentropy_x, fentropy_y, fscale_x, fscale_y;
     float aggregate = 0;
 
@@ -304,7 +303,6 @@ float strred_horz_integralsum_wavelet(int kw, int width_p1, int16_t knorm_fact, 
 
     float fentropy_x, fentropy_y, fscale_x, fscale_y;
     float aggregate = 0;
-    float temp_mul_fac = ((256 * 256 * 128) / (255.0 * 255 * 81));
 
     int64_t div_fac = (int64_t) (1 << pending_div_fac) * 255 * 255 * 81;
     uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
@@ -439,11 +437,8 @@ float integer_rred_entropies_and_scales(const dwt2_dtype *x_t, const dwt2_dtype 
                                         uint8_t enable_temporal, float *spat_scales_x,
                                         float *spat_scales_y, uint8_t check_enable_spatial_csf)
 {
-    int ret = 1;
-
     int kh = STRRED_WINDOW_SIZE;
     int kw = STRRED_WINDOW_SIZE;
-    int k_norm = kw * kh;
 
     /* amount of reflecting */
     int x_reflect = (int) ((STRRED_WINDOW_SIZE - 1) / 2);
@@ -481,7 +476,7 @@ float integer_rred_entropies_and_scales(const dwt2_dtype *x_t, const dwt2_dtype 
     int16_t knorm_fact =
         25891;  // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21;
-    uint32_t entr_const = (uint32_t) (log2f(2 * M_PI * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
+    uint32_t entr_const = (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
 
     {
         int width_p1 = r_width + 1;
@@ -651,9 +646,9 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
                                     double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
-
+    UNUSED(block_size);
     size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
-    size_t subband, num_level;
+    size_t subband;
     float spat_values[DEFAULT_STRRED_SUBBANDS], temp_values[DEFAULT_STRRED_SUBBANDS];
     float fspat_val[DEFAULT_STRRED_SUBBANDS], ftemp_val[DEFAULT_STRRED_SUBBANDS];
     uint8_t enable_temp = 0;
@@ -661,7 +656,6 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
 
     /* amount of reflecting */
     int x_reflect = (int) ((STRRED_WINDOW_SIZE - 1) / 2);
-    int y_reflect = (int) ((STRRED_WINDOW_SIZE - 1) / 2);
     size_t r_width = width + (2 * x_reflect);
     size_t r_height = height + (2 * x_reflect);
 
@@ -669,9 +663,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
     float *scales_spat_y = (float *) calloc(r_width * r_height, sizeof(float));
 
     for(subband = 1; subband < total_subbands; subband++) {
-        size_t i, j;
         enable_temp = 0;
-        int32_t Q_Factor = 0;
         spat_values[subband] = 0;
 
         if(check_enable_spatial_csf == 1)
@@ -709,7 +701,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     // Add equations to compute ST-RRED using norm factors
-    int norm_factor;
+    int norm_factor, num_level;
     for(num_level = 0; num_level <= level; num_level++)
         norm_factor = num_level + 1;
 
