@@ -381,9 +381,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         crop_div_factor = pow(2, (level+1));
         s->i_ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
         s->i_ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
+        s->i_ref_dwt2out[level].crop_stride = s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype);
 
         s->i_dist_dwt2out[level].crop_width = dc_width / crop_div_factor;
         s->i_dist_dwt2out[level].crop_height = dc_height / crop_div_factor;
+        s->i_dist_dwt2out[level].crop_stride = s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype);
 
         s->i_prev_ref[level].width = (int) (last_w + 1) / 2;
         s->i_prev_ref[level].height = (int) (last_h + 1) / 2;
@@ -575,10 +577,21 @@ static int extract(VmafFeatureExtractor *fex,
     {
         res_ref_pic = ref_pic;
         res_dist_pic = dist_pic;
+    }
+
+    if(s->enable_spatial_csf)
+    {
         s->i_process_ref_width = (ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->i_process_ref_height = (ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->i_process_dist_width = (dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->i_process_dist_height = (dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+    }
+    else
+    {
+        s->i_process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->i_process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->i_process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->i_process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
     }
 
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;

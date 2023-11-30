@@ -69,6 +69,7 @@ typedef struct i_dwt2buffers {
     int crop_width;
     int crop_height;
     int stride;
+    int crop_stride;
 }i_dwt2buffers;
 
 typedef struct MsSsimScore_int {

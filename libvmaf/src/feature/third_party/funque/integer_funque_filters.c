@@ -576,7 +576,7 @@ void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dt
     /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
     dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
-    int px_stride = src->crop_width / sizeof(dwt2_dtype);
+    int px_stride = src->crop_stride / sizeof(dwt2_dtype);
 
     /* The computation of the csf values is not required for the regions which lie outside the frame
      * borders */
