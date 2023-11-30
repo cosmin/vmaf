@@ -460,23 +460,28 @@ static int extract(VmafFeatureExtractor *fex,
             resize(s->resize_module ,dist_pic->data[0], res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0]);
         else
             hbd_resize(s->resize_module ,(unsigned short *)dist_pic->data[0], (unsigned short *)res_dist_pic->data[0], dist_pic->w[0], dist_pic->h[0], res_dist_pic->w[0], res_dist_pic->h[0], dist_pic->bpc);
-
-        s->process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
     }
     else
     {
         res_ref_pic = ref_pic;
         res_dist_pic = dist_pic;
+    }
+
+    if(s->enable_spatial_csf)
+    {
         s->process_ref_width = (ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_ref_height = (ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_dist_width = (dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_dist_height = (dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
     }
-    // TODO: Put a if else condition for spat csf/wave csf is enabled and set crop_width and height accordingly
-    
+    else
+    {
+        s->process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+        s->process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+    }
+
     funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
     funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
 
