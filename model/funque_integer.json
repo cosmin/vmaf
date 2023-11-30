@@ -14,13 +14,12 @@
         "feature_opts_dicts": [
             {
                 "num_taps": 5,
-                "enable_resize": false,
+                "enable_resize": true,
                 "vif_levels": 2,
                 "strred_levels": 4,
                 "ssim_levels": 4,
-                "enable_spatial_csf": true
+                "enable_spatial_csf": false
             },
-            {},
             {},
             {},
             {}
@@ -28,8 +27,6 @@
         "feature_names": [
             "FUNQUE_integer_feature_vif_score",
             "FUNQUE_integer_feature_vif_scale0_score",
-            "FUNQUE_integer_feature_adm_score",
-            "FUNQUE_integer_feature_adm_scale0_score",
             "FUNQUE_integer_feature_strred_scale0_score",
             "FUNQUE_integer_feature_strred_scale1_score",
             "FUNQUE_integer_feature_strred_scale2_score",

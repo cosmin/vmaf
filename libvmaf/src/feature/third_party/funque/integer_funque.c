@@ -160,7 +160,6 @@ static const VmafOption options[] = {
         .offset = offsetof(IntFunqueState, enable_spatial_csf),
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = true,
-        .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
     {
         .name = "num_taps",
@@ -704,14 +703,14 @@ static int extract(VmafFeatureExtractor *fex,
             }
         }
 
-        //TODO: Need to modify for crop width and height
-        err = integer_compute_adm_funque(
-            s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level],
-            &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].width,
-            s->i_ref_dwt2out[level].height, 0.2, s->adm_div_lookup);
-
-        if(err)
-            return err;
+//        //TODO: Need to modify for crop width and height
+//        err = integer_compute_adm_funque(
+//            s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level],
+//            &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].width,
+//            s->i_ref_dwt2out[level].height, 0.2, s->adm_div_lookup);
+//
+//        if(err)
+//            return err;
 
         if(level < s->ssim_levels)
         {
@@ -858,13 +857,13 @@ static int extract(VmafFeatureExtractor *fex,
     //     }
     // }
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_score",
-                                                   adm, index);
-
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_scale0_score",
-                                                   adm_score[0], index);
+    //    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_score",
+    //                                                   adm, index);
+    //
+    //    err |= vmaf_feature_collector_append_with_dict(feature_collector,
+    //                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_scale0_score",
+    //                                                   adm_score[0], index);
 //    if (s->adm_levels > 1) {
 //
 //        err |= vmaf_feature_collector_append_with_dict(feature_collector,
@@ -1012,8 +1011,8 @@ static const char *provided_features[] = {
     "FUNQUE_integer_feature_vif_score",
     "FUNQUE_integer_feature_vif_scale0_score",
 
-    "FUNQUE_integer_feature_adm_score",
-    "FUNQUE_integer_feature_adm_scale0_score",
+//    "FUNQUE_integer_feature_adm_score",
+//    "FUNQUE_integer_feature_adm_scale0_score",
 
     "FUNQUE_integer_feature_ssim_scale0_score",
 
