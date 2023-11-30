@@ -211,7 +211,7 @@ void funque_dwt2_inplace_csf(const dwt2buffers *src, float factors[4], int min_t
     /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
     float *angles[4] = { src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
-    int px_stride = src->crop_width / sizeof(float);
+    int px_stride = src->crop_stride / sizeof(float);
 
     /* The computation of the csf values is not required for the regions which lie outside the frame borders */
     int left = 0;
