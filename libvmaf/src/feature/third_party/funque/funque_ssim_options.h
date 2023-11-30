@@ -25,19 +25,19 @@
 #define MS_SSIM_LEVELS      5
 
 typedef struct MsSsimScore {
-    float ssim_mean;
-    float l_mean;
-    float cs_mean;
-    float ssim_cov;
-    float l_cov;
-    float cs_cov;
-    float ssim_mink3;
-    float l_mink3;
-    float cs_mink3;
+    double ssim_mean;
+    double l_mean;
+    double cs_mean;
+    double ssim_cov;
+    double l_cov;
+    double cs_cov;
+    double ssim_mink3;
+    double l_mink3;
+    double cs_mink3;
     
-    float ms_ssim_mean;
-    float ms_ssim_cov;
-    float ms_ssim_mink3;
+    double ms_ssim_mean;
+    double ms_ssim_cov;
+    double ms_ssim_mink3;
 
     float **var_x_cum;
     float **var_y_cum;
