@@ -269,10 +269,29 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     ssim_accum_dtype accum_sq_cs = 0;
     ssim_accum_dtype map_sq = 0;
 
+    ssim_inter_dtype mink3_const = 32768; // 2^15
+    //ssim_inter_dtype mink3_const = pending_div * pending_div;
+    ssim_inter_dtype mink3_const_map = (mink3_const * mink3_const) >> SSIM_R_SHIFT;
+    ssim_inter_dtype mink3_const_l = mink3_const >> L_R_SHIFT;
+    ssim_inter_dtype mink3_const_cs = mink3_const >> CS_R_SHIFT;
+
+    ssim_inter_dtype map_r_shift = 0;
+    ssim_inter_dtype l_r_shift = 0;
+    ssim_inter_dtype cs_r_shift = 0;
+    ssim_mink3_accum_dtype mink3_map = 0;
+    ssim_mink3_accum_dtype mink3_l = 0;
+    ssim_mink3_accum_dtype mink3_cs = 0;
+    ssim_mink3_accum_dtype accum_mink3_map = 0;
+    ssim_mink3_accum_dtype accum_mink3_l = 0;
+    ssim_mink3_accum_dtype accum_mink3_cs = 0;
+
     int index = 0;
     int index_cum = 0;
     for(int i = 0; i < height; i++) {
         ssim_accum_dtype row_accum_sq_map = 0;
+        ssim_mink3_accum_dtype row_accum_mink3_map = 0;
+        ssim_mink3_accum_dtype row_accum_mink3_l = 0;
+        ssim_mink3_accum_dtype row_accum_mink3_cs = 0;
         for(int j = 0; j < width; j++) {
             index = i * width + j;
 
@@ -350,9 +369,26 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             map_sq = ((int64_t) map * map) >> SSIM_SQ_ROW_SHIFT;
             row_accum_sq_map += map_sq;
 
+
+            l_r_shift = l >> L_R_SHIFT;
+            cs_r_shift = cs >> CS_R_SHIFT;
+            map_r_shift = map >> SSIM_R_SHIFT;
+
+            mink3_l = pow((mink3_const_l - l_r_shift), 3);
+            mink3_cs = pow((mink3_const_cs - cs_r_shift), 3);
+            mink3_map = pow((mink3_const_map - map_r_shift), 3);
+
+            row_accum_mink3_l += mink3_l;
+            row_accum_mink3_cs += mink3_cs;
+            row_accum_mink3_map += mink3_map;
+
             index_cum++;
         }
         accum_sq_map += (row_accum_sq_map >> SSIM_SQ_COL_SHIFT);
+
+        accum_mink3_l += (row_accum_mink3_l >> L_MINK3_ROW_R_SHIFT);
+        accum_mink3_cs += (row_accum_mink3_cs >> CS_MINK3_ROW_R_SHIFT);
+        accum_mink3_map += (row_accum_mink3_map >> SSIM_MINK3_ROW_R_SHIFT);
 
         index_cum += (cum_array_width - width);
     }
@@ -375,12 +411,23 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     double cs_cov = cs_std / cs_mean;
     double ssim_cov = ssim_std / ssim_mean;
 
+    double mink3_cbrt_const_l = pow(2,(39/3));
+    double mink3_cbrt_const_cs = pow(2,(38.0/3));
+    double mink3_cbrt_const_map = pow(2,(38.0/3));
+
+    double l_mink3 = mink3_cbrt_const_l - (double)cbrt(accum_mink3_l / (width * height));
+    double cs_mink3 = mink3_cbrt_const_cs - (double)cbrt(accum_mink3_cs / (width * height));
+    double ssim_mink3 = mink3_cbrt_const_map - (double)cbrt(accum_mink3_map / (width * height));
+
     score->ssim_mean = ssim_mean / (1 << (SSIM_SHIFT_DIV * 2));
     score->l_mean = l_mean / (1 << SSIM_SHIFT_DIV);
     score->cs_mean = cs_mean / (1 << SSIM_SHIFT_DIV);
     score->ssim_cov = ssim_cov;
     score->l_cov = l_cov;
     score->cs_cov = cs_cov;
+    score->l_mink3 = l_mink3 / pow(2,(39/3));
+    score->cs_mink3 = cs_mink3 / pow(2,(38.0/3));
+    score->ssim_mink3 = ssim_mink3 / pow(2,(38.0/3));
 
     ret = 0;
 
@@ -397,34 +444,45 @@ int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
     double cum_prod_cov[5] = {0};
     double cum_prod_concat_cov[5] = {0};
 
+    double cum_prod_mink3[5] = {0};
+    double cum_prod_concat_mink3[5] = {0};
+    double ms_ssim_mink3_scales[5] = {0};
+
     float sign_cum_prod_mean = (score[0].cs_mean) >= 0 ? 1 : -1;  
     float sign_cum_prod_cov = (score[0].cs_cov) >= 0 ? 1 : -1;
+    float sign_cum_prod_mink3 = (score[0].cs_mink3) >= 0 ? 1 : -1;
 
     cum_prod_mean[0] = pow(fabs(score[0].cs_mean), int_exps[0]) * sign_cum_prod_mean;
     cum_prod_cov[0] = pow(fabs(score[0].cs_cov), int_exps[0]) * sign_cum_prod_cov;
+    cum_prod_mink3[0] = pow(fabs(score[0].cs_mink3), int_exps[0]) * sign_cum_prod_mink3;
     for(int i = 1; i < n_levels; i++) {
         sign_cum_prod_mean = (score[i].cs_mean) >= 0 ? 1 : -1;  
         sign_cum_prod_cov = (score[i].cs_cov) >= 0 ? 1 : -1;
+        sign_cum_prod_mink3 = (score[i].cs_mink3) >= 0 ? 1 : -1;
 
         cum_prod_mean[i] = cum_prod_mean[i-1] * pow(fabs(score[i].cs_mean), int_exps[i]) * sign_cum_prod_mean;
         cum_prod_cov[i] = cum_prod_cov[i - 1] * pow(fabs(score[i].cs_cov), int_exps[i]) * sign_cum_prod_cov;
-        
+        cum_prod_mink3[i] = cum_prod_mink3[i - 1] * pow(fabs(score[i].cs_mink3), int_exps[i]) * sign_cum_prod_mink3;
     }
 
     cum_prod_concat_mean[0] = 1;
     cum_prod_concat_cov[0] = 1;
+    cum_prod_concat_mink3[0] = 1;
     for(int i = 1; i < n_levels; i++) {
         cum_prod_concat_mean[i] = cum_prod_mean[i - 1];
         cum_prod_concat_cov[i] = cum_prod_cov[i - 1];
+        cum_prod_concat_mink3[i] = cum_prod_mink3[i - 1];
     }
 
     for(int i = 0; i < n_levels; i++) {
         float sign_mssim_mean = (score[i].ssim_mean) >= 0 ? 1 : -1;  
         float sign_mssim_cov = (score[i].ssim_cov) >= 0 ? 1 : -1;
+        float sign_mssim_mink3 = (score[i].ssim_mink3) >= 0 ? 1 : -1;
         
         score[i].ms_ssim_mean = cum_prod_concat_mean[i] * pow(fabs(score[i].ssim_mean), int_exps[i]) * sign_mssim_mean;
         score[i].ms_ssim_cov = cum_prod_concat_cov[i] * pow(fabs(score[i].ssim_cov), int_exps[i])* sign_mssim_cov;
         
+        score[i].ms_ssim_mink3 = cum_prod_concat_mink3[i] * pow(fabs(score[i].ssim_mink3), int_exps[i])* sign_mssim_mink3;
     }
 
     ret = 0;

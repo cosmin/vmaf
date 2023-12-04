@@ -55,12 +55,20 @@ typedef int64_t motion_accum_dtype;
 
 typedef int32_t ssim_inter_dtype;
 typedef int64_t ssim_accum_dtype;
+typedef uint32_t ssim_mink3_inter_dtype;
+typedef uint64_t ssim_mink3_accum_dtype;
 #define SSIM_SHIFT_DIV 15 //Depends on ssim_accum_dtype datatype
 #define SSIM_SQ_ROW_SHIFT 9
 #define SSIM_SQ_COL_SHIFT 11
 #define SSIM_INTER_VAR_SHIFTS 0
 #define SSIM_INTER_L_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
 #define SSIM_INTER_CS_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
+#define L_R_SHIFT 0
+#define CS_R_SHIFT 0
+#define SSIM_R_SHIFT 14
+#define L_MINK3_ROW_R_SHIFT 6
+#define CS_MINK3_ROW_R_SHIFT 7
+#define SSIM_MINK3_ROW_R_SHIFT 10
 
 typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
@@ -79,9 +87,13 @@ typedef struct MsSsimScore_int {
     double ssim_cov;
     double l_cov;
     double cs_cov;
+    double l_mink3;
+    double cs_mink3;
+    double ssim_mink3;
 
     double ms_ssim_mean;
     double ms_ssim_cov;
+    double ms_ssim_mink3;
 
     int32_t **var_x_cum;
     int32_t **var_y_cum;
