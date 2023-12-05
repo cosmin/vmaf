@@ -226,7 +226,7 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
         pending_div_c2 = (1<<i_nadenau_pending_div_factors[n_levels-1][1]) * 255;
         pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels-1][3] - i_nadenau_pending_div_factors[n_levels-1][1]);
         int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels-2][1] - i_nadenau_pending_div_factors[n_levels-1][1]);
-        pending_div_halfround = (1 << (pending_div_offset-1));
+        pending_div_halfround = (pending_div_offset == 0) ? 0 : (1 << (pending_div_offset-1));
         if (n_levels > 1)
         {
             int index_cum = 0;
