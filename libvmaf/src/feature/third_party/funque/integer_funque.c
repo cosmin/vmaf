@@ -692,12 +692,12 @@ static int extract(VmafFeatureExtractor *fex,
                                     s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_ref_dwt2out[level + 1],
                                     s->i_ref_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
                                     s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
-                                    s->enable_spatial_csf, level);
+                                    s->enable_spatial_csf, level + 1);
                 integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
                                     s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_dist_dwt2out[level + 1],
                                     s->i_dist_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
                                     s->i_dist_dwt2out[level].crop_width, s->i_dist_dwt2out[level].crop_height,
-                                    s->enable_spatial_csf, level);
+                                    s->enable_spatial_csf, level + 1);
             }
         }
 
