@@ -208,6 +208,7 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     int cum_array_width = (ref->crop_width) * (1 << n_levels);
     //int win_dim = (1 << n_levels);          // 2^L
     int win_size = (n_levels << 1); 
+    int win_size_c2 = win_size;
     pending_div = pending_div >> (n_levels -1);
     int pending_div_c1 = pending_div;
     int pending_div_c2 = pending_div;
@@ -222,14 +223,15 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
 
     if (is_pyr)
     {
+        win_size_c2 = 2;
         pending_div_c1 = (1<<i_nadenau_pending_div_factors[n_levels-1][0]) * 255;
-        pending_div_c2 = (1<<i_nadenau_pending_div_factors[n_levels-1][1]) * 255;
+        pending_div_c2 = (1<<(i_nadenau_pending_div_factors[n_levels-1][1] + (n_levels - 1))) * 255;
         pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels-1][3] - i_nadenau_pending_div_factors[n_levels-1][1]);
-        int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels-2][1] - i_nadenau_pending_div_factors[n_levels-1][1]);
         pending_div_halfround = (pending_div_offset == 0) ? 0 : (1 << (pending_div_offset-1));
-        if (n_levels > 1)
+        if ((n_levels > 1))
         {
             int index_cum = 0;
+            int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels-2][1] - i_nadenau_pending_div_factors[n_levels-1][1] - 1);
             for (int i = 0; i < height; i++)
             {   
                 for (int j = 0; j < width; j++)
@@ -254,7 +256,6 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
 
     ssim_inter_dtype var_x, var_y, cov_xy;
     ssim_inter_dtype map, l, cs;
-    int16_t i16_map_den;
     int16_t i16_l_den;
     int16_t i16_cs_den;
     dwt2_dtype mx, my;
@@ -321,13 +322,16 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
             //var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
             //cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
 
-            var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
-            var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
-            cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
+            if (!is_pyr)
+            {
+                var_x_cum[index_cum] = var_x_cum[index_cum] >> 2;
+                var_y_cum[index_cum] = var_y_cum[index_cum] >> 2;
+                cov_xy_cum[index_cum] = cov_xy_cum[index_cum] >> 2;
+            }
 
-            var_x_cum[index_cum] += (var_x >> win_size);
-            var_y_cum[index_cum] += (var_y >> win_size);
-            cov_xy_cum[index_cum] += (cov_xy >> win_size);
+            var_x_cum[index_cum] += (var_x >> win_size_c2);
+            var_y_cum[index_cum] += (var_y >> win_size_c2);
+            cov_xy_cum[index_cum] += (cov_xy >> win_size_c2);
 
             var_x = var_x_cum[index_cum];
             var_y = var_y_cum[index_cum];
