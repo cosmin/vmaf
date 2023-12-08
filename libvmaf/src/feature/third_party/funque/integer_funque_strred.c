@@ -83,7 +83,7 @@ uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
 
     } else if(k < 41) {
         k = 42 - k;
-        temp = temp >> k;
+        temp = (temp  + (1 << (k-1))) >> k;
         *x = k;
     } else {
         *x = 0;
@@ -133,7 +133,7 @@ float strred_horz_integralsum_spatial_csf(
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
     int32_t mx, my;
-    int32_t var_x, var_y;
+    int64_t var_x, var_y;
 
     // 1st column vals are 0, hence intialising to 0
     int_1_x = 0;
@@ -278,7 +278,7 @@ float strred_horz_integralsum_wavelet
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
     int32_t mx, my;
-    int32_t var_x, var_y;
+    int64_t var_x, var_y;
 
     // 1st column vals are 0, hence intialising to 0
     int_1_x = 0;
@@ -321,7 +321,17 @@ float strred_horz_integralsum_wavelet
         var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
+#if 0
+float fvarx = (float)var_x / div_fac;
+float fvary = (float)var_y / div_fac;
 
+
+fentropy_x = (float) log(fvarx + 0.1) + 2.83787704;
+fentropy_y = (float) log(fvary + 0.1) + 2.83787704;
+fscale_x = (float) log(1 + fvarx);
+fscale_y = (float) log(1 + fvary);
+printf("%.10f, ", fscale_x);
+#else
         mul_x = (uint64_t) (var_x + sigma_nsq);
         mul_y = (uint64_t) (var_y + sigma_nsq);
         e_look_x = strred_get_best_u22_from_u64((uint64_t) mul_x, &ex);
@@ -346,9 +356,9 @@ float strred_horz_integralsum_wavelet
         fscale_x = (float) scale_x / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
         fscale_y = (float) scale_y / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
 
-        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
-        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
-
+//        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
+//        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
+#endif
         if(enable_temporal == 1) {
             aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx] -
                               fentropy_y * fscale_y * spat_scales_y[spat_row_idx]);
@@ -378,7 +388,17 @@ float strred_horz_integralsum_wavelet
         var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
+#if 0
+float fvarx = (float)var_x / div_fac;
+float fvary = (float)var_y / div_fac;
 
+
+fentropy_x = (float) log(fvarx + 0.1) + 2.83787704;
+fentropy_y = (float) log(fvary + 0.1) + 2.83787704;
+fscale_x = (float) log(1 + fvarx);
+fscale_y = (float) log(1 + fvary);
+printf("%.10f, ", fscale_x);
+#else
         mul_x = (uint64_t) (var_x + sigma_nsq);
         mul_y = (uint64_t) (var_y + sigma_nsq);
         e_look_x = strred_get_best_u22_from_u64((uint64_t) mul_x, &ex);
@@ -402,9 +422,9 @@ float strred_horz_integralsum_wavelet
         fentropy_y = (float) entropy_y / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
         fscale_x = (float) scale_x / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
         fscale_y = (float) scale_y / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
-
-        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
-        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
+#endif
+//        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
+//        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
 
         if(enable_temporal == 1) {
             aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] -
