@@ -133,7 +133,7 @@ float strred_horz_integralsum_spatial_csf(
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
     int32_t mx, my;
-    int64_t var_x, var_y;
+    int32_t var_x, var_y;
 
     // 1st column vals are 0, hence intialising to 0
     int_1_x = 0;
@@ -157,10 +157,11 @@ float strred_horz_integralsum_spatial_csf(
     float fentropy_x, fentropy_y, fscale_x, fscale_y;
     float aggregate = 0;
 
-    int64_t div_fac = (int64_t) (1 << pending_div_fac) * 255 * 255 * 81;
+    int32_t pending_div_minus_var_fac = pending_div_fac - VARIANCE_SHIFT_FACTOR;
+    int64_t div_fac = (int64_t) (1 << pending_div_minus_var_fac) * 255 * 255 * 81;
     uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
     uint64_t const_val = div_fac;
-    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_fac) * TWO_POWER_Q_FACTOR);
+    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
 
     for(int j = 1; j < kw + 1; j++) {
         int_1_x = interim_1_x[j] + int_1_x;
@@ -172,8 +173,8 @@ float strred_horz_integralsum_spatial_csf(
     {
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift));
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
+        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
@@ -226,8 +227,8 @@ float strred_horz_integralsum_spatial_csf(
 
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift));
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
+        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
@@ -278,7 +279,7 @@ float strred_horz_integralsum_wavelet
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
     int32_t mx, my;
-    int64_t var_x, var_y;
+    int32_t var_x, var_y;
 
     // 1st column vals are 0, hence intialising to 0
     int_1_x = 0;
@@ -302,10 +303,11 @@ float strred_horz_integralsum_wavelet
     float fentropy_x, fentropy_y, fscale_x, fscale_y;
     float aggregate = 0;
 
-    int64_t div_fac = (int64_t) (1 << pending_div_fac) * 255 * 255 * 81;
+    int32_t pending_div_minus_var_fac = pending_div_fac - VARIANCE_SHIFT_FACTOR;
+    int64_t div_fac = (int64_t) (1 << pending_div_minus_var_fac) * 255 * 255 * 81;
     uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
     uint64_t const_val = div_fac;
-    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_fac) * TWO_POWER_Q_FACTOR);
+    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
 
     for(int j = 1; j < kw + 1; j++) {
         int_1_x = interim_1_x[j] + int_1_x;
@@ -317,8 +319,8 @@ float strred_horz_integralsum_wavelet
     {
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift));
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
+        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 #if 0
@@ -384,8 +386,8 @@ printf("%.10f, ", fscale_x);
 
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift));
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift));
+        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 #if 0
