@@ -302,7 +302,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h + 1) >> 1;
     }
 
-    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), s->ssim_levels);
+    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels, s->strred_levels));
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
