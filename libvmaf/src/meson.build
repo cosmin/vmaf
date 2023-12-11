@@ -508,20 +508,23 @@ if funque_float_enabled
         funque_feature_dir + 'funque_adm.c',
         funque_feature_dir + 'funque_ssim.c',
         funque_feature_dir + 'resizer.c',
-        funque_feature_dir + 'hbd_resizer.c'
+        funque_feature_dir + 'hbd_resizer.c',
+        funque_feature_dir + 'funque_strred.c'
     ]
 endif
 
 if funque_fixed_enabled
     libvmaf_feature_sources += [
         funque_feature_dir + 'integer_funque.c',
+        funque_feature_dir + 'integer_picture_copy.c',
         funque_feature_dir + 'integer_funque_filters.c',
         funque_feature_dir + 'integer_funque_motion.c',
         funque_feature_dir + 'integer_funque_vif.c',
         funque_feature_dir + 'integer_funque_adm.c',
         funque_feature_dir + 'integer_funque_ssim.c',
         funque_feature_dir + 'resizer.c',
-        funque_feature_dir + 'hbd_resizer.c'
+        funque_feature_dir + 'hbd_resizer.c',
+        funque_feature_dir + 'integer_funque_strred.c'
     ]
 endif
 

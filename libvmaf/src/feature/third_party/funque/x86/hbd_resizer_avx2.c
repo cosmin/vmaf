@@ -320,7 +320,6 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi32(accum_0123_4, 16));
         accum_0123_8 = _mm256_or_si256(accum_0123_8, _mm256_slli_epi32(accum_0123_12, 16));
         accum_0123_0 = _mm256_or_si256(accum_0123_0, _mm256_slli_epi64(accum_0123_8, 32));
-
         accum_0123_0 = _mm256_permutevar8x32_epi32(accum_0123_0, perm_256);
 
         _mm256_storeu_si256((__m256i*)(dst + x), accum_0123_0);
@@ -346,6 +345,7 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m256i accum_23_0 = _mm256_add_epi64(mul2_0, mul3_0);
         __m256i accum_01_4 = _mm256_add_epi64(mul0_4, mul1_4);
         __m256i accum_23_4 = _mm256_add_epi64(mul2_4, mul3_4);
+
         __m256i accum_0123_0 = _mm256_add_epi64(accum_01_0, accum_23_0);
         __m256i accum_0123_4 = _mm256_add_epi64(accum_01_4, accum_23_4);
 
@@ -389,12 +389,13 @@ void hbd_vresize_avx2(const int **src, unsigned short *dst, const short *beta, i
         __m128i accum_23_4 = _mm_add_epi64(mul2_4, mul3_4);
         __m128i accum_0123_0 = _mm_add_epi64(accum_01_0, accum_23_0);
         __m128i accum_0123_4 = _mm_add_epi64(accum_01_4, accum_23_4);
+
         accum_0123_0 = _mm_add_epi64(accum_0123_0, delta_128);
         accum_0123_4 = _mm_add_epi64(accum_0123_4, delta_128);
 
         shift22_64b_signExt_128(accum_0123_0, accum_0123_0);
         shift22_64b_signExt_128(accum_0123_4, accum_0123_4);
-       
+
         accum_0123_0 = _mm_max_epi32(accum_0123_0, zero_128);
         accum_0123_4 = _mm_max_epi32(accum_0123_4, zero_128);
 

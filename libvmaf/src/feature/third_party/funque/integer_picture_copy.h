@@ -15,8 +15,8 @@
  *     limitations under the License.
  *
  */
+#include <stddef.h>
+#include "integer_funque_filters.h"
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2);
-int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *score, int max_val,
-                           float K1, float K2, int n_levels);
-int compute_ms_ssim_mean_scales(MsSsimScore *score, int n_levels);
+void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+                                 int height, int bitdepth);

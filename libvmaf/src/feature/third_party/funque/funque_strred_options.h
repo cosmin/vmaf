@@ -16,7 +16,20 @@
  *
  */
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2);
-int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *score, int max_val,
-                           float K1, float K2, int n_levels);
-int compute_ms_ssim_mean_scales(MsSsimScore *score, int n_levels);
+#pragma once
+
+#ifndef STRRED_OPTIONS_H_
+#define STRRED_OPTIONS_H_
+
+#define STRRED_SIGMA_NSQ        0.1
+#define STRRED_WINDOW_SIZE      9
+
+#define PI_CONSTANT 3.1415926535897932384626433832795028841971693993751
+#define EULERS_CONSTANT         2.71828182845904523536028747135266249775724709369995
+
+#define BLOCK_SIZE              1
+
+#define DEFAULT_STRRED_LEVELS   4
+#define DEFAULT_STRRED_SUBBANDS 4
+
+#endif /* STRRED_OPTIONS_H_ */

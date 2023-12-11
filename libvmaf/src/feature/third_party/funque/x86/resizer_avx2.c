@@ -112,6 +112,7 @@ void hresize_avx2(const unsigned char **src, int **dst, int count,
 #endif
                 __m256i val0 = _mm256_loadu_si256((__m256i*)(S + sx - 1));
                 __m256i val2 = _mm256_loadu_si256((__m256i*)(S + sx + 1));
+
                 __m256i val32 = _mm256_loadu_si256((__m256i*)(S + sx - 1 + 32));
                 __m256i val34 = _mm256_loadu_si256((__m256i*)(S + sx + 1 + 32));
                 __m256i val64 = _mm256_loadu_si256((__m256i*)(S + sx - 1 + 64));
@@ -306,6 +307,7 @@ void vresize_avx2(const int **src, unsigned char *dst, const short *beta, int wi
 {
     int b0 = beta[0], b1 = beta[1], b2 = beta[2], b3 = beta[3];
     const int *S0 = src[0], *S1 = src[1], *S2 = src[2], *S3 = src[3];
+
     int bits = 22;
 
     __m256i perm0_256 = _mm256_set_epi32(1, 1, 1, 1, 1, 1, 4, 0);
