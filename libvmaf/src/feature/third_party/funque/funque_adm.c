@@ -267,48 +267,45 @@ void dlm_contrast_mask_one_way(dwt2buffers pyr_1, dwt2buffers pyr_2, dwt2buffers
 
 int compute_adm_funque(dwt2buffers ref, dwt2buffers dist, double *adm_score, double *adm_score_num, double *adm_score_den, float border_size)
 {
-  int width = ref.crop_width;
-  int height = ref.crop_height;
-  int i, j, k, index;
-  double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
-  dwt2buffers dlm_rest, dlm_add, pyr_rest;
-  dlm_rest.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_rest.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  dlm_add.bands[3] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[0] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[1] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[2] = (float *)malloc(sizeof(float) * height * width);
-  pyr_rest.bands[3] = (float *)malloc(sizeof(float) * height * width);
+    int width = ref.crop_width;
+    int height = ref.crop_height;
+    int i, j, k, index;
+    double num_sum = 0, den_sum = 0, num_band = 0, den_band = 0;
+    dwt2buffers dlm_rest, dlm_add, pyr_rest;
+    dlm_rest.bands[0] = (float *) malloc(sizeof(float) * height * width);
+    dlm_rest.bands[1] = (float *) malloc(sizeof(float) * height * width);
+    dlm_rest.bands[2] = (float *) malloc(sizeof(float) * height * width);
+    dlm_rest.bands[3] = (float *) malloc(sizeof(float) * height * width);
+    dlm_add.bands[0] = (float *) malloc(sizeof(float) * height * width);
+    dlm_add.bands[1] = (float *) malloc(sizeof(float) * height * width);
+    dlm_add.bands[2] = (float *) malloc(sizeof(float) * height * width);
+    dlm_add.bands[3] = (float *) malloc(sizeof(float) * height * width);
+    pyr_rest.bands[0] = (float *) malloc(sizeof(float) * height * width);
+    pyr_rest.bands[1] = (float *) malloc(sizeof(float) * height * width);
+    pyr_rest.bands[2] = (float *) malloc(sizeof(float) * height * width);
+    pyr_rest.bands[3] = (float *) malloc(sizeof(float) * height * width);
 
-  dlm_decouple(ref, dist, dlm_rest, dlm_add);
+    dlm_decouple(ref, dist, dlm_rest, dlm_add);
 
-  dlm_contrast_mask_one_way(dlm_rest, dlm_add, pyr_rest, width, height);
+    dlm_contrast_mask_one_way(dlm_rest, dlm_add, pyr_rest, width, height);
 
-  int border_h = (border_size * height);
-  int border_w = (border_size * width);
-  int loop_h = height - border_h;
-  int loop_w = width - border_w;
+    int border_h = (border_size * height);
+    int border_w = (border_size * width);
+    int loop_h = height - border_h;
+    int loop_w = width - border_w;
 
-  for (k = 1; k < 4; k++)
-  {
-    for (i = border_h; i < loop_h; i++)
-    {
-      for (j = border_w; j < loop_w; j++)
-      {
-        index = i * width + j;
-        num_sum += powf(pyr_rest.bands[k][index], 3.0);
-        den_sum += powf(fabsf(ref.bands[k][index]), 3.0);
-      }
-    }
-    den_band += powf(den_sum, 1.0 / 3.0);
-    num_band += powf(num_sum, 1.0 / 3.0);
-    num_sum = 0;
-    den_sum = 0;
+    for(k = 1; k < 4; k++) {
+        for(i = border_h; i < loop_h; i++) {
+            for(j = border_w; j < loop_w; j++) {
+                index = i * width + j;
+                num_sum += powf(pyr_rest.bands[k][index], 3.0);
+                den_sum += powf(fabsf(ref.bands[k][index]), 3.0);
+            }
+        }
+        den_band += powf(den_sum, 1.0 / 3.0);
+        num_band += powf(num_sum, 1.0 / 3.0);
+        num_sum = 0;
+        den_sum = 0;
   }
 
   *adm_score_num = num_band + 1e-4;

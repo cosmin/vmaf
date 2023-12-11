@@ -40,7 +40,7 @@ int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers* ref,
                                             struct i_dwt2buffers* prev_dist, size_t width,
                                             size_t height);
 
-void strred_funque_log_generate(uint32_t *log_18);
-void strred_funque_generate_log22(uint32_t *log_22);
-uint32_t strred_get_best_u18_from_u64(uint64_t temp, int *x);
-uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x);
+void strred_funque_log_generate(uint32_t* log_18);
+void strred_funque_generate_log22(uint32_t* log_22);
+uint32_t strred_get_best_u18_from_u64(uint64_t temp, int* x);
+uint32_t strred_get_best_u22_from_u64(uint64_t temp, int* x);

@@ -178,7 +178,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 {
     // const float cos_1deg_sq = COS_1DEG_SQ;
 
-    size_t width = ref.width; //TODO: Need to modify for crop width and height
+    size_t width = ref.width;  // TODO: Need to modify for crop width and height
     size_t height = ref.height;
     int i, j, k, index, addIndex,restIndex;
     

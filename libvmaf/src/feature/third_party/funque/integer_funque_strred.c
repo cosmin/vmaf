@@ -83,7 +83,7 @@ uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
 
     } else if(k < 41) {
         k = 42 - k;
-        temp = (temp  + (1 << (k-1))) >> k;
+        temp = (temp + (1 << (k - 1))) >> k;
         *x = k;
     } else {
         *x = 0;
@@ -161,7 +161,8 @@ float strred_horz_integralsum_spatial_csf(
     int64_t div_fac = (int64_t) (1 << pending_div_minus_var_fac) * 255 * 255 * 81;
     uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
     uint64_t const_val = div_fac;
-    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
+    int64_t sub_val =
+        (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
 
     for(int j = 1; j < kw + 1; j++) {
         int_1_x = interim_1_x[j] + int_1_x;
@@ -173,8 +174,10 @@ float strred_horz_integralsum_spatial_csf(
     {
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_x =
+            (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y =
+            (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
@@ -227,8 +230,10 @@ float strred_horz_integralsum_spatial_csf(
 
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_x =
+            (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y =
+            (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 
@@ -269,12 +274,13 @@ float strred_horz_integralsum_spatial_csf(
 }
 
 // This function does summation of horizontal intermediate_vertical_sums
-float strred_horz_integralsum_wavelet
-(
-    int kw, int width_p1, int16_t knorm_fact, int16_t knorm_shift, uint32_t entr_const,
-    double sigma_nsq_arg, uint32_t *log_18, uint32_t *log_22, int32_t *interim_1_x,
-    int64_t *interim_2_x, int32_t *interim_1_y, int64_t *interim_2_y, uint8_t enable_temporal,
-    float *spat_scales_x, float *spat_scales_y, int32_t spat_row_idx, int32_t pending_div_fac)
+float strred_horz_integralsum_wavelet(int kw, int width_p1, int16_t knorm_fact, int16_t knorm_shift,
+                                      uint32_t entr_const, double sigma_nsq_arg, uint32_t *log_18,
+                                      uint32_t *log_22, int32_t *interim_1_x, int64_t *interim_2_x,
+                                      int32_t *interim_1_y, int64_t *interim_2_y,
+                                      uint8_t enable_temporal, float *spat_scales_x,
+                                      float *spat_scales_y, int32_t spat_row_idx,
+                                      int32_t pending_div_fac)
 {
     static int32_t int_1_x, int_1_y;
     static int64_t int_2_x, int_2_y;
@@ -307,7 +313,8 @@ float strred_horz_integralsum_wavelet
     int64_t div_fac = (int64_t) (1 << pending_div_minus_var_fac) * 255 * 255 * 81;
     uint64_t sigma_nsq = div_fac * sigma_nsq_arg;
     uint64_t const_val = div_fac;
-    int64_t sub_val = (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
+    int64_t sub_val =
+        (int64_t) ((log2(255.0 * 255 * 81) + pending_div_minus_var_fac) * TWO_POWER_Q_FACTOR);
 
     for(int j = 1; j < kw + 1; j++) {
         int_1_x = interim_1_x[j] + int_1_x;
@@ -319,8 +326,10 @@ float strred_horz_integralsum_wavelet
     {
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_x =
+            (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y =
+            (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 #if 0
@@ -386,8 +395,10 @@ printf("%.10f, ", fscale_x);
 
         mx = int_1_x;
         my = int_1_y;
-        var_x = (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
-        var_y = (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_x =
+            (int_2_x - (((int64_t) mx * mx * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
+        var_y =
+            (int_2_y - (((int64_t) my * my * knorm_fact) >> knorm_shift)) >> VARIANCE_SHIFT_FACTOR;
         var_x = (var_x < 0) ? 0 : var_x;
         var_y = (var_y < 0) ? 0 : var_y;
 #if 0
@@ -425,8 +436,8 @@ printf("%.10f, ", fscale_x);
         fscale_x = (float) scale_x / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
         fscale_y = (float) scale_y / (TWO_POWER_Q_FACTOR * LOGE_BASE2);
 #endif
-//        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
-//        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
+        //        fscale_x = (fscale_x < 0) ? 0 : fscale_x;
+        //        fscale_y = (fscale_y < 0) ? 0 : fscale_y;
 
         if(enable_temporal == 1) {
             aggregate += fabs(fentropy_x * fscale_x * spat_scales_x[spat_row_idx + j - kw] -
@@ -485,7 +496,8 @@ float integer_rred_entropies_and_scales(const dwt2_dtype *x_t, const dwt2_dtype 
     int16_t knorm_fact =
         25891;  // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21;
-    uint32_t entr_const = (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
+    uint32_t entr_const =
+        (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
 
     {
         int width_p1 = r_width + 1;

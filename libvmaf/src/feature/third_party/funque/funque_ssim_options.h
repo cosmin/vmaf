@@ -34,7 +34,7 @@ typedef struct MsSsimScore {
     double ssim_mink3;
     double l_mink3;
     double cs_mink3;
-    
+
     double ms_ssim_mean;
     double ms_ssim_cov;
     double ms_ssim_mink3;

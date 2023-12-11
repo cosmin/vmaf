@@ -110,14 +110,12 @@ static const VmafOption options[] = {
         .type = VMAF_OPT_TYPE_BOOL,
         .default_val.b = true,
     },
-    {
-        .name = "enable_spatial_csf",
-        .alias = "gcsf",
-        .help = "enable the global CSF based on spatial filter",
-        .offset = offsetof(FunqueState, enable_spatial_csf),
-        .type = VMAF_OPT_TYPE_BOOL,
-        .default_val.b = true
-    },
+    {.name = "enable_spatial_csf",
+     .alias = "gcsf",
+     .help = "enable the global CSF based on spatial filter",
+     .offset = offsetof(FunqueState, enable_spatial_csf),
+     .type = VMAF_OPT_TYPE_BOOL,
+     .default_val.b = true},
     {
         .name = "num_taps",
         .alias = "ntaps",
@@ -227,8 +225,7 @@ static const VmafOption options[] = {
         .max = MAX_LEVELS,
     },
 
-    { 0 }
-};
+    {0}};
 
 static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
     // TODO: Add temp = w >> levels and w = temp << levels;
@@ -259,7 +256,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {
     (void)pix_fmt;
-    (void)bpc;
+    (void) bpc;
 
     FunqueState *s = fex->priv;
     s->feature_name_dict =
@@ -273,7 +270,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h+1)>>1;
     }
 
-    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels,s->strred_levels));
+    s->needed_dwt_levels =
+        MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels, s->strred_levels));
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     s->float_stride = ALIGN_CEIL(w * sizeof(float));
@@ -378,7 +376,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], last_w, last_h);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], last_w, last_h);
 
-        crop_div_factor = pow(2, (level+1));
+        crop_div_factor = pow(2, (level + 1));
         s->ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
         s->ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
         s->ref_dwt2out[level].crop_stride = s->ref_dwt2out[level].crop_width * sizeof(float);
@@ -467,19 +465,20 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    if(s->enable_spatial_csf)
-    {
+    if(s->enable_spatial_csf) {
         s->process_ref_width = (ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_ref_height = (ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_dist_width = (dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
         s->process_dist_height = (dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-    }
-    else
-    {
-        s->process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-        s->process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
+    } else {
+        s->process_ref_width = (ref_pic->w[0] >> (s->needed_dwt_levels + 1))
+                               << s->needed_dwt_levels;
+        s->process_ref_height = (ref_pic->h[0] >> (s->needed_dwt_levels + 1))
+                                << s->needed_dwt_levels;
+        s->process_dist_width = (dist_pic->w[0] >> (s->needed_dwt_levels + 1))
+                                << s->needed_dwt_levels;
+        s->process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1))
+                                 << s->needed_dwt_levels;
     }
 
     funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
@@ -494,9 +493,11 @@ static int extract(VmafFeatureExtractor *fex,
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
         spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->spat_tmp_buf, s->num_taps);
-        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], s->process_ref_width, s->process_ref_height);
+        funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], s->process_ref_width,
+                    s->process_ref_height);
         spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->spat_tmp_buf, s->num_taps);
-        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
+        funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], s->process_dist_width,
+                    s->process_dist_height);
 
     } else {
         // Wavelet Domain or pyramid is done
@@ -506,7 +507,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore ms_ssim_score[MAX_LEVELS];
-    //s->score = &ms_ssim_score;
+    // s->score = &ms_ssim_score;
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
@@ -534,11 +535,14 @@ static int extract(VmafFeatureExtractor *fex,
         if (level+1 < s->needed_dwt_levels) {
             if (level+1 > s->needed_full_dwt_levels - 1) {
                 // from here on out we only need approx band for VIF
-                funque_vifdwt2_band0(s->ref_dwt2out[level].bands[0],  s->ref_dwt2out[level + 1].bands[0],  s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height);
+                funque_vifdwt2_band0(
+                    s->ref_dwt2out[level].bands[0], s->ref_dwt2out[level + 1].bands[0],
+                    s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_width,
+                    s->ref_dwt2out[level].crop_height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
-                funque_dwt2(s->ref_dwt2out[level].bands[0], &s->ref_dwt2out[level + 1], s->ref_dwt2out[level].crop_width,
-                            s->ref_dwt2out[level].crop_height);
+                funque_dwt2(s->ref_dwt2out[level].bands[0], &s->ref_dwt2out[level + 1],
+                            s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height);
                 funque_dwt2(s->dist_dwt2out[level].bands[0], &s->dist_dwt2out[level + 1],
                             s->dist_dwt2out[level].crop_width, s->dist_dwt2out[level].crop_height);
             }
@@ -609,11 +613,17 @@ static int extract(VmafFeatureExtractor *fex,
 
         if (level <= s->vif_levels - 1) {
 #if USE_DYNAMIC_SIGMA_NSQ
-            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
-                                        &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ, level);
+            err |= compute_vif_funque(
+                s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0],
+                s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
+                &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1,
+                (double) VIF_SIGMA_NSQ, level);
 #else
-            err |= compute_vif_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
-                                 &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1, (double)VIF_SIGMA_NSQ);
+            err |= compute_vif_funque(
+                s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0],
+                s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
+                &vif_score[level], &vif_score_num[level], &vif_score_den[level], VIF_WINDOW_SIZE, 1,
+                (double) VIF_SIGMA_NSQ);
 #endif
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
@@ -629,8 +639,8 @@ static int extract(VmafFeatureExtractor *fex,
             else {
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].crop_width, s->ref_dwt2out[level].crop_height,
-                    &s->strred_scores, BLOCK_SIZE, level);
+                    &s->prev_dist[level], s->ref_dwt2out[level].crop_width,
+                    s->ref_dwt2out[level].crop_height, &s->strred_scores, BLOCK_SIZE, level);
 
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
@@ -774,7 +784,7 @@ static int extract(VmafFeatureExtractor *fex,
     err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                    "FUNQUE_feature_ms_ssim_cov_scale0_score",
                                                    s->score[0].ms_ssim_cov, index);
-    
+
     err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                    "FUNQUE_feature_ms_ssim_mink3_scale0_score",
                                                    s->score[0].ms_ssim_mink3, index);
@@ -802,8 +812,8 @@ static int extract(VmafFeatureExtractor *fex,
                 s->score[2].ms_ssim_cov, index);
 
             err |= vmaf_feature_collector_append_with_dict(
-                feature_collector, s->feature_name_dict, "FUNQUE_feature_ms_ssim_mink3_scale2_score",
-                s->score[2].ms_ssim_mink3, index);
+                feature_collector, s->feature_name_dict,
+                "FUNQUE_feature_ms_ssim_mink3_scale2_score", s->score[2].ms_ssim_mink3, index);
 
             if(s->ssim_levels > 3) {
                 err |= vmaf_feature_collector_append_with_dict(
@@ -855,30 +865,42 @@ static int close(VmafFeatureExtractor *fex)
     return 0;
 }
 
-static const char *provided_features[] = {
-    "FUNQUE_feature_vif_score",
-    "FUNQUE_feature_vif_scale0_score", "FUNQUE_feature_vif_scale1_score",
-    "FUNQUE_feature_vif_scale2_score", "FUNQUE_feature_vif_scale3_score",
+static const char *provided_features[] = {"FUNQUE_feature_vif_score",
+                                          "FUNQUE_feature_vif_scale0_score",
+                                          "FUNQUE_feature_vif_scale1_score",
+                                          "FUNQUE_feature_vif_scale2_score",
+                                          "FUNQUE_feature_vif_scale3_score",
 
-    "FUNQUE_feature_adm_score",
-    "FUNQUE_feature_adm_scale0_score","FUNQUE_feature_adm_scale1_score",
-    "FUNQUE_feature_adm_scale2_score","FUNQUE_feature_adm_scale3_score",
+                                          "FUNQUE_feature_adm_score",
+                                          "FUNQUE_feature_adm_scale0_score",
+                                          "FUNQUE_feature_adm_scale1_score",
+                                          "FUNQUE_feature_adm_scale2_score",
+                                          "FUNQUE_feature_adm_scale3_score",
 
-    "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
-    "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
+                                          "FUNQUE_feature_ssim_scale0_score",
+                                          "FUNQUE_feature_ssim_scale1_score",
+                                          "FUNQUE_feature_ssim_scale2_score",
+                                          "FUNQUE_feature_ssim_scale3_score",
 
-    "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
-    "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
+                                          "FUNQUE_feature_strred_scale0_score",
+                                          "FUNQUE_feature_strred_scale1_score",
+                                          "FUNQUE_feature_strred_scale2_score",
+                                          "FUNQUE_feature_strred_scale3_score",
 
-    "FUNQUE_feature_ms_ssim_mean_scale0_score", "FUNQUE_feature_ms_ssim_mean_scale1_score",
-    "FUNQUE_feature_ms_ssim_mean_scale2_score", "FUNQUE_feature_ms_ssim_mean_scale3_score",
-    "FUNQUE_feature_ms_ssim_cov_scale0_score", "FUNQUE_feature_ms_ssim_cov_scale1_score",
-    "FUNQUE_feature_ms_ssim_cov_scale2_score", "FUNQUE_feature_ms_ssim_cov_scale3_score",
-    "FUNQUE_feature_ms_ssim_mink3_scale0_score", "FUNQUE_feature_ms_ssim_mink3_scale1_score",
-    "FUNQUE_feature_ms_ssim_mink3_scale2_score", "FUNQUE_feature_ms_ssim_mink3_scale3_score",
+                                          "FUNQUE_feature_ms_ssim_mean_scale0_score",
+                                          "FUNQUE_feature_ms_ssim_mean_scale1_score",
+                                          "FUNQUE_feature_ms_ssim_mean_scale2_score",
+                                          "FUNQUE_feature_ms_ssim_mean_scale3_score",
+                                          "FUNQUE_feature_ms_ssim_cov_scale0_score",
+                                          "FUNQUE_feature_ms_ssim_cov_scale1_score",
+                                          "FUNQUE_feature_ms_ssim_cov_scale2_score",
+                                          "FUNQUE_feature_ms_ssim_cov_scale3_score",
+                                          "FUNQUE_feature_ms_ssim_mink3_scale0_score",
+                                          "FUNQUE_feature_ms_ssim_mink3_scale1_score",
+                                          "FUNQUE_feature_ms_ssim_mink3_scale2_score",
+                                          "FUNQUE_feature_ms_ssim_mink3_scale3_score",
 
-    NULL
-};
+                                          NULL};
 
 VmafFeatureExtractor vmaf_fex_float_funque = {
     .name = "float_funque",
