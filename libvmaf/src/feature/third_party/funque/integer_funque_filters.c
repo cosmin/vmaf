@@ -27,25 +27,26 @@
 #include "integer_funque_filters.h"
 #include <time.h>
 
-
-void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
+void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
+                         ptrdiff_t dst_stride, int width, int height, int spatial_csf, int level)
 {
+    int src_px_stride = src_stride / sizeof(dwt2_dtype);
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
-
+    int8_t const_2_wl0 = 1;
     /**
      * Absolute value of filter coefficients are 1/sqrt(2)
      * The filter is handled by multiplying square of coefficients in final stage
      * Hence the value becomes 1/2, and this is handled using shifts
      * Also extra required out shift is done along with filter shift itself
      */
-    const int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
-    const int8_t filter_shift_rnd = 1<<(filter_shift - 1);
+    int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    int8_t filter_shift_rnd = 1 << (filter_shift - 1);
     /**
      * Last column due to padding the values are left shifted and then right shifted
      * Hence using updated shifts. Subtracting 1 due to left shift
      */
-    const int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
-    const int8_t filter_shift_lcpad_rnd = 1<<(filter_shift_lcpad - 1);
+    int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    int8_t filter_shift_lcpad_rnd = 1 << (filter_shift_lcpad - 1);
 
     dwt2_dtype *band_a = dwt2_dst->bands[0];
     dwt2_dtype *band_h = dwt2_dst->bands[1];
@@ -61,13 +62,24 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 
     int i, j;
     
+    /* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift is required */
+    if(spatial_csf == 0) {
+        if(level != 3) {
+            filter_shift = 0;
+            filter_shift_rnd = 0;
+            const_2_wl0 = 2;
+            filter_shift_lcpad = 0;
+            filter_shift_lcpad_rnd = 0;
+        }
+    }
+
     for (i=0; i < (height+1)/2; ++i)
     {
         row_idx0 = 2*i;
         row_idx1 = 2*i+1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
-		row0_offset = (row_idx0)*width;
-		row1_offset = (row_idx1)*width;
+        row0_offset = (row_idx0) *src_px_stride;
+        row1_offset = (row_idx1) *src_px_stride;
         
         for(j=0; j< width_div_2; ++j)
 		{
@@ -117,10 +129,14 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, pt
 			int src_a_m_b = src_a - src_b;
 			
             //F* F (a + b + a + b) - band A  (F*F is 1/2)
-			band_a[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_p_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+            band_a[i * dst_px_stride + j] =
+                (dwt2_dtype) ((src_a_p_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
 			
 			//F* F (a - b + a - b) - band H  (F*F is 1/2)
-            band_h[i*dst_px_stride+j] = (dwt2_dtype) ((src_a_m_b + filter_shift_lcpad_rnd) >> filter_shift_lcpad);
+            band_h[i * dst_px_stride + j] =
+                (dwt2_dtype) ((src_a_m_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
 			
 			//F* F (a + b - (a + b)) - band V, Last column V will always be 0            
             band_v[i*dst_px_stride+j] = 0;
@@ -302,18 +318,27 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
 
 }
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, int height, int bitdepth)
-{
+const spat_fil_coeff_dtype i_ngan_filter_coeffs[21] = {
+    -900,  -1054, -1239, -1452, -1669, -1798, -1547, -66,   4677,  14498, 21495,
+    14498, 4677,  -66,   -1547, -1798, -1669, -1452, -1239, -1054, -900};
 
-    const spat_fil_coeff_dtype i_filter_coeffs[21] = {
-        -900, -1054, -1239, -1452, -1669, -1798, -1547, -66, 4677, 14498, 21495,
-        14498, 4677, -66, -1547, -1798, -1669, -1452, -1239, -1054, -900
-    };
+const spat_fil_coeff_dtype i_nadeanu_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658};
+
+void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+                            int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps)
+{
+    int fwidth;
+    const spat_fil_coeff_dtype *i_filter_coeffs;
+    if(num_taps == 5) {
+        fwidth = 5;
+        i_filter_coeffs = i_nadeanu_filter_coeffs;
+    } else {
+        fwidth = 21;
+        i_filter_coeffs = i_ngan_filter_coeffs;
+    }
 
     int src_px_stride = width;
-    int dst_px_stride = width;
-
-    spat_fil_inter_dtype *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(spat_fil_inter_dtype)), MAX_ALIGN);
+    int dst_px_stride = dst_stride / sizeof(spat_fil_output_dtype);
 
     // spat_fil_inter_dtype imgcoeff;
 	uint8_t *src_8b = NULL;
@@ -324,7 +349,6 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, in
     int i, j, fi, ii, ii1, ii2;
 	// int fj, jj, jj1, jj;
     // spat_fil_coeff_dtype *coeff_ptr;
-    int fwidth = 21;
     int half_fw = fwidth / 2;
 	
 	if(8 == bitdepth)
@@ -538,7 +562,47 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int width, in
 
     }
 
-    aligned_free(tmp);
-
     return;
+}
+
+void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
+                                     int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
+                                     uint8_t interim_shift_factors[4], int level)
+{
+    UNUSED(level);
+    dwt2_dtype *src_ptr;
+    dwt2_dtype *dst_ptr;
+
+    /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
+    dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+
+    int px_stride = src->crop_stride / sizeof(dwt2_dtype);
+
+    /* The computation of the csf values is not required for the regions which lie outside the frame
+     * borders */
+    int left = 0;
+    int top = 0;
+    int right = src->crop_width;
+    int bottom = src->crop_height;
+
+    int i, j, theta, src_offset, dst_offset;
+    spat_fil_accum_dtype mul_val;
+    dwt2_dtype dst_val;
+
+    for(theta = min_theta; theta <= max_theta; ++theta) {
+        src_ptr = angles[theta];
+        dst_ptr = angles[theta];
+
+        for(i = top; i < bottom; ++i) {
+            src_offset = i * px_stride;
+            dst_offset = i * px_stride;
+
+            for(j = left; j < right; ++j) {
+                mul_val = (spat_fil_accum_dtype) factors[theta] * src_ptr[src_offset + j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[theta]) >>
+                                        interim_shift_factors[theta]);
+                dst_ptr[dst_offset + j] = dst_val;
+            }
+        }
+    }
 }
