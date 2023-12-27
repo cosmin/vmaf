@@ -257,8 +257,8 @@ static const VmafOption options[] = {
 };
 
 static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
-    dwt2out->width = (int) (w+1)/2;
-    dwt2out->height = (int) (h+1)/2;
+    dwt2out->width = (int) w;// (w+1)/2;
+    dwt2out->height = (int) h; //(h+1)/2;
     dwt2out->stride = ALIGN_CEIL(dwt2out->width * sizeof(float));
 
     for(unsigned i=0; i<4; i++)
@@ -377,24 +377,24 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     if(s->enable_resize)
     {
-        s->res_ref_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
+        s->res_ref_pic.data[0] = aligned_malloc(s->float_stride * ref_process_height, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        memset(s->res_ref_pic.data[0], 0, s->float_stride * h);
+        memset(s->res_ref_pic.data[0], 0, s->float_stride * ref_process_height);
 
-        s->res_dist_pic.data[0] = aligned_malloc(s->float_stride * h, 32);
+        s->res_dist_pic.data[0] = aligned_malloc(s->float_stride * ref_process_height, 32);
         if (!s->res_dist_pic.data[0])
             goto fail;
-        memset(s->res_dist_pic.data[0], 0, s->float_stride * h);
+        memset(s->res_dist_pic.data[0], 0, s->float_stride * ref_process_height);
     }
 
-    s->ref = aligned_malloc(s->float_stride * h, 32);
+    s->ref = aligned_malloc(s->float_stride * ref_process_height, 32);
     if (!s->ref) goto fail;
-    memset(s->ref, 0, s->float_stride * h);
+    memset(s->ref, 0, s->float_stride * ref_process_height);
 
-    s->dist = aligned_malloc(s->float_stride * h, 32);
+    s->dist = aligned_malloc(s->float_stride * ref_process_height, 32);
     if (!s->dist) goto fail;
-    memset(s->dist, 0, s->float_stride * h);
+    memset(s->dist, 0, s->float_stride * ref_process_height);
 
 #if ENABLE_PADDING
     s->pad_ref = aligned_malloc(s->float_stride * ref_process_height, 32);
@@ -416,9 +416,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         if (!s->spat_tmp_buf) goto fail;
         memset(s->spat_tmp_buf, 0, s->float_stride);
 
-        s->spat_filter = aligned_malloc(s->float_stride * h, 32);
+        s->spat_filter = aligned_malloc(s->float_stride * ref_process_height, 32);
         if (!s->spat_filter) goto fail;
-        memset(s->spat_filter, 0, s->float_stride * h);
+        memset(s->spat_filter, 0, s->float_stride * ref_process_height);
 
     } else {
         if(strcmp(s->wavelet_csf_filter_type, "nadenau_weight") == 0) {
@@ -473,27 +473,26 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
 
     int err = 0;
-
+    int tref_width, tref_height, tdist_width, tdist_height;
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
-        err |= alloc_dwt2buffers(&s->ref_dwt2out[level], last_w, last_h);
-        err |= alloc_dwt2buffers(&s->dist_dwt2out[level], last_w, last_h);
-
         process_wh_div_factor = pow(2, (level+1));
-        s->ref_dwt2out[level].width = ref_process_width / process_wh_div_factor;
-        s->ref_dwt2out[level].height = ref_process_height / process_wh_div_factor;
-        s->ref_dwt2out[level].stride = s->ref_dwt2out[level].width * sizeof(float);
+        tref_width = ref_process_width / process_wh_div_factor;
+        tref_height = ref_process_height / process_wh_div_factor;
+        tdist_width = dist_process_width / process_wh_div_factor;
+        tdist_height = dist_process_height / process_wh_div_factor;
 
-        s->dist_dwt2out[level].width = dist_process_width / process_wh_div_factor;
-        s->dist_dwt2out[level].height = dist_process_height / process_wh_div_factor;
-        s->dist_dwt2out[level].stride = s->dist_dwt2out[level].width * sizeof(float);
+        err |= alloc_dwt2buffers(&s->ref_dwt2out[level], tref_width, tref_height);
+        err |= alloc_dwt2buffers(&s->dist_dwt2out[level], tdist_width, tdist_height);
 
-//        s->ref_dwt2out[level].width = s->ref_dwt2out[level].width;
-//        s->ref_dwt2out[level].height = s->ref_dwt2out[level].height;
-//        s->ref_dwt2out[level].stride = s->ref_dwt2out[level].stride;
-//        s->dist_dwt2out[level].width = s->dist_dwt2out[level].width;
-//        s->dist_dwt2out[level].height = s->dist_dwt2out[level].height;
-//        s->dist_dwt2out[level].stride = s->dist_dwt2out[level].stride;
+        // process_wh_div_factor = pow(2, (level+1));
+        // s->ref_dwt2out[level].width = ref_process_width / process_wh_div_factor;
+        // s->ref_dwt2out[level].height = ref_process_height / process_wh_div_factor;
+        // s->ref_dwt2out[level].stride = s->ref_dwt2out[level].width * sizeof(float);
+
+        // s->dist_dwt2out[level].width = dist_process_width / process_wh_div_factor;
+        // s->dist_dwt2out[level].height = dist_process_height / process_wh_div_factor;
+        // s->dist_dwt2out[level].stride = s->dist_dwt2out[level].width * sizeof(float);
 
         s->prev_ref[level].bands[0] = NULL;
         s->prev_dist[level].bands[0] = NULL;
