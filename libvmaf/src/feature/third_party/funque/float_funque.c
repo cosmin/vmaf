@@ -257,9 +257,11 @@ static const VmafOption options[] = {
 };
 
 static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
+//    dwt2out->width = (int) (w+1)/2;
+//    dwt2out->height = (int) (h+1)/2;
     dwt2out->width = (int) w;// (w+1)/2;
     dwt2out->height = (int) h; //(h+1)/2;
-    dwt2out->stride = ALIGN_CEIL(dwt2out->width * sizeof(float));
+    dwt2out->stride = dwt2out->width * sizeof(float);
 
     for(unsigned i=0; i<4; i++)
     {
@@ -481,9 +483,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         tref_height = ref_process_height / process_wh_div_factor;
         tdist_width = dist_process_width / process_wh_div_factor;
         tdist_height = dist_process_height / process_wh_div_factor;
-
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], tref_width, tref_height);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], tdist_width, tdist_height);
+
+        // err |= alloc_dwt2buffers(&s->ref_dwt2out[level], w, h);
+        // err |= alloc_dwt2buffers(&s->dist_dwt2out[level], w, h);
 
         // process_wh_div_factor = pow(2, (level+1));
         // s->ref_dwt2out[level].width = ref_process_width / process_wh_div_factor;

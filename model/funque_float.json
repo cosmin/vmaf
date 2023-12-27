@@ -13,8 +13,8 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "enable_spatial_csf": false,
-                "enable_resize": true,
+                "enable_spatial_csf": true,
+                "enable_resize": false,
 
                 "spatial_csf_filter": 5,
                 "wavelet_csf_filter": 1,
