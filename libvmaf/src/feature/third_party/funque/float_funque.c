@@ -53,7 +53,8 @@ typedef struct FunqueState {
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
-    int num_taps;
+    char *spatial_csf_filter;
+    char *wavelet_csf_filter;
     float *spat_tmp_buf;
     size_t float_dwt2_stride;
     float *spat_filter;
@@ -65,7 +66,7 @@ typedef struct FunqueState {
     strred_results strred_scores;
 
     // funque configurable parameters
-    const char *wavelet_csfs;
+    //const char *wavelet_csfs;
 
     bool enable_resize;
     bool enable_spatial_csf;
@@ -122,14 +123,20 @@ static const VmafOption options[] = {
         .default_val.b = true
     },
     {
-        .name = "num_taps",
-        .alias = "ntaps",
+        .name = "spatial_csf_filter",
+        .alias = "spat_filter",
         .help = "Select number of taps to be used for spatial filter",
-        .offset = offsetof(FunqueState, num_taps),
-        .type = VMAF_OPT_TYPE_INT,
-        .default_val.b = NADENAU_SPAT_5_TAP_FILTER,
-        .min = NADENAU_SPAT_5_TAP_FILTER,
-        .max = NGAN_21_TAP_FILTER,
+        .offset = offsetof(FunqueState, spatial_csf_filter),
+        .type = VMAF_OPT_TYPE_STRING,
+        .default_val.s = NADENAU_SPAT_5_TAP_FILTER,
+    },
+    {
+        .name = "wavelet_csf_filter",
+        .alias = "wave_filter",
+        .help = "Select wavelet filter",
+        .offset = offsetof(FunqueState, wavelet_csf_filter),
+        .type = VMAF_OPT_TYPE_STRING,
+        .default_val.s = NADENAU_WEIGHT_FILTER,
     },
 {
         .name = "norm_view_dist",
@@ -302,7 +309,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             dist_process_width = (int) (((last_w + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
             dist_process_height = (int) (((last_h + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
 
-#else
+#else // Cropped width and height
             ref_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
             ref_process_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
             dist_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
@@ -354,7 +361,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #endif
 
     /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
-    s->wavelet_csfs = "nadenau_weight";
+    //s->wavelet_csfs = "nadenau_weight";
 
     if (s->enable_spatial_csf) {
         s->spat_tmp_buf = aligned_malloc(s->float_stride, 32);
@@ -366,35 +373,35 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         memset(s->spat_filter, 0, s->float_stride * h);
 
     } else {
-        if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
+        if(strcmp(s->wavelet_csf_filter, "nadenau_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = nadenau_weight_coeffs[level][0];
                 s->csf_factors[level][1] = nadenau_weight_coeffs[level][1];
                 s->csf_factors[level][2] = nadenau_weight_coeffs[level][2];
                 s->csf_factors[level][3] = nadenau_weight_coeffs[level][3];
             }
-        } else if(strcmp(s->wavelet_csfs, "li") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = li_coeffs[level][0];
                 s->csf_factors[level][1] = li_coeffs[level][1];
                 s->csf_factors[level][2] = li_coeffs[level][2];
                 s->csf_factors[level][3] = li_coeffs[level][3];
             }
-        } else if(strcmp(s->wavelet_csfs, "hill") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter, "hill") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = hill_coeffs[level][0];
                 s->csf_factors[level][1] = hill_coeffs[level][1];
                 s->csf_factors[level][2] = hill_coeffs[level][2];
                 s->csf_factors[level][3] = hill_coeffs[level][3];
             }
-        } else if(strcmp(s->wavelet_csfs, "watson") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = watson_coeffs[level][0];
                 s->csf_factors[level][1] = watson_coeffs[level][1];
                 s->csf_factors[level][2] = watson_coeffs[level][2];
                 s->csf_factors[level][3] = watson_coeffs[level][3];
             }
-        } else if(strcmp(s->wavelet_csfs, "mannos_weight") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter, "mannos_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = mannos_weight_coeffs[level][0];
                 s->csf_factors[level][1] = mannos_weight_coeffs[level][1];
@@ -579,9 +586,9 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
-        spatial_csfs(s->pad_ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->spat_tmp_buf, s->num_taps);
+        spatial_csfs(s->pad_ref, s->spat_filter, s->process_ref_width, s->process_ref_height, s->spat_tmp_buf, s->spatial_csf_filter);
         funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], s->process_ref_width, s->process_ref_height);
-        spatial_csfs(s->pad_dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->spat_tmp_buf, s->num_taps);
+        spatial_csfs(s->pad_dist, s->spat_filter, s->process_dist_width, s->process_dist_height, s->spat_tmp_buf, s->spatial_csf_filter);
         funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
 
     } else {
@@ -593,9 +600,9 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/
-        spatial_csfs(s->ref, s->spat_filter, res_ref_pic->w[0], res_ref_pic->h[0], s->spat_tmp_buf, s->num_taps);
+        spatial_csfs(s->ref, s->spat_filter, s->process_ref_width, s->process_ref_height, s->spat_tmp_buf, s->spatial_csf_filter);
         funque_dwt2(s->spat_filter, &s->ref_dwt2out[0], s->process_ref_width, s->process_ref_height);
-        spatial_csfs(s->dist, s->spat_filter, res_dist_pic->w[0], res_dist_pic->h[0], s->spat_tmp_buf, s->num_taps);
+        spatial_csfs(s->dist, s->spat_filter, s->process_dist_width, s->process_dist_height, s->spat_tmp_buf, s->spatial_csf_filter);
         funque_dwt2(s->spat_filter, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
 
     } else {

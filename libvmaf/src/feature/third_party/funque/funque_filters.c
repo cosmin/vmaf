@@ -133,14 +133,17 @@ const float ngan_filter_coeffs[21] = {
         -0.01608514932055564797264 ,
         -0.01373463642215844680849 };
     
-void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, int num_taps)
+void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, char *spatial_csf_filter)
 {
     const float *filter_coeffs;
-    if(num_taps == 5) {
+    int filter_size;
+    if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
         /*coefficients for 5 tap nadeanu_spat filter */
         filter_coeffs = nadeanu_filter_coeffs;
+        filter_size = 5;
     } else {
         filter_coeffs = ngan_filter_coeffs;
+        filter_size = 21;
     }
     int src_px_stride = width;
     int dst_px_stride = width;
@@ -149,17 +152,16 @@ void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf,
 
     int i, j, fi, fj, ii, jj;
 
-    for (i = 0; i < height; ++i) {
-
+    for(i = 0; i < height; ++i) {
         /* Vertical pass. */
-        for (j = 0; j < width; ++j) {
+        for(j = 0; j < width; ++j) {
             double accum = 0;
 
-            for(fi = 0; fi < num_taps; ++fi) {
+            for(fi = 0; fi < filter_size; ++fi) {
                 fcoeff = filter_coeffs[fi];
-                
-                ii = i - num_taps / 2 + fi;
-                ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
+
+                ii = i - filter_size / 2 + fi;
+                ii = ii < 0 ? -(ii + 1) : (ii >= height ? 2 * height - ii - 1 : ii);
 
                 imgcoeff = src[ii * src_px_stride + j];
 
@@ -169,20 +171,19 @@ void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf,
         }
 
         /* Horizontal pass. */
-        for (j = 0; j < width; ++j) {
+        for(j = 0; j < width; ++j) {
             double accum = 0;
 
-            for(fj = 0; fj < num_taps; ++fj) {
+            for(fj = 0; fj < filter_size; ++fj) {
                 fcoeff = filter_coeffs[fj];
 
-                jj = j - num_taps / 2 + fj;
-                jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
+                jj = j - filter_size / 2 + fj;
+                jj = jj < 0 ? -(jj + 1) : (jj >= width ? 2 * width - jj - 1 : jj);
 
                 imgcoeff = tmp_buf[jj];
 
                 accum += (double) fcoeff * imgcoeff;
             }
-
             dst[i * dst_px_stride + j] = accum;
         }
     }
