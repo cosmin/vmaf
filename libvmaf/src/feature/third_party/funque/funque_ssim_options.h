@@ -19,9 +19,31 @@
 #ifndef FUNQUE_SSIM_OPTIONS_H_
 #define FUNQUE_SSIM_OPTIONS_H_
 
-#define ENABLE_MINK3POOL 1
+#define ENABLE_MINK3POOL 0
+#define ENABLE_PADDING 1
 
 #define DEFAULT_SSIM_LEVELS 4
+#define DEFAULT_MS_SSIM_LEVELS 4
+
+typedef struct MsSsimScore {
+    double ssim_mean;
+    double l_mean;
+    double cs_mean;
+    double ssim_cov;
+    double l_cov;
+    double cs_cov;
+    double ssim_mink3;
+    double l_mink3;
+    double cs_mink3;
+    
+    double ms_ssim_mean;
+    double ms_ssim_cov;
+    double ms_ssim_mink3;
+
+    float **var_x_cum;
+    float **var_y_cum;
+    float **cov_xy_cum;
+} MsSsimScore;
 
 static inline double ssim_clip(double value, double low, double high)
 {

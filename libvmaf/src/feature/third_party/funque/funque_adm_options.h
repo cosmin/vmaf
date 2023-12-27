@@ -25,7 +25,7 @@
 #define ADM_BORDER_FACTOR (0.1)
 
 /* Whether to use a trigonometry-free method for comparing angles. */
-#define ADM_OPT_AVOID_ATAN
+#define ADM_OPT_AVOID_ATAN 0
 
 /* Whether to save intermediate results to files. */
 /* #define ADM_OPT_DEBUG_DUMP */

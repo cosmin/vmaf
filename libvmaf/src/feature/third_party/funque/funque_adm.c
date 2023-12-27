@@ -155,7 +155,7 @@ void integral_image_adm_sums(float *x, int k, int stride, float *mx, int width, 
 
 void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2buffers dlm_add)
 {
-#ifdef ADM_OPT_AVOID_ATAN
+#if ADM_OPT_AVOID_ATAN
   const float cos_1deg_sq = cos(1.0 * M_PI / 180.0) * cos(1.0 * M_PI / 180.0);
 #endif
   float eps = 1e-30;
@@ -168,7 +168,7 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
   float tmp_val;
   int angle_flag;
 
-#ifdef ADM_OPT_AVOID_ATAN
+#if ADM_OPT_AVOID_ATAN
   float *ot_dp = (float *)calloc(width * height, sizeof(float));
   float *o_mag_sq = (float *)calloc(width * height, sizeof(float));
   float *t_mag_sq = (float *)calloc(width * height, sizeof(float));
@@ -183,7 +183,7 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
     for (j = 0; j < width; j++)
     {
       index = i * width + j;
-#ifdef ADM_OPT_AVOID_ATAN
+#if ADM_OPT_AVOID_ATAN
       ot_dp[index] = (ref.bands[1][index] * dist.bands[1][index]) + (ref.bands[2][index] * dist.bands[2][index]);
       o_mag_sq[index] = (ref.bands[1][index] * ref.bands[1][index]) + (ref.bands[2][index] * ref.bands[2][index]);
       t_mag_sq[index] = (dist.bands[1][index] * dist.bands[1][index]) + (dist.bands[2][index] * dist.bands[2][index]);
@@ -205,7 +205,7 @@ void dlm_decouple(dwt2buffers ref, dwt2buffers dist, dwt2buffers dlm_rest, dwt2b
     }
   }
 
-#ifdef ADM_OPT_AVOID_ATAN
+#if ADM_OPT_AVOID_ATAN
   free(ot_dp);
   free(o_mag_sq);
   free(t_mag_sq);
