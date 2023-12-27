@@ -23,9 +23,16 @@
 #include <math.h>
 #include "macros.h"
 
-#define NGAN_21_TAP_FILTER           ("ngan_spat")
-#define NADENAU_SPAT_5_TAP_FILTER    ("nadenau_spat")
-#define NADENAU_WEIGHT_FILTER        ("nadenau_weight")
+// Spatial Filters
+#define NGAN_21_TAP_FILTER           21
+#define NADENAU_SPAT_5_TAP_FILTER    5
+
+// Wavelet Filters
+#define NADENAU_WEIGHT_FILTER        1 // Default set to nadenau_weight
+#define LI_FILTER                    2
+#define HILL_FILTER                  3
+#define WATSON_FILTER                4
+#define MANNOS_WEIGHT_FILTER         5
 
 struct funque_dwt_model_params {
     float a;

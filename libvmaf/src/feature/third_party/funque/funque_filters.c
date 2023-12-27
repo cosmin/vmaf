@@ -141,7 +141,7 @@ void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf,
         /*coefficients for 5 tap nadeanu_spat filter */
         filter_coeffs = nadeanu_filter_coeffs;
         filter_size = 5;
-    } else {
+    } else if (strcmp(spatial_csf_filter, "ngan_spat") == 0) {
         filter_coeffs = ngan_filter_coeffs;
         filter_size = 21;
     }

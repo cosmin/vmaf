@@ -13,11 +13,11 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "enable_spatial_csf": false,
-                "enable_resize": true,
+                "enable_spatial_csf": true,
+                "enable_resize": false,
 
-                "spatial_csf_filter": "nadenau_spat",
-                "wavelet_csf_filter": "nadenau_weight",
+                "spatial_csf_filter": 5,
+                "wavelet_csf_filter": 2,
 
                 "vif_levels": 2,
                 "adm_levels": 4,
