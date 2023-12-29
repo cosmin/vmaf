@@ -257,10 +257,8 @@ static const VmafOption options[] = {
 };
 
 static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
-//    dwt2out->width = (int) (w+1)/2;
-//    dwt2out->height = (int) (h+1)/2;
-    dwt2out->width = (int) w;// (w+1)/2;
-    dwt2out->height = (int) h; //(h+1)/2;
+    dwt2out->width = (int) w;
+    dwt2out->height = (int) h;
     dwt2out->stride = dwt2out->width * sizeof(float);
 
     for(unsigned i=0; i<4; i++)
@@ -268,9 +266,6 @@ static int alloc_dwt2buffers(dwt2buffers *dwt2out, int w, int h) {
         dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
         if (!dwt2out->bands[i]) goto fail;
         memset(dwt2out->bands[i], 0, dwt2out->stride * dwt2out->height);
-
-        //dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
-        //if (!dwt2out->bands[i]) goto fail;
     }
     return 0;
 
@@ -340,7 +335,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h+1)>>1;
     }
 
-//    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels,s->strred_levels));
     s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
@@ -407,9 +401,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     if (!s->pad_dist) goto fail;
     memset(s->pad_dist, 0, s->float_stride * dist_process_height);
 #endif
-
-    /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
-    //s->wavelet_csfs = "nadenau_weight";
 
     select_filter_type(s);
 
@@ -484,29 +475,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         tdist_width = (dist_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
         tdist_height = (dist_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
 
-        // tref_width = tref_width + (tref_width & 1);
-        // tref_height = tref_height + (tref_height & 1);
-        // tdist_width = tdist_width + (tdist_width & 1);
-        // tdist_height = tdist_height + (tdist_height & 1);
-
-//        tref_width = ref_process_width / process_wh_div_factor;
-//        tref_height = ref_process_height / process_wh_div_factor;
-//        tdist_width = dist_process_width / process_wh_div_factor;
-//        tdist_height = dist_process_height / process_wh_div_factor;
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], tref_width, tref_height);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], tdist_width, tdist_height);
-
-        // err |= alloc_dwt2buffers(&s->ref_dwt2out[level], w, h);
-        // err |= alloc_dwt2buffers(&s->dist_dwt2out[level], w, h);
-
-        // process_wh_div_factor = pow(2, (level+1));
-        // s->ref_dwt2out[level].width = ref_process_width / process_wh_div_factor;
-        // s->ref_dwt2out[level].height = ref_process_height / process_wh_div_factor;
-        // s->ref_dwt2out[level].stride = s->ref_dwt2out[level].width * sizeof(float);
-
-        // s->dist_dwt2out[level].width = dist_process_width / process_wh_div_factor;
-        // s->dist_dwt2out[level].height = dist_process_height / process_wh_div_factor;
-        // s->dist_dwt2out[level].stride = s->dist_dwt2out[level].width * sizeof(float);
 
         s->prev_ref[level].bands[0] = NULL;
         s->prev_dist[level].bands[0] = NULL;
@@ -540,8 +510,6 @@ fail:
     vmaf_dictionary_free(&s->feature_name_dict);
     return -ENOMEM;
 }
-
-// #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 static int extract(VmafFeatureExtractor *fex,
                    VmafPicture *ref_pic, VmafPicture *ref_pic_90,
@@ -592,22 +560,11 @@ static int extract(VmafFeatureExtractor *fex,
 
     if(s->ms_ssim_levels != 0){
 #if ENABLE_PADDING
-        //if(!s->enable_resize)
-        //{
-        //    int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
-        //    s->process_ref_width = ((ref_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        //    s->process_ref_height = ((ref_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        //    s->process_dist_width = ((dist_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        //    s->process_dist_height = ((dist_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        //}
-        //else
-        //{
             int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
             s->process_ref_width = ((res_ref_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
             s->process_ref_height = ((res_ref_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
             s->process_dist_width = ((res_dist_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
             s->process_dist_height = ((res_dist_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        //}
 #else
             s->process_ref_width = (res_ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
             s->process_ref_height = (res_ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
@@ -622,14 +579,6 @@ static int extract(VmafFeatureExtractor *fex,
         s->process_dist_width = res_dist_pic->w[0];
         s->process_dist_height = res_dist_pic->h[0];
     }
-
-//    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
-//    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
-//
-//    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
-//
-//    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, s->process_ref_width, s->process_ref_height);
-//    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, s->process_dist_width, s->process_dist_height);
 
 #if ENABLE_PADDING
     funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc, res_ref_pic->w[0], res_ref_pic->h[0]);
@@ -687,7 +636,6 @@ static int extract(VmafFeatureExtractor *fex,
 #endif
     double ssim_score[MAX_LEVELS];
     MsSsimScore ms_ssim_score[MAX_LEVELS];
-    //s->score = &ms_ssim_score;
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
