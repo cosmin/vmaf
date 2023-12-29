@@ -14,7 +14,7 @@
         "feature_opts_dicts": [
             {
                 "enable_spatial_csf": false,
-                "enable_resize": false,
+                "enable_resize": true,
 
                 "spatial_csf_filter": 5,
                 "wavelet_csf_filter": 1,

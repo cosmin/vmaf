@@ -28,8 +28,8 @@ void funque_picture_copy_hbd(float *dst, ptrdiff_t dst_stride,
     float *float_data = dst;
     uint16_t *data = src->data[0];
 
-    for (unsigned i = 0; i < height; i++) {
-        for (unsigned j = 0; j < width; j++) {
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
             float_data[j] = (float) data[j] + offset;
         }
         float_data += dst_stride / sizeof(float);
@@ -47,8 +47,8 @@ void funque_picture_copy(float *dst, ptrdiff_t dst_stride,
     float *float_data = dst;
     uint8_t *data = src->data[0];
 
-    for (unsigned i = 0; i < height; i++) {
-        for (unsigned j = 0; j < width; j++) {
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
             float_data[j] = (float) data[j] + offset;
         }
         float_data += dst_stride / sizeof(float);
