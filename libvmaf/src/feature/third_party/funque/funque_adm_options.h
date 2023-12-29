@@ -38,6 +38,6 @@
 
 #define DEFAULT_ADM_LEVELS 4
 #define MAX_ADM_LEVELS 4
-#define MIN_ADM_LEVELS 1
+#define MIN_ADM_LEVELS 0
 
 #endif /* ADM_OPTIONS_H_ */

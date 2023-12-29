@@ -479,10 +479,20 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         process_wh_div_factor = pow(2, (level+1));
-        tref_width = ref_process_width / process_wh_div_factor;
-        tref_height = ref_process_height / process_wh_div_factor;
-        tdist_width = dist_process_width / process_wh_div_factor;
-        tdist_height = dist_process_height / process_wh_div_factor;
+        tref_width = (ref_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tref_height = (ref_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tdist_width = (dist_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tdist_height = (dist_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+
+        // tref_width = tref_width + (tref_width & 1);
+        // tref_height = tref_height + (tref_height & 1);
+        // tdist_width = tdist_width + (tdist_width & 1);
+        // tdist_height = tdist_height + (tdist_height & 1);
+
+//        tref_width = ref_process_width / process_wh_div_factor;
+//        tref_height = ref_process_height / process_wh_div_factor;
+//        tdist_width = dist_process_width / process_wh_div_factor;
+//        tdist_height = dist_process_height / process_wh_div_factor;
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], tref_width, tref_height);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], tdist_width, tdist_height);
 
@@ -501,12 +511,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->prev_ref[level].bands[0] = NULL;
         s->prev_dist[level].bands[0] = NULL;
 
-        int str_width = (int) (ref_process_height + 1) / 2;
-        int str_height = (int) (ref_process_width + 1) / 2;
-
         for(int subband = 1; subband < 4; subband++) {
-            s->prev_ref[level].bands[subband] = (float*) calloc(str_width * str_height, sizeof(float));
-            s->prev_dist[level].bands[subband] = (float*) calloc(str_width * str_height, sizeof(float));
+            s->prev_ref[level].bands[subband] = (float*) calloc(tref_width * tref_height, sizeof(float));
+            s->prev_dist[level].bands[subband] = (float*) calloc(tref_width * tref_height, sizeof(float));
         }
 
         last_w = (int) (last_w + 1) / 2;
@@ -616,15 +623,23 @@ static int extract(VmafFeatureExtractor *fex,
         s->process_dist_height = res_dist_pic->h[0];
     }
 
-    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
-    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
+//    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc);
+//    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc);
+//
+//    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+//
+//    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, s->process_ref_width, s->process_ref_height);
+//    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, s->process_dist_width, s->process_dist_height);
+
+#if ENABLE_PADDING
+    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc, res_ref_pic->w[0], res_ref_pic->h[0]);
+    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc, res_dist_pic->w[0], res_dist_pic->h[0]);
 
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
-    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, res_ref_pic->w[0], res_ref_pic->h[0]);
-    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, res_dist_pic->w[0], res_dist_pic->h[0]);
+    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, s->process_ref_width, s->process_ref_height);
+    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, s->process_dist_width, s->process_dist_height);
 
-#if ENABLE_PADDING
     int reflect_width, reflect_height;
     reflect_width = (s->process_ref_width - res_ref_pic->w[0]) / 2;
     reflect_height = (s->process_ref_height - res_ref_pic->h[0]) / 2;
@@ -648,6 +663,14 @@ static int extract(VmafFeatureExtractor *fex,
         funque_dwt2(s->pad_dist, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
     }
 #else
+    funque_picture_copy(s->ref, s->float_stride, res_ref_pic, 0, ref_pic->bpc, s->process_ref_width, s->process_ref_height);
+    funque_picture_copy(s->dist, s->float_stride, res_dist_pic, 0, dist_pic->bpc, s->process_dist_width, s->process_dist_height);
+
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+
+    normalize_bitdepth(s->ref, s->ref, bitdepth_pow2, s->float_stride, s->process_ref_width, s->process_ref_height);
+    normalize_bitdepth(s->dist, s->dist, bitdepth_pow2, s->float_stride, s->process_dist_width, s->process_dist_height);
+
     if (s->enable_spatial_csf) {
         /*assume this is entering the path of FullScaleY Funque Extractor*/
         /*CSF factors are applied to the pictures based on predefined thresholds.*/

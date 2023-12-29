@@ -23,13 +23,13 @@
 #include "funque_filters.h"
 
 void funque_picture_copy_hbd(float *dst, ptrdiff_t dst_stride,
-                      VmafPicture *src, int offset)
+                      VmafPicture *src, int offset, int width, int height)
 {
     float *float_data = dst;
     uint16_t *data = src->data[0];
 
-    for (unsigned i = 0; i < src->h[0]; i++) {
-        for (unsigned j = 0; j < src->w[0]; j++) {
+    for (unsigned i = 0; i < height; i++) {
+        for (unsigned j = 0; j < width; j++) {
             float_data[j] = (float) data[j] + offset;
         }
         float_data += dst_stride / sizeof(float);
@@ -39,16 +39,16 @@ void funque_picture_copy_hbd(float *dst, ptrdiff_t dst_stride,
 }
 
 void funque_picture_copy(float *dst, ptrdiff_t dst_stride,
-                  VmafPicture *src, int offset, unsigned bpc)
+                  VmafPicture *src, int offset, unsigned bpc, int width, int height)
 {
     if (bpc > 8)
-        return funque_picture_copy_hbd(dst, dst_stride, src, offset);
+        return funque_picture_copy_hbd(dst, dst_stride, src, offset, width, height);
 
     float *float_data = dst;
     uint8_t *data = src->data[0];
 
-    for (unsigned i = 0; i < src->h[0]; i++) {
-        for (unsigned j = 0; j < src->w[0]; j++) {
+    for (unsigned i = 0; i < height; i++) {
+        for (unsigned j = 0; j < width; j++) {
             float_data[j] = (float) data[j] + offset;
         }
         float_data += dst_stride / sizeof(float);
