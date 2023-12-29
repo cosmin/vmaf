@@ -351,8 +351,24 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        }
-                if(strcmp(s->wavelet_csfs, "li_csf") == 0) {
+        } else if(strcmp(s->wavelet_csfs, "watson") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_watson_coeffs[level][0];
+                s->csf_factors[level][1] = i_watson_coeffs[level][1];
+                s->csf_factors[level][2] = i_watson_coeffs[level][2];
+                s->csf_factors[level][3] = i_watson_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+            }
+        } else if(strcmp(s->wavelet_csfs, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_li_coeffs[level][0];
                 s->csf_factors[level][1] = i_li_coeffs[level][1];
