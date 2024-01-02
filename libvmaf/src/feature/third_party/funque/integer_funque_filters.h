@@ -29,9 +29,16 @@
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
 #define UNUSED(x) (void)(x)
 
+// Spatial Filters
+#define NGAN_21_TAP_FILTER           21
+#define NADENAU_SPAT_5_TAP_FILTER    5
+
+// Wavelet Filters
+#define NADENAU_WEIGHT_FILTER        1 // Default set to nadenau_weight
+#define WATSON_FILTER                2
+#define LI_FILTER                    3
+
 #define BAND_HVD_SAME_PENDING_DIV 1
-#define NGAN_21_TAP_FILTER 21
-#define NADENAU_SPAT_5_TAP_FILTER 5
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))
@@ -119,7 +126,7 @@ typedef struct ModuleFunqueState
                                         int width, int height, int bitdepth);
     void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
                                    int height, int bitdepth, spat_fil_inter_dtype *tmp,
-                                   int num_taps);
+                                   char *spatial_csf_filter);
     void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride,
                                 i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width,
                                 int height, int spatial_csf_flag, int level);
@@ -272,7 +279,7 @@ static const uint8_t i_hill_pending_div_factors[4][4] = {
 };
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
-                            int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
+                            int height, int bitdepth, spat_fil_inter_dtype *tmp, char *spatial_csf_filter);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
                          ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag,
