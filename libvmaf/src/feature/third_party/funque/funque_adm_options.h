@@ -25,7 +25,7 @@
 #define ADM_BORDER_FACTOR (0.1)
 
 /* Whether to use a trigonometry-free method for comparing angles. */
-#define ADM_OPT_AVOID_ATAN 0
+#define ADM_OPT_AVOID_ATAN
 
 /* Whether to save intermediate results to files. */
 /* #define ADM_OPT_DEBUG_DUMP */
@@ -38,6 +38,6 @@
 
 #define DEFAULT_ADM_LEVELS 4
 #define MAX_ADM_LEVELS 4
-#define MIN_ADM_LEVELS 1
+#define MIN_ADM_LEVELS 0
 
 #endif /* ADM_OPTIONS_H_ */
