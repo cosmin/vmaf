@@ -19,6 +19,7 @@
                 "adm_levels": 4,
                 "strred_levels": 4,
                 "ssim_levels": 4,
+                "ms_ssim_levels": 4,
                 "enable_spatial_csf": true
             },
             {},

@@ -108,6 +108,7 @@ typedef struct IntFunqueState
     int needed_dwt_levels;
     int needed_full_dwt_levels;
     int ssim_levels;
+    int ms_ssim_levels;
     int strred_levels;
     double norm_view_dist;
     int ref_display_height;
@@ -213,6 +214,16 @@ static const VmafOption options[] = {
         .max = MAX_LEVELS,
     },
     {
+        .name = "ms_ssim_levels",
+        .alias = "ms_ssiml",
+        .help = "Number of DWT levels for MS_SSIM",
+        .offset = offsetof(IntFunqueState, ms_ssim_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_MS_SSIM_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
+    {
         .name = "vif_enhn_gain_limit",
         .alias = "egl",
         .help = "enhancement gain imposed on vif, must be >= 1.0, "
@@ -301,7 +312,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h + 1) >> 1;
     }
 
-    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels, s->strred_levels));
+    s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
@@ -767,13 +778,13 @@ static int extract(VmafFeatureExtractor *fex,
         return err;
         }
 
-        if((s->ssim_levels != 0) && (level < s->ssim_levels))
+        if((s->ms_ssim_levels != 0) && (level < s->ms_ssim_levels))
         {
             err = s->modules.integer_compute_ms_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup, (level + 1), (int) (s->enable_spatial_csf == false));
 
             err = s->modules.integer_mean_2x2_ms_ssim_funque(var_x_cum, var_y_cum, cov_xy_cum, s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height, level);
 
-            if(level != s->ssim_levels - 1) {
+            if(level != s->ms_ssim_levels - 1) {
                 ms_ssim_score[level + 1].var_x_cum = ms_ssim_score[level].var_x_cum;
                 ms_ssim_score[level + 1].var_y_cum = ms_ssim_score[level].var_y_cum;
                 ms_ssim_score[level + 1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
@@ -844,7 +855,7 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    if(s->ssim_levels != 0) {
+    if(s->ms_ssim_levels != 0) {
         err |= integer_compute_ms_ssim_mean_scales(ms_ssim_score, s->ssim_levels);
     }
 
@@ -960,7 +971,7 @@ if(s->strred_levels > 0) {
     }
 }
 
-if(s->ssim_levels > 0) {
+if(s->ms_ssim_levels > 0) {
     err |= vmaf_feature_collector_append_with_dict(
         feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ms_ssim_mean_scale0_score",
         s->score[0].ms_ssim_mean, index);
@@ -973,7 +984,7 @@ if(s->ssim_levels > 0) {
         feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score",
         s->score[0].ms_ssim_mink3, index);
 
-    if(s->ssim_levels > 1) {
+    if(s->ms_ssim_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(
             feature_collector, s->feature_name_dict,
             "FUNQUE_integer_feature_ms_ssim_mean_scale1_score", s->score[1].ms_ssim_mean, index);
@@ -986,7 +997,7 @@ if(s->ssim_levels > 0) {
             feature_collector, s->feature_name_dict,
             "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score", s->score[1].ms_ssim_mink3, index);
 
-        if(s->ssim_levels > 2) {
+        if(s->ms_ssim_levels > 2) {
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict,
                 "FUNQUE_integer_feature_ms_ssim_mean_scale2_score", s->score[2].ms_ssim_mean,
@@ -1000,7 +1011,7 @@ if(s->ssim_levels > 0) {
                 feature_collector, s->feature_name_dict,
                 "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score", s->score[2].ms_ssim_mink3, index);
 
-            if(s->ssim_levels > 3) {
+            if(s->ms_ssim_levels > 3) {
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
                     "FUNQUE_integer_feature_ms_ssim_mean_scale3_score", s->score[3].ms_ssim_mean,
