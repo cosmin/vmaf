@@ -17,6 +17,29 @@ static inline int16_t ssim_get_best_i16_from_u64(uint64_t temp, int *power)
     return (int16_t)temp;
 }
 
+static inline int16_t ms_ssim_get_best_i16_from_u32_neon(uint32_t temp, int *x)
+{
+    int k = __builtin_clz(temp);
+
+    if(k > 17) {
+        k -= 17;
+        //temp = temp << k;
+        *x = 0;
+
+    } else if(k < 16) {
+        k = 17 - k;
+        temp = temp >> k;
+        *x = k;
+    } else {
+        *x = 0;
+        if(temp >> 15) {
+            temp = temp >> 1;
+            *x = 1;
+        }
+    }
+    return (int16_t) temp;
+}
+
 int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
 {
     int ret = 1;
