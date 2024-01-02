@@ -50,6 +50,7 @@
 #include "arm64/integer_funque_adm_neon.h"
 #include "arm64/resizer_neon.h"
 #include "arm64/integer_funque_vif_neon.h"
+#include "arm64/integer_funque_strred_neon.h"
 #elif ARCH_ARM
 #include "arm32/integer_funque_filters_armv7.h"
 #include "arm32/integer_funque_ssim_armv7.h"
@@ -506,6 +507,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         // s->resize_module.resizer_step = step_neon;
         // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
         // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
+
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
     }
 #elif ARCH_ARM
     if (bpc == 8)
