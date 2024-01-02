@@ -479,6 +479,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             vst1q_s32(csNumVal + j + 4, addcsNum32x4_hb1);
             vst1q_s32(csDenVal + j, addcsDen32x4_lb1);
             vst1q_s32(csDenVal + j + 4, addcsDen32x4_hb1);
+            index_cum += 8;
         }
         for(; j < width; j++)
         {
@@ -524,6 +525,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
 
             csNumVal[j] = ((2 >> SSIM_INTER_CS_SHIFT) * cov_xy + C2);
             csDenVal[j] = (((var_x + var_y) >> SSIM_INTER_CS_SHIFT) + C2);
+            index_cum++;
         }
 
         for (k = 0; k < width; k++)
@@ -558,8 +560,6 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             row_accum_mink3_l += mink3_l;
             row_accum_mink3_cs += mink3_cs;
             row_accum_mink3_map += mink3_map;
-
-            index_cum++;
         }
         accum_sq_map += (row_accum_sq_map >> SSIM_SQ_COL_SHIFT);
 
