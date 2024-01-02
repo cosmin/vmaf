@@ -529,10 +529,10 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
         for (k = 0; k < width; k++)
         {
             int power_val_l;
-            i16_l_den = ms_ssim_get_best_i16_from_u32((uint32_t) lDenVal[k], &power_val_l);
+            i16_l_den = ms_ssim_get_best_i16_from_u32_neon((uint32_t) lDenVal[k], &power_val_l);
 
             int power_val_cs;
-            i16_cs_den = ms_ssim_get_best_i16_from_u32((uint32_t) csDenVal[k], &power_val_cs);
+            i16_cs_den = ms_ssim_get_best_i16_from_u32_neon((uint32_t) csDenVal[k], &power_val_cs);
 
             l = ((lNumVal[k] >> power_val_l) * div_lookup[i16_l_den + 32768]) >> SSIM_SHIFT_DIV;
             cs = ((csNumVal[k] >> power_val_cs) * div_lookup[i16_cs_den + 32768]) >> SSIM_SHIFT_DIV;
