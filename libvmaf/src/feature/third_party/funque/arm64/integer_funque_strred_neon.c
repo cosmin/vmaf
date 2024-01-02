@@ -27,9 +27,9 @@
 #include "../integer_funque_strred.h"
 
 void integer_subract_subbands_neon(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                                   dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                                   const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
-                                   int width, int height)         // earlier width and height and i and j were declared as size_t but i changed them to int type.
+                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                    const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
+                                    int width, int height)
 {
     int i, j;
     for(i = 0; i < height; i++)

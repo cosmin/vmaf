@@ -30,9 +30,9 @@ int integer_compute_strred_funque_neon(const struct i_dwt2buffers* ref,
                                     double sigma_nsq_t, uint8_t enable_spatial_csf);
 
 void integer_subract_subbands_neon(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                              dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                              const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst, size_t width,
-                              size_t height);
+                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                    const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
+                                    int width, int height);
 
 float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_dtype *y_t, size_t width,
                                         size_t height, uint32_t *log_18, uint32_t *log_22,
