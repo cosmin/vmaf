@@ -617,8 +617,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
 }
 
 int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
-                                         int32_t* cov_xy_cum, int width, int height, int level,
-                                         int32_t* dst1, int32_t* dst2, int32_t* dst3)
+                                         int32_t* cov_xy_cum, int width, int height, int level)
 {
     int ret = 1;
     int cum_array_width = (width) * (1 << (level + 1));
@@ -640,7 +639,7 @@ int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
             int32x4_t var1_x = vpaddq_s32(var_x_1_1, var_x_1_2);
             int32x4_t var2_x = vpaddq_s32(var_x_2_1, var_x_2_2);
             int32x4_t var3_x = vaddq_s32(var1_x, var2_x);
-            vst1q_s32(&dst1[index], vrshrq_n_s32(var3_x, 2));
+            vst1q_s32(&var_x_cum[index], vrshrq_n_s32(var3_x, 2));
 
             int32x4_t var_y_1_1 = vld1q_s32(&var_y_cum[index_cum]);
             int32x4_t var_y_1_2 = vld1q_s32(&var_y_cum[index_cum + 4]);
@@ -649,7 +648,7 @@ int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
             int32x4_t var1_y = vpaddq_s32(var_y_1_1, var_y_1_2);
             int32x4_t var2_y = vpaddq_s32(var_y_2_1, var_y_2_2);
             int32x4_t var3_y = vaddq_s32(var1_y, var2_y);
-            vst1q_s32(&dst2[index], vrshrq_n_s32(var3_y, 2));
+            vst1q_s32(&var_y_cum[index], vrshrq_n_s32(var3_y, 2));
 
             int32x4_t cov_xy_1_1 = vld1q_s32(&cov_xy_cum[index_cum]);
             int32x4_t cov_xy_1_2 = vld1q_s32(&cov_xy_cum[index_cum + 4]);
@@ -658,27 +657,27 @@ int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
             int32x4_t var1_xy = vpaddq_s32(cov_xy_1_1, cov_xy_1_2);
             int32x4_t var2_xy = vpaddq_s32(cov_xy_2_1, cov_xy_2_2);
             int32x4_t var3_xy = vaddq_s32(var1_xy, var2_xy);
-            vst1q_s32(&dst3[index], vrshrq_n_s32(var3_xy, 2));
+            vst1q_s32(&cov_xy_cum[index], vrshrq_n_s32(var3_xy, 2));
 
             index_cum += 8;
         }
         for(; j < width; j=j+2)
         {
             index = i * cum_array_width + j/2;
-            dst1[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
+            var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
                           var_x_cum[index_cum + (cum_array_width)] +
                           var_x_cum[index_cum + (cum_array_width) + 1];
-            dst1[index] = (dst1[index] + 2) >> 2;
+            var_x_cum[index] = (var_x_cum[index] + 2) >> 2;
 
-            dst2[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
+            var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
                           var_y_cum[index_cum + (cum_array_width)] +
                           var_y_cum[index_cum + (cum_array_width) + 1];
-            dst2[index] = (dst2[index] + 2) >> 2;
+            var_y_cum[index] = (var_y_cum[index] + 2) >> 2;
 
-            dst3[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
+            cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
                           cov_xy_cum[index_cum + (cum_array_width)] +
                           cov_xy_cum[index_cum + (cum_array_width) + 1];
-            dst3[index] = (dst3[index] + 2) >> 2;
+            cov_xy_cum[index] = (cov_xy_cum[index] + 2) >> 2;
 
             index_cum += 2;
         }
