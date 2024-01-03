@@ -541,11 +541,11 @@ int integer_mean_2x2_ms_ssim_funque_avx2(int32_t* var_x_cum, int32_t* var_y_cum,
             __m256i var_y_cum_final = _mm256_permutevar8x32_epi32(var_y_cum_inter, perm_indices);
             __m256i cov_xy_cum_final = _mm256_permutevar8x32_epi32(cov_xy_cum_inter, perm_indices);
 
-            _mm_store_si128((__m128i*) (dst1 + index),
+            _mm_store_si128((__m128i*) (var_x_cum + index),
                             _mm256_extracti128_si256(var_x_cum_final, 1));
-            _mm_store_si128((__m128i*) (dst2 + index),
+            _mm_store_si128((__m128i*) (var_y_cum + index),
                             _mm256_extracti128_si256(var_y_cum_final, 1));
-            _mm_store_si128((__m128i*) (dst3 + index),
+            _mm_store_si128((__m128i*) (cov_xy_cum + index),
                             _mm256_extracti128_si256(cov_xy_cum_final, 1));
 
             index_cum += 8;
@@ -553,20 +553,20 @@ int integer_mean_2x2_ms_ssim_funque_avx2(int32_t* var_x_cum, int32_t* var_y_cum,
         for(; j < width; j += 2)
         {
             index = i * cum_array_width + (j >> 1);
-            dst1[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
+            var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
                           var_x_cum[index_cum + (cum_array_width)] +
                           var_x_cum[index_cum + (cum_array_width) + 1];
-            dst1[index] = (dst1[index] + 2) >> 2;
+            var_x_cum[index] = (var_x_cum[index] + 2) >> 2;
 
-            dst2[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
+            var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
                           var_y_cum[index_cum + (cum_array_width)] +
                           var_y_cum[index_cum + (cum_array_width) + 1];
-            dst2[index] = (dst2[index] + 2) >> 2;
+            var_y_cum[index] = (var_y_cum[index] + 2) >> 2;
 
-            dst3[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
+            cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
                           cov_xy_cum[index_cum + (cum_array_width)] +
                           cov_xy_cum[index_cum + (cum_array_width) + 1];
-            dst3[index] = (dst3[index] + 2) >> 2;
+            cov_xy_cum[index] = (cov_xy_cum[index] + 2) >> 2;
 
             index_cum += 2;
         }

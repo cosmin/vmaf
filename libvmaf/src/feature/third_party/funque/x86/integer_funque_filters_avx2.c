@@ -2959,7 +2959,7 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
 	_mm256_store_si256((__m256i*)(addr + 16), r8); \
 }
 
-void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
+void integer_horizontal_5tap_filter_avx2(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
 {
     int j, fj, jj, jj1, jj2;
 
@@ -3172,7 +3172,7 @@ void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int
 		
 
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+        integer_horizontal_5tap_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
 
     }
     
@@ -3282,7 +3282,7 @@ void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int
 			}
 	
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+        integer_horizontal_5tap_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
 
     }
 
@@ -3381,7 +3381,7 @@ void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int
 
 
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+        integer_horizontal_5tap_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
 
     }
     
