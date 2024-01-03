@@ -13,14 +13,15 @@
         "model_type": "LIBSVMNUSVR",
         "feature_opts_dicts": [
             {
-                "num_taps": 5,
+                "enable_spatial_csf": true,
                 "enable_resize": false,
+
+                "spatial_csf_filter": 5,
+                "wavelet_csf_filter": 2,
                 "vif_levels": 4,
                 "adm_levels": 4,
                 "strred_levels": 4,
-                "ssim_levels": 4,
-                "ms_ssim_levels": 4,
-                "enable_spatial_csf": true
+                "ssim_levels": 4
             },
             {},
             {},
@@ -32,15 +33,15 @@
             "FUNQUE_integer_feature_vif_scale1_score",
             "FUNQUE_integer_feature_vif_scale2_score",
             "FUNQUE_integer_feature_vif_scale3_score",
-            "FUNQUE_integer_feature_ssim_scale0_score",
-            "FUNQUE_integer_feature_ssim_scale1_score",
-            "FUNQUE_integer_feature_ssim_scale2_score",
-            "FUNQUE_integer_feature_ssim_scale3_score",
             "FUNQUE_integer_feature_adm_score",
             "FUNQUE_integer_feature_adm_scale0_score",
             "FUNQUE_integer_feature_adm_scale1_score",
             "FUNQUE_integer_feature_adm_scale2_score",
             "FUNQUE_integer_feature_adm_scale3_score",
+            "FUNQUE_integer_feature_ssim_scale0_score",
+            "FUNQUE_integer_feature_ssim_scale1_score",
+            "FUNQUE_integer_feature_ssim_scale2_score",
+            "FUNQUE_integer_feature_ssim_scale3_score",
             "FUNQUE_integer_feature_strred_scale0_score",
             "FUNQUE_integer_feature_strred_scale1_score",
             "FUNQUE_integer_feature_strred_scale2_score",
@@ -74,10 +75,22 @@
             "FUNQUE_feature": [
                 "ssim_scale0",
                 "ssim_scale1",
+                "ssim_scale2",
+                "ssim_scale3",
                 "adm_score",
                 "adm_scale0",
+                "adm_scale1",
+                "adm_scale2",
+                "adm_scale3",
+                "vif_score",
                 "vif_scale0",
-                "strred_scale0"
+                "vif_scale1",
+                "vif_scale2",
+                "vif_scale3",
+                "strred_scale0",
+                "strred_scale1",
+                "strred_scale2",
+                "strred_scale3"
             ]
         },
         "score_clip": [

@@ -89,6 +89,10 @@ typedef struct IntFunqueState
     void *pad_dist;
 
     const char *wavelet_csfs;
+    int spatial_csf_filter;
+    int wavelet_csf_filter;
+    char *spatial_csf_filter_type;
+    char *wavelet_csf_filter_type;
     spat_fil_coeff_dtype csf_factors[4][4];
     uint16_t csf_interim_rnd[4][4];
     uint8_t csf_interim_shift[4][4];
@@ -105,7 +109,6 @@ typedef struct IntFunqueState
     // funque configurable parameters
     bool enable_resize;
     bool enable_spatial_csf;
-    int num_taps;
     int vif_levels;
     int adm_levels;
     int needed_dwt_levels;
@@ -165,14 +168,24 @@ static const VmafOption options[] = {
         .default_val.b = true,
     },
     {
-        .name = "num_taps",
-        .alias = "ntaps",
+        .name = "spatial_csf_filter",
+        .alias = "spatial_csf_filter",
         .help = "Select number of taps to be used for spatial filter",
-        .offset = offsetof(IntFunqueState, num_taps),
+        .offset = offsetof(IntFunqueState, spatial_csf_filter),
         .type = VMAF_OPT_TYPE_INT,
-        .default_val.b = NADENAU_SPAT_5_TAP_FILTER,
+        .default_val.i = NADENAU_SPAT_5_TAP_FILTER,
         .min = NADENAU_SPAT_5_TAP_FILTER,
         .max = NGAN_21_TAP_FILTER,
+    },
+    {
+        .name = "wavelet_csf_filter",
+        .alias = "wave_filter",
+        .help = "Select wavelet filter",
+        .offset = offsetof(IntFunqueState, wavelet_csf_filter),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = NADENAU_WEIGHT_FILTER,
+        .min = NADENAU_WEIGHT_FILTER,
+        .max = LI_FILTER,
     },
 {
         .name = "norm_view_dist",
@@ -317,6 +330,37 @@ static int integer_alloc_dwt2buffers(i_dwt2buffers *dwt2out, int w, int h) {
     }
     return -ENOMEM;
 }
+void integer_select_filter_type(IntFunqueState *s)
+{
+    if (s->enable_spatial_csf == 1)
+    {
+        if (s->spatial_csf_filter == 5)
+            s->spatial_csf_filter_type = "nadenau_spat";
+        else if (s->spatial_csf_filter == 21)
+            s->spatial_csf_filter_type = "ngan_spat";
+    }
+    else
+    {
+        switch(s->wavelet_csf_filter)
+        {
+            case 1:
+                s->wavelet_csf_filter_type = "nadenau_weight";
+                break;
+
+            case 2:
+                s->wavelet_csf_filter_type = "watson";
+                break;
+
+            case 3:
+                s->wavelet_csf_filter_type = "li";
+                break;
+
+            default:
+                s->wavelet_csf_filter_type = "nadenau_weight";
+                break;
+        }
+    }
+}
 
 static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
@@ -402,8 +446,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     memset(s->pad_dist, 0, s->width_aligned_stride * dist_process_height * bitdepth_factor);
 #endif
 
-    /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
-    s->wavelet_csfs = "nadenau_weight";
+    integer_select_filter_type(s);
 
     if (s->enable_spatial_csf) {
         s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(ref_process_width * sizeof(spat_fil_inter_dtype)), 32);
@@ -411,7 +454,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             goto fail;
         // memset(s->spat_tmp_buf, 0, ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)));
     } else {
-        if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
+        if(strcmp(s->wavelet_csf_filter_type, "nadenau_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_nadenau_weight_coeffs[level][0];
                 s->csf_factors[level][1] = i_nadenau_weight_coeffs[level][1];
@@ -428,7 +471,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csfs, "watson") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_watson_coeffs[level][0];
                 s->csf_factors[level][1] = i_watson_coeffs[level][1];
@@ -445,7 +488,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csfs, "li") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_li_coeffs[level][0];
                 s->csf_factors[level][1] = i_li_coeffs[level][1];
@@ -693,14 +736,14 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         s->modules.integer_spatial_filter(
             s->pad_ref, s->filter_buffer, s->filter_buffer_stride, s->i_process_ref_width,
-            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->spatial_csf_filter_type);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_ref_dwt2out[0], s->i_process_ref_width,
                                        s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        -1);
         s->modules.integer_spatial_filter(
             s->pad_dist, s->filter_buffer, s->filter_buffer_stride, s->i_process_dist_width,
-            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->spatial_csf_filter_type);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
@@ -728,14 +771,14 @@ static int extract(VmafFeatureExtractor *fex,
     if (s->enable_spatial_csf) {
         s->modules.integer_spatial_filter(
             res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, s->i_process_ref_width,
-            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->spatial_csf_filter_type);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_ref_dwt2out[0], s->i_process_ref_width,
                                        s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        -1);
         s->modules.integer_spatial_filter(
             res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, s->i_process_dist_width,
-            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->spatial_csf_filter_type);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
