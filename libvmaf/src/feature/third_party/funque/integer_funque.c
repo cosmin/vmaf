@@ -97,7 +97,6 @@ typedef struct IntFunqueState
     uint16_t csf_interim_rnd[4][4];
     uint8_t csf_interim_shift[4][4];
 
-    size_t resizer_out_stride;
     spat_fil_inter_dtype *spat_tmp_buf;
     spat_fil_output_dtype *filter_buffer;
     size_t filter_buffer_stride;
@@ -416,15 +415,14 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
 
     s->width_aligned_stride = ALIGN_CEIL(ref_process_width * sizeof(float));
-    s->resizer_out_stride = (s->width_aligned_stride + 3) / 4;
 
     int bitdepth_factor = (bpc == 8 ? 1 : 2);
     if (s->enable_resize)
     {
-        s->res_ref_pic.data[0] = aligned_malloc(s->resizer_out_stride * ref_process_height * bitdepth_factor, 32);
+        s->res_ref_pic.data[0] = aligned_malloc(s->width_aligned_stride * ref_process_height * bitdepth_factor, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        s->res_dist_pic.data[0] = aligned_malloc(s->resizer_out_stride * dist_process_height * bitdepth_factor, 32);
+        s->res_dist_pic.data[0] = aligned_malloc(s->width_aligned_stride * dist_process_height * bitdepth_factor, 32);
 
         if (!s->res_dist_pic.data[0])
             goto fail;
