@@ -565,6 +565,64 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
     return;
 }
 
+void integer_reflect_pad_for_input_hbd(void *src, void *dst, int width, int height, int reflect_width, int reflect_height)
+{
+   size_t out_width = width + 2 * reflect_width;
+   size_t out_height = height + 2 * reflect_height;
+   uint16_t *src_hbd = (uint16_t*)src;
+   uint16_t *dst_hbd = (uint16_t*)dst;
+
+   for (size_t i = reflect_height; i != (out_height - reflect_height); i++) {
+
+       for (int j = 0; j != reflect_width; j++)
+       {
+           dst_hbd[i * out_width + (reflect_width - 1 - j)] = src_hbd[(i - reflect_height) * width + j + 1];
+       }
+
+       memcpy(&dst_hbd[i * out_width + reflect_width], &src_hbd[(i - reflect_height) * width], sizeof(uint16_t) * width);
+
+       for (int j = 0; j != reflect_width; j++)
+           dst_hbd[i * out_width + out_width - reflect_width + j] = dst_hbd[i * out_width + out_width - reflect_width - 2 - j];
+   }
+
+  for (int i = 0; i != reflect_height; i++) {
+      memcpy(&dst_hbd[(reflect_height - 1) * out_width - i * out_width], &dst_hbd[reflect_height * out_width + (i + 1) * out_width], sizeof(uint16_t) * out_width);
+      memcpy(&dst_hbd[(out_height - reflect_height) * out_width + i * out_width], &dst_hbd[(out_height - reflect_height - 1) * out_width - (i + 1) * out_width], sizeof(uint16_t) * out_width);
+  }
+}
+
+
+void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, int reflect_width, int reflect_height, int bpc)
+{
+    if(bpc > 8)
+        {
+            integer_reflect_pad_for_input_hbd(src, dst, width, height, reflect_width, reflect_height);
+            return;
+        }
+   size_t out_width = width + 2 * reflect_width;
+   size_t out_height = height + 2 * reflect_height;
+   uint8_t *src_8bd = (uint8_t*)src;
+   uint8_t *dst_8bd = (uint8_t*)dst;
+
+   for (size_t i = reflect_height; i != (out_height - reflect_height); i++) {
+
+       for (int j = 0; j != reflect_width; j++)
+       {
+           dst_8bd[i * out_width + (reflect_width - 1 - j)] = src_8bd[(i - reflect_height) * width + j + 1];
+       }
+
+       memcpy(&dst_8bd[i * out_width + reflect_width], &src_8bd[(i - reflect_height) * width], sizeof(uint8_t) * width);
+
+       for (int j = 0; j != reflect_width; j++)
+           dst_8bd[i * out_width + out_width - reflect_width + j] = dst_8bd[i * out_width + out_width - reflect_width - 2 - j];
+   }
+
+  for (int i = 0; i != reflect_height; i++) {
+      memcpy(&dst_8bd[(reflect_height - 1) * out_width - i * out_width], &dst_8bd[reflect_height * out_width + (i + 1) * out_width], sizeof(uint8_t) * out_width);
+      memcpy(&dst_8bd[(out_height - reflect_height) * out_width + i * out_width], &dst_8bd[(out_height - reflect_height - 1) * out_width - (i + 1) * out_width], sizeof(uint8_t) * out_width);
+  }
+}
+
 void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
@@ -576,14 +634,14 @@ void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dt
     /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
     dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
-    int px_stride = src->crop_stride / sizeof(dwt2_dtype);
+    int px_stride = src->stride / sizeof(dwt2_dtype);
 
     /* The computation of the csf values is not required for the regions which lie outside the frame
      * borders */
     int left = 0;
     int top = 0;
-    int right = src->crop_width;
-    int bottom = src->crop_height;
+    int right = src->width;
+    int bottom = src->height;
 
     int i, j, theta, src_offset, dst_offset;
     spat_fil_accum_dtype mul_val;

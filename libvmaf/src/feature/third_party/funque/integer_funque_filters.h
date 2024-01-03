@@ -75,10 +75,7 @@ typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
     int width;
     int height;
-    int crop_width;
-    int crop_height;
     int stride;
-    int crop_stride;
 }i_dwt2buffers;
 
 typedef struct MsSsimScore_int {
@@ -286,5 +283,8 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
 void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level);
+
+void integer_reflect_pad_for_input_hbd(void *src, void *dst, int width, int height, int reflect_width, int reflect_height);
+void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, int reflect_width, int reflect_height, int bpc);
 
 #endif /* FILTERS_FUNQUE_H_ */

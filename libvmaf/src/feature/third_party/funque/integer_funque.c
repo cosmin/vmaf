@@ -85,6 +85,9 @@ typedef struct IntFunqueState
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
+    void *pad_ref;
+    void *pad_dist;
+
     const char *wavelet_csfs;
     spat_fil_coeff_dtype csf_factors[4][4];
     uint16_t csf_interim_rnd[4][4];
@@ -293,6 +296,28 @@ static const VmafOption options[] = {
 
     {0}};
 
+static int integer_alloc_dwt2buffers(i_dwt2buffers *dwt2out, int w, int h) {
+    dwt2out->width = (int) w;
+    dwt2out->height = (int) h;
+    dwt2out->stride = dwt2out->width * sizeof(dwt2_dtype);
+
+    for(unsigned i=0; i<4; i++)
+    {
+        dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
+        if (!dwt2out->bands[i]) goto fail;
+        memset(dwt2out->bands[i], 0, dwt2out->stride * dwt2out->height);
+    }
+    return 0;
+
+    fail:
+    for(unsigned i=0; i<4; i++)
+    {
+        if (dwt2out->bands[i]) aligned_free(dwt2out->bands[i]);
+        dwt2out->bands[i] = NULL;
+    }
+    return -ENOMEM;
+}
+
 static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {
@@ -315,32 +340,73 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
-    s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
+    int ref_process_width, ref_process_height, dist_process_width, dist_process_height, process_wh_div_factor;
+
+    int last_w = w;
+    int last_h = h;
+
+    if(s->ms_ssim_levels != 0){
+#if ENABLE_PADDING
+            int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
+            ref_process_width = (int) (((last_w + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            ref_process_height = (int) (((last_h + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            dist_process_width = (int) (((last_w + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            dist_process_height = (int) (((last_h + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+
+#else // Cropped width and height
+            ref_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            ref_process_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            dist_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+            dist_process_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+#endif
+
+        last_w = ref_process_width;
+        last_h = ref_process_height;
+    }
+    else
+    {
+        ref_process_width = last_w;
+        ref_process_height = last_h;
+        dist_process_width = last_w;
+        dist_process_height = last_h;
+    }
+
+    s->width_aligned_stride = ALIGN_CEIL(ref_process_width * sizeof(float));
     s->resizer_out_stride = (s->width_aligned_stride + 3) / 4;
 
+    int bitdepth_factor = (bpc == 8 ? 1 : 2);
     if (s->enable_resize)
     {
-        int bitdepth_factor = (bpc == 8 ? 1 : 2);
-        s->res_ref_pic.data[0] = aligned_malloc(s->resizer_out_stride * h * bitdepth_factor, 32);
+        s->res_ref_pic.data[0] = aligned_malloc(s->resizer_out_stride * ref_process_height * bitdepth_factor, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        s->res_dist_pic.data[0] = aligned_malloc(s->resizer_out_stride * h * bitdepth_factor, 32);
+        s->res_dist_pic.data[0] = aligned_malloc(s->resizer_out_stride * dist_process_height * bitdepth_factor, 32);
 
         if (!s->res_dist_pic.data[0])
             goto fail;
     }
 
     /* This buffer is common along spatial and wavelet buffers*/
-    s->filter_buffer = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_output_dtype)) * h, 32);
+    s->filter_buffer = aligned_malloc(ALIGN_CEIL(ref_process_width * sizeof(spat_fil_output_dtype)) * ref_process_height, 32);
     if(!s->filter_buffer)
         goto fail;
-    s->filter_buffer_stride = w * sizeof(spat_fil_output_dtype);
+    s->filter_buffer_stride = ref_process_width * sizeof(spat_fil_output_dtype);
+
+#if ENABLE_PADDING
+    s->pad_ref = aligned_malloc(s->width_aligned_stride * ref_process_height * bitdepth_factor, 32);
+    if (!s->pad_ref) goto fail;
+    memset(s->pad_ref, 0, s->width_aligned_stride * ref_process_height * bitdepth_factor);
+
+    s->pad_dist = aligned_malloc(s->width_aligned_stride * dist_process_height * bitdepth_factor, 32);
+    if (!s->pad_dist) goto fail;
+    memset(s->pad_dist, 0, s->width_aligned_stride * dist_process_height * bitdepth_factor);
+#endif
 
     /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
     s->wavelet_csfs = "nadenau_weight";
 
     if (s->enable_spatial_csf) {
-        s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)), 32);
+        s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(ref_process_width * sizeof(spat_fil_inter_dtype)), 32);
         if(!s->spat_tmp_buf)
             goto fail;
         // memset(s->spat_tmp_buf, 0, ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)));
@@ -399,85 +465,34 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         }
     }
 
-    int last_w, last_h;
-    last_w = w;
-    last_h = h;
-
-    int rc_width, rc_height, dc_width, dc_height, crop_div_factor;
-    rc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    rc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    dc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    dc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+    int err = 0;
+    int tref_width, tref_height, tdist_width, tdist_height;
 
     for(int level = 0; level < s->needed_dwt_levels; level++) {
     // dwt output dimensions
-        s->i_ref_dwt2out[level].width = (int) (last_w + 1) / 2;
-        s->i_ref_dwt2out[level].height = (int) (last_h + 1) / 2;
-        s->i_ref_dwt2out[level].stride =
-            (int) ALIGN_CEIL(s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype));
+        process_wh_div_factor = pow(2, (level+1));
+        tref_width = (ref_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tref_height = (ref_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tdist_width = (dist_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
+        tdist_height = (dist_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
 
-        s->i_dist_dwt2out[level].width = (int) (last_w + 1) / 2;
-        s->i_dist_dwt2out[level].height = (int) (last_h + 1) / 2;
-        s->i_dist_dwt2out[level].stride =
-            (int) ALIGN_CEIL(s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype));
-
-        crop_div_factor = pow(2, (level+1));
-        s->i_ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
-        s->i_ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
-        s->i_ref_dwt2out[level].crop_stride = s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype);
-        
-        s->i_dist_dwt2out[level].crop_width = dc_width / crop_div_factor;
-        s->i_dist_dwt2out[level].crop_height = dc_height / crop_div_factor;
-        s->i_dist_dwt2out[level].crop_stride = s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype);
-        
-        //TODO: Remove crop width or use crop width rightly in all the places
-        s->i_ref_dwt2out[level].width = s->i_ref_dwt2out[level].crop_width;
-        s->i_ref_dwt2out[level].height = s->i_ref_dwt2out[level].crop_height;
-        s->i_ref_dwt2out[level].stride = s->i_ref_dwt2out[level].crop_stride;
-        s->i_dist_dwt2out[level].width = s->i_dist_dwt2out[level].crop_width;
-        s->i_dist_dwt2out[level].height = s->i_dist_dwt2out[level].crop_height;
-        s->i_dist_dwt2out[level].stride = s->i_dist_dwt2out[level].crop_stride;
-
-        s->i_prev_ref[level].width = (int) (last_w + 1) / 2;
-        s->i_prev_ref[level].height = (int) (last_h + 1) / 2;
-        s->i_prev_ref[level].stride =
-            (int) ALIGN_CEIL(s->i_prev_ref[level].width * sizeof(dwt2_dtype));
-
-        s->i_prev_dist[level].width = (int) (last_w + 1) / 2;
-        s->i_prev_dist[level].height = (int) (last_h + 1) / 2;
-        s->i_prev_dist[level].stride =
-            (int) ALIGN_CEIL(s->i_prev_dist[level].width * sizeof(dwt2_dtype));
+        err |= integer_alloc_dwt2buffers(&s->i_ref_dwt2out[level], tref_width, tref_height);
+        err |= integer_alloc_dwt2buffers(&s->i_dist_dwt2out[level], tdist_width, tdist_height);
 
         s->i_prev_ref[level].bands[0] = NULL;
         s->i_prev_dist[level].bands[0] = NULL;
 
-    // Memory allocation for dwt output bands
-        for(unsigned i = 0; i < 4; i++) {
-            s->i_ref_dwt2out[level].bands[i] =
-                aligned_malloc(s->i_ref_dwt2out[level].stride * s->i_ref_dwt2out[level].height, 32);
-            if(!s->i_ref_dwt2out[level].bands[i])
-                goto fail;
-
-            s->i_dist_dwt2out[level].bands[i] = aligned_malloc(
-                s->i_dist_dwt2out[level].stride * s->i_dist_dwt2out[level].height, 32);
-            if(!s->i_dist_dwt2out[level].bands[i])
-                goto fail;
-
-            s->i_prev_ref[level].bands[i] =
-                aligned_malloc(s->i_prev_ref[level].stride * s->i_prev_ref[level].height, 32);
-            if(!s->i_prev_ref[level].bands[i])
-            goto fail;
-
-            s->i_prev_dist[level].bands[i] =
-                aligned_malloc(s->i_prev_dist[level].stride * s->i_prev_dist[level].height, 32);
-            if(!s->i_prev_dist[level].bands[i])
-            goto fail;
-    }
+        for(int subband = 1; subband < 4; subband++) {
+            s->i_prev_ref[level].bands[subband] = calloc(tref_width * tref_height, sizeof(dwt2_dtype));
+            s->i_prev_dist[level].bands[subband] = calloc(tref_width * tref_height, sizeof(dwt2_dtype));
+        }
 
         /* Last width and height is half of the current layer */
         last_w = (int) (last_w + 1) / 2;
         last_h = (int) (last_h + 1) / 2;
     }
+
+    if (err) goto fail;
 
     s->modules.integer_funque_picture_copy = integer_funque_picture_copy;
     s->modules.integer_spatial_filter = integer_spatial_filter;
@@ -568,6 +583,12 @@ fail:
         aligned_free(s->res_ref_pic.data[0]);
     if (s->res_dist_pic.data[0])
         aligned_free(s->res_dist_pic.data[0]);
+#if ENABLE_PADDING
+    if (s->pad_ref)
+        aligned_free(s->pad_ref);
+    if (s->pad_dist)
+        aligned_free(s->pad_dist);
+#endif
     if(s->filter_buffer)
         aligned_free(s->filter_buffer);
     if(s->spat_tmp_buf)
@@ -635,55 +656,108 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    // if(s->enable_spatial_csf)
-    // {
-        s->i_process_ref_width = (res_ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_ref_height = (res_ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_dist_width = (res_dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_dist_height = (res_dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-    // }
-    // else
-    // {
-    //     s->i_process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    // }
+    if(s->ms_ssim_levels != 0){
+#if ENABLE_PADDING
+            int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
+            s->i_process_ref_width = ((res_ref_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_ref_height = ((res_ref_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_dist_width = ((res_dist_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_dist_height = ((res_dist_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels;
+#else
+            s->i_process_ref_width = (res_ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_ref_height = (res_ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_dist_width = (res_dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+            s->i_process_dist_height = (res_dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
+#endif
+    }
+    else
+    {
+        s->i_process_ref_width = res_ref_pic->w[0];
+        s->i_process_ref_height = res_ref_pic->h[0];
+        s->i_process_dist_width = res_dist_pic->w[0];
+        s->i_process_dist_height = res_dist_pic->h[0];
+    }
 
+#if ENABLE_PADDING
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+
+    int reflect_width, reflect_height;
+    reflect_width = (s->i_process_ref_width - res_ref_pic->w[0]) / 2;
+    reflect_height = (s->i_process_ref_height - res_ref_pic->h[0]) / 2;
+    integer_reflect_pad_for_input(res_ref_pic->data[0], s->pad_ref, res_ref_pic->w[0], res_ref_pic->h[0], reflect_width, reflect_height, res_ref_pic->bpc);
+
+    reflect_width = (s->i_process_dist_width - res_dist_pic->w[0]) / 2;
+    reflect_height = (s->i_process_dist_height - res_dist_pic->h[0]) / 2;
+    integer_reflect_pad_for_input(res_dist_pic->data[0], s->pad_dist, res_dist_pic->w[0], res_dist_pic->h[0], reflect_width, reflect_height, res_ref_pic->bpc);
 
     if (s->enable_spatial_csf) {
         s->modules.integer_spatial_filter(
-            res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0],
-            res_ref_pic->h[0], (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->pad_ref, s->filter_buffer, s->filter_buffer_stride, s->i_process_ref_width,
+            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_ref_dwt2out[0], s->i_process_ref_width,
                                        s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        -1);
         s->modules.integer_spatial_filter(
-            res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0],
-            res_dist_pic->h[0], (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
+            s->pad_dist, s->filter_buffer, s->filter_buffer_stride, s->i_process_dist_width,
+            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
+                                       s->enable_spatial_csf, -1);
+    } else {
+        s->modules.integer_funque_picture_copy(s->pad_ref, s->filter_buffer,
+                                               s->filter_buffer_stride, s->i_process_ref_width,
+                                               s->i_process_ref_height, (int) res_ref_pic->bpc);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
+                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
+                                       0);
+
+        s->modules.integer_funque_picture_copy(s->pad_dist, s->filter_buffer,
+                                               s->filter_buffer_stride, s->i_process_dist_width,
+                                               s->i_process_dist_height, (int) res_dist_pic->bpc);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
+                                       s->enable_spatial_csf, 0);
+    }
+#else
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+
+    if (s->enable_spatial_csf) {
+        s->modules.integer_spatial_filter(
+            res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, s->i_process_ref_width,
+            s->i_process_ref_height, (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
+                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
+                                       -1);
+        s->modules.integer_spatial_filter(
+            res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, s->i_process_dist_width,
+            s->i_process_dist_height, (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, -1);
     } else {
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer,
-                                               s->filter_buffer_stride, res_ref_pic->w[0],
-                                               res_ref_pic->h[0], (int) res_ref_pic->bpc);
+                                               s->filter_buffer_stride, s->i_process_ref_width,
+                                               s->i_process_ref_height, (int) res_ref_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_ref_dwt2out[0], s->i_process_ref_width,
                                        s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
                                        0);
 
         s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer,
-                                               s->filter_buffer_stride, res_dist_pic->w[0],
-                                               res_dist_pic->h[0], (int) res_dist_pic->bpc);
+                                               s->filter_buffer_stride, s->i_process_dist_width,
+                                               s->i_process_dist_height, (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, 0);
     }
+#endif
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore_int ms_ssim_score[MAX_LEVELS];
@@ -723,19 +797,19 @@ static int extract(VmafFeatureExtractor *fex,
                 // from here on out we only need approx band for VIF
                 integer_funque_vifdwt2_band0(
                     s->i_ref_dwt2out[level].bands[0], s->i_ref_dwt2out[level + 1].bands[0],
-                    ((s->i_ref_dwt2out[level + 1].stride + 1) / 2), s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    ((s->i_ref_dwt2out[level + 1].stride + 1) / 2), s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
                 integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
-                                    s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_ref_dwt2out[level + 1],
-                                    s->i_ref_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
-                                    s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
+                                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype), &s->i_ref_dwt2out[level + 1],
+                                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                                     s->enable_spatial_csf, level + 1);
                 integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
-                                    s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_dist_dwt2out[level + 1],
-                                    s->i_dist_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
-                                    s->i_dist_dwt2out[level].crop_width, s->i_dist_dwt2out[level].crop_height,
+                                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype), &s->i_dist_dwt2out[level + 1],
+                                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
                                     s->enable_spatial_csf, level + 1);
             }
         }
@@ -764,8 +838,8 @@ static int extract(VmafFeatureExtractor *fex,
         if ((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err = integer_compute_adm_funque(
                 s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level],
-                &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].crop_width,
-                s->i_ref_dwt2out[level].crop_height, ADM_BORDER_FACTOR, s->adm_div_lookup);
+                &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].width,
+                s->i_ref_dwt2out[level].height, ADM_BORDER_FACTOR, s->adm_div_lookup);
             
             float adm_pending_div = pending_div_factor;
             if (!s->enable_spatial_csf)
@@ -782,7 +856,7 @@ static int extract(VmafFeatureExtractor *fex,
         {
             err = s->modules.integer_compute_ms_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup, (level + 1), (int) (s->enable_spatial_csf == false));
 
-            err = s->modules.integer_mean_2x2_ms_ssim_funque(var_x_cum, var_y_cum, cov_xy_cum, s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height, level);
+            err = s->modules.integer_mean_2x2_ms_ssim_funque(var_x_cum, var_y_cum, cov_xy_cum, s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, level);
 
             if(level != s->ms_ssim_levels - 1) {
                 ms_ssim_score[level + 1].var_x_cum = ms_ssim_score[level].var_x_cum;
@@ -818,10 +892,10 @@ static int extract(VmafFeatureExtractor *fex,
                 vif_pending_div = ( 1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
             }
 #if USE_DYNAMIC_SIGMA_NSQ
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, vif_pending_div, s->log_18, 0);
 #else
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
+            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                     &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, vif_pending_div, s->log_18);
 #endif
             vif_num += vif_score_num[level];
@@ -836,19 +910,19 @@ static int extract(VmafFeatureExtractor *fex,
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             } else {
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height, &s->strred_scores, BLOCK_SIZE, level, s->log_18,
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height, &s->strred_scores, BLOCK_SIZE, level, s->log_18,
                     s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
 
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             }
             if(err)
                 return err;

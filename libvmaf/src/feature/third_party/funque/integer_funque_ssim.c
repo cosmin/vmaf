@@ -73,8 +73,8 @@ int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double 
 {
     int ret = 1;
 
-    int width = ref->crop_width;
-    int height = ref->crop_height;
+    int width = ref->width;
+    int height = ref->height;
 
     /**
      * C1 is constant is added to ref^2, dist^2, 
@@ -205,7 +205,7 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
 {
     int ret = 1;
 
-    int cum_array_width = (ref->crop_width) * (1 << n_levels);
+    int cum_array_width = (ref->width) * (1 << n_levels);
     //int win_dim = (1 << n_levels);          // 2^L
     int win_size = (n_levels << 1); 
     int win_size_c2 = win_size;
@@ -214,8 +214,8 @@ int integer_compute_ms_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSs
     int pending_div_c2 = pending_div;
     int pending_div_offset = 0;
     int pending_div_halfround = 0;
-    int width = ref->crop_width;
-    int height = ref->crop_height;
+    int width = ref->width;
+    int height = ref->height;
 
     int32_t* var_x_cum = *(score->var_x_cum);
     int32_t* var_y_cum = *(score->var_y_cum);
