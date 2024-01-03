@@ -488,3 +488,90 @@ int integer_compute_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     ret = 0;
     return ret;
 }
+
+int integer_mean_2x2_ms_ssim_funque_avx2(int32_t* var_x_cum, int32_t* var_y_cum,
+                                         int32_t* cov_xy_cum, int width, int height, int level)
+{
+    int ret = 1;
+
+    int index = 0;
+    int index_cum = 0;
+    int cum_array_width = (width) * (1 << (level + 1));
+
+    __m256i perm_indices = _mm256_set_epi32(7, 6, 3, 2, 5, 4, 1, 0);
+    __m256i vec_constant = _mm256_set1_epi32(2);
+    int i = 0;
+    int j = 0;
+
+    for(i = 0; i < (height >> 1); i++)
+    {
+        for(j = 0; j <= width - 8; j += 8)
+        {
+            index = i * cum_array_width + (j >> 1);
+
+            // a1 c1 a2 c2 a3 c3 a4 c4
+            __m256i var_x_cum_1 = _mm256_loadu_si256((__m256i*) (var_x_cum + index_cum));
+            __m256i var_y_cum_1 = _mm256_loadu_si256((__m256i*) (var_y_cum + index_cum));
+            __m256i cov_xy_cum_1 = _mm256_loadu_si256((__m256i*) (cov_xy_cum + index_cum));
+
+            // b1 d1 b2 d2 b3 d3 b4 d4
+            __m256i var_x_cum_2 =
+                _mm256_loadu_si256((__m256i*) (var_x_cum + index_cum + cum_array_width));
+            __m256i var_y_cum_2 =
+                _mm256_loadu_si256((__m256i*) (var_y_cum + index_cum + cum_array_width));
+            __m256i cov_xy_cum_2 =
+                _mm256_loadu_si256((__m256i*) (cov_xy_cum + index_cum + cum_array_width));
+
+            // a1+b1 c1+d1 a2+b2 c2+d2 a3+b3 c3+d3 a4+b4 c4+d4
+            __m256i var_x_cum_sum = _mm256_add_epi32(var_x_cum_1, var_x_cum_2);
+            __m256i var_y_cum_sum = _mm256_add_epi32(var_y_cum_1, var_y_cum_2);
+            __m256i cov_xy_cum_sum = _mm256_add_epi32(cov_xy_cum_1, cov_xy_cum_2);
+
+            // a1b1c1d1 a2b2c2d2 a1b1c1d1 a2b2c2d2 a3b3c3d3 a4b4c4d4 a3b3c3d3 a4b4c4d4
+            __m256i var_x_cum_inter = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_hadd_epi32(var_x_cum_sum, var_x_cum_sum), vec_constant), 2);
+            __m256i var_y_cum_inter = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_hadd_epi32(var_y_cum_sum, var_y_cum_sum), vec_constant), 2);
+            __m256i cov_xy_cum_inter = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_hadd_epi32(cov_xy_cum_sum, cov_xy_cum_sum), vec_constant),
+                2);
+
+            // a1b1c1d1 a2b2c2d2 a3b3c3d3 a4b4c4d4 a1b1c1d1 a2b2c2d2 a3b3c3d3 a4b4c4d4
+            __m256i var_x_cum_final = _mm256_permutevar8x32_epi32(var_x_cum_inter, perm_indices);
+            __m256i var_y_cum_final = _mm256_permutevar8x32_epi32(var_y_cum_inter, perm_indices);
+            __m256i cov_xy_cum_final = _mm256_permutevar8x32_epi32(cov_xy_cum_inter, perm_indices);
+
+            _mm_store_si128((__m128i*) (dst1 + index),
+                            _mm256_extracti128_si256(var_x_cum_final, 1));
+            _mm_store_si128((__m128i*) (dst2 + index),
+                            _mm256_extracti128_si256(var_y_cum_final, 1));
+            _mm_store_si128((__m128i*) (dst3 + index),
+                            _mm256_extracti128_si256(cov_xy_cum_final, 1));
+
+            index_cum += 8;
+        }
+        for(; j < width; j += 2)
+        {
+            index = i * cum_array_width + (j >> 1);
+            dst1[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
+                          var_x_cum[index_cum + (cum_array_width)] +
+                          var_x_cum[index_cum + (cum_array_width) + 1];
+            dst1[index] = (dst1[index] + 2) >> 2;
+
+            dst2[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
+                          var_y_cum[index_cum + (cum_array_width)] +
+                          var_y_cum[index_cum + (cum_array_width) + 1];
+            dst2[index] = (dst2[index] + 2) >> 2;
+
+            dst3[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
+                          cov_xy_cum[index_cum + (cum_array_width)] +
+                          cov_xy_cum[index_cum + (cum_array_width) + 1];
+            dst3[index] = (dst3[index] + 2) >> 2;
+
+            index_cum += 2;
+        }
+        index_cum += ((cum_array_width << 1) - width);
+    }
+    ret = 0;
+    return ret;
+}

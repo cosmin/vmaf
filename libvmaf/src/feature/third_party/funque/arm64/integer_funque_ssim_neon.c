@@ -265,9 +265,9 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int width = ref->crop_width;
     int height = ref->crop_height;
 
-    int32_t* var_x_cum = score->var_x_cum;
-    int32_t* var_y_cum = score->var_y_cum;
-    int32_t* cov_xy_cum = score->cov_xy_cum;
+    int32_t* var_x_cum = *(score->var_x_cum);
+    int32_t* var_y_cum = *(score->var_y_cum);
+    int32_t* cov_xy_cum = *(score->cov_xy_cum);
 
     if (is_pyr)
     {

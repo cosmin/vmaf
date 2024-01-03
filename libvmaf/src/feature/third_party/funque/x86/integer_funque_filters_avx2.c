@@ -30,6 +30,7 @@
 #include "../integer_funque_filters.h"
 #include <immintrin.h>
 
+#if 0
 void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
@@ -320,6 +321,192 @@ void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_ds
 
 			//F* F (a - b - (a -b)) - band D,  Last column D will always be 0
             band_d[i*dst_px_stride+j] = 0;
+        }
+    }
+}
+#endif
+
+void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
+                         ptrdiff_t dst_stride, int width, int height, int spatial_csf, int level)
+{
+    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
+    int src_px_stride = src_stride / sizeof(dwt2_dtype);
+
+    int8_t const_2_wl0 = 1;
+
+    int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    int8_t filter_shift_rnd__val = 1 << (filter_shift - 1);
+
+    int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    int8_t filter_shift_lcpad_rnd = 1 << (filter_shift_lcpad - 1);
+
+    if(spatial_csf == 0)
+    {
+        if(level != 3)
+        {
+            filter_shift = 0;
+            filter_shift_rnd__val = 0;
+            const_2_wl0 = 2;
+            filter_shift_lcpad = 0;
+            filter_shift_lcpad_rnd = 0;
+        }
+    }
+
+    __m256i filter_shift_rnd = _mm256_set1_epi32(filter_shift_rnd__val);
+
+    dwt2_dtype *band_a = dwt2_dst->bands[0];
+    dwt2_dtype *band_h = dwt2_dst->bands[1];
+    dwt2_dtype *band_v = dwt2_dst->bands[2];
+    dwt2_dtype *band_d = dwt2_dst->bands[3];
+
+    int16_t row_idx0, row_idx1, col_idx0;
+    int row0_offset, row1_offset;
+    int last_col = width % 1;
+    int i, j;
+
+    __m256i multi_const_2 = _mm256_set_epi16(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1);
+    __m256i multi_const_1 = _mm256_set_epi16(1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0);
+    __m256i perm_indices = _mm256_set_epi32(7, 6, 3, 2, 5, 4, 1, 0);
+
+    for(i = 0; i < (height + 1) >> 1; i++)
+    {
+        row_idx0 = i << 1;
+        row_idx1 = (i << 1) + 1;
+        row_idx1 = row_idx1 < height ? row_idx1 : i << 1;
+        row0_offset = (row_idx0) *src_px_stride;
+        row1_offset = (row_idx1) *src_px_stride;
+
+        for(j = 0; j <= width - 16; j += 16)
+        {
+            int col_idx0 = j;
+            int k = (j >> 1);
+
+            __m256i loaded_data_ac = _mm256_loadu_si256((__m256i *) (src + row0_offset + col_idx0));
+
+            __m256i c_16bit = _mm256_madd_epi16(loaded_data_ac, multi_const_1);
+
+            __m256i a_16bit = _mm256_madd_epi16(loaded_data_ac, multi_const_2);
+
+            __m256i a_add_c = _mm256_add_epi32(a_16bit, c_16bit);
+
+            __m256i a_sub_c = _mm256_sub_epi32(a_16bit, c_16bit);
+
+            __m256i loaded_data_bd = _mm256_loadu_si256((__m256i *) (src + row1_offset + col_idx0));
+
+            __m256i d_16bit = _mm256_madd_epi16(loaded_data_bd, multi_const_1);
+
+            __m256i b_16bit = _mm256_madd_epi16(loaded_data_bd, multi_const_2);
+
+            __m256i b_add_d = _mm256_add_epi32(b_16bit, d_16bit);
+
+            __m256i b_sub_d = _mm256_sub_epi32(b_16bit, d_16bit);
+
+            __m256i inter_a = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_add_epi32(a_add_c, b_add_d), filter_shift_rnd),
+                filter_shift);
+
+            _mm_storeu_si128(
+                (__m128i *) (band_a + i * dst_px_stride + k),
+                _mm256_extracti128_si256(
+                    _mm256_permutevar8x32_epi32(_mm256_packs_epi32(inter_a, inter_a), perm_indices),
+                    1));
+
+            __m256i inter_h = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_sub_epi32(a_add_c, b_add_d), filter_shift_rnd),
+                filter_shift);
+
+            _mm_storeu_si128(
+                (__m128i *) (band_h + i * dst_px_stride + k),
+                _mm256_extracti128_si256(
+                    _mm256_permutevar8x32_epi32(_mm256_packs_epi32(inter_h, inter_h), perm_indices),
+                    1));
+
+            __m256i inter_v = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_add_epi32(a_sub_c, b_sub_d), filter_shift_rnd),
+                filter_shift);
+
+            _mm_storeu_si128(
+                (__m128i *) (band_v + i * dst_px_stride + k),
+                _mm256_extracti128_si256(
+                    _mm256_permutevar8x32_epi32(_mm256_packs_epi32(inter_v, inter_v), perm_indices),
+                    1));
+
+            __m256i inter_d = _mm256_srai_epi32(
+                _mm256_add_epi32(_mm256_sub_epi32(a_sub_c, b_sub_d), filter_shift_rnd),
+                filter_shift);
+
+            _mm_storeu_si128(
+                (__m128i *) (band_d + i * dst_px_stride + k),
+                _mm256_extracti128_si256(
+                    _mm256_permutevar8x32_epi32(_mm256_packs_epi32(inter_d, inter_d), perm_indices),
+                    1));
+        }
+        for(; j < width - 1; j += 2)
+        {
+            col_idx0 = j;
+            int col_idx1 = j + 1;
+            int k = (j >> 1);
+
+            // a & b 2 values in adjacent rows at the same coloumn
+            spat_fil_output_dtype src_a = src[row0_offset + col_idx0];
+            spat_fil_output_dtype src_b = src[row1_offset + col_idx0];
+
+            // c & d are adjacent values to a & b in teh same row
+            spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+            spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+
+            // a + b & a - b
+            int32_t src_a_p_b = src_a + src_b;
+            int32_t src_a_m_b = src_a - src_b;
+
+            // c + d & c - d
+            int32_t src_c_p_d = src_c + src_d;
+            int32_t src_c_m_d = src_c - src_d;
+
+            // F* F (a + b + c + d) - band A  (F*F is 1/2)
+            band_a[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_p_b + src_c_p_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a - b + c - d) - band H  (F*F is 1/2)
+            band_h[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_m_b + src_c_m_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a + b - c + d) - band V  (F*F is 1/2)
+            band_v[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_p_b - src_c_p_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a - b - c - d) - band D  (F*F is 1/2)
+            band_d[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_m_b - src_c_m_d) + filter_shift_rnd__val) >> filter_shift);
+        }     
+        if(last_col)
+        {
+            int col_idx0 = j;
+            int k = j >> 1;
+
+            // a & b 2 values in adjacent rows at the last coloumn
+            spat_fil_output_dtype src_a = src[row0_offset + col_idx0];
+            spat_fil_output_dtype src_b = src[row1_offset + col_idx0];
+
+            // a + b	& a - b
+            int32_t src_a_p_b = src_a + src_b;
+            int32_t src_a_m_b = src_a - src_b;
+
+            // F* F (a + b + a + b) - band A  (F*F is 1/2)
+            band_a[i * dst_px_stride + k] =
+                (dwt2_dtype) ((src_a_p_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
+
+            // F* F (a - b + a - b) - band H  (F*F is 1/2)
+            band_h[i * dst_px_stride + k] =
+                (dwt2_dtype) ((src_a_m_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
+
+            // F* F (a + b - (a + b)) - band V, Last column V will always be 0
+            band_v[i * dst_px_stride + k] = 0;
+
+            // F* F (a - b - (a -b)) - band D,  Last column D will always be 0
+            band_d[i * dst_px_stride + k] = 0;
         }
     }
 }
@@ -2761,4 +2948,637 @@ void integer_spatial_filter_avx2(void *src, spat_fil_output_dtype *dst, int widt
     aligned_free(tmp);
 
     return;
+}
+
+
+#define shuffle_and_store(addr, v0, v8) \
+{ \
+	__m256i r0 = _mm256_permute2x128_si256(v0, v8, 0x20); \
+	__m256i r8 = _mm256_permute2x128_si256(v0, v8, 0x31); \
+	_mm256_store_si256((__m256i*)(addr), r0); \
+	_mm256_store_si256((__m256i*)(addr + 16), r8); \
+}
+
+void integer_horizontal_filter_avx2(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
+{
+    int j, fj, jj, jj1, jj2;
+
+    for (j = 0; j < half_fw; j++)
+    {
+        int pro_j_end  = half_fw - j - 1;
+        int diff_j_hfw = j - half_fw;
+        spat_fil_accum_dtype accum = 0;
+
+        //This loop does border mirroring (jj = -(j - fwidth/2 + fj + 1))
+        for (fj = 0; fj <= pro_j_end; fj++){
+
+            jj = pro_j_end - fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        //Here the normal loop is executed where jj = j - fwidth/2 + fj
+        for ( ; fj < fwidth; fj++)
+        {
+            jj = diff_j_hfw + fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+    }
+
+    //This is the core loop
+    for ( ; j < (width - half_fw); j++)
+    {
+        int f_l_j = j - half_fw;
+        int f_r_j = j + half_fw;
+        spat_fil_accum_dtype accum = 0;
+
+        for (fj = 0; fj < half_fw; fj++){
+
+            jj1 = f_l_j + fj;
+            jj2 = f_r_j - fj;
+            accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); //Since filter coefficients are symmetric
+        }
+        accum += (spat_fil_inter_dtype) i_filter_coeffs[half_fw] * tmp[j];
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+    }
+
+    for ( ; j < width; j++)
+    {
+        int diff_j_hfw = j - half_fw;
+        int epi_last_j = width - diff_j_hfw;
+        int epi_mirr_j = (width<<1) - diff_j_hfw - 1;
+        spat_fil_accum_dtype accum = 0;
+
+        //Here the normal loop is executed where jj = j - fwidth/2 + fj
+        for (fj = 0; fj < epi_last_j; fj++){
+
+            jj = diff_j_hfw + fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        //This loop does border mirroring (jj = 2*width - (j - fwidth/2 + fj) - 1)
+        for ( ; fj < fwidth; fj++)
+        {
+            jj = epi_mirr_j - fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+    }
+}
+
+const spat_fil_coeff_dtype i_ngan_filter_coeffs_avx2[21] = {
+    -900,  -1054, -1239, -1452, -1669, -1798, -1547, -66,   4677,  14498, 21495,
+    14498, 4677,  -66,   -1547, -1798, -1669, -1452, -1239, -1054, -900};
+
+const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_avx2[5] = {1658, 15139, 31193, 15139, 1658};
+
+void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps)
+{	
+	int fwidth;
+    const spat_fil_coeff_dtype *i_filter_coeffs;
+    if(num_taps == 5) {
+        fwidth = 5;
+        i_filter_coeffs = i_nadeanu_filter_coeffs_avx2;
+    } else {
+        fwidth = 21;
+        i_filter_coeffs = i_ngan_filter_coeffs_avx2;
+    }
+
+    int src_px_stride = width;
+    int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype); 
+
+	uint8_t *src_8b = NULL;
+
+    int i, j, fi, ii, ii1, ii2;
+
+    int width_rem_32=width-(width%32); 
+    int half_fw = fwidth / 2;
+    
+    src_8b = (uint8_t*)src;
+		
+	int	interim_rnd = SPAT_FILTER_INTER_RND;
+	int	interim_shift = SPAT_FILTER_INTER_SHIFT;
+	
+
+
+    __m256i d0,d1,d2,d3,d4,coef;
+    __m256i d0_lo,d0_hi,d1_lo,d1_hi,d2_lo,d2_hi,d3_lo,d3_hi,d4_lo,d4_hi;
+
+    __m256i mul0_lo, mul0_hi, mul1_lo, mul1_hi,mul2_lo, mul2_hi,mul3_lo, mul3_hi,mul4_lo, mul4_hi,mul5_lo, mul5_hi;
+     
+    __m256i  res0, res4, res8, res12;
+	__m256i tmp0_lo, tmp0_hi, tmp1_lo, tmp1_hi,tmp2_lo, tmp2_hi,tmp3_lo, tmp3_hi, tmp4_lo, tmp4_hi,tmp5_lo, tmp5_hi;
+
+    __m256i coef_0 = _mm256_set1_epi16(i_filter_coeffs[0]);
+    __m256i coef_1 = _mm256_set1_epi16(i_filter_coeffs[1]);
+    __m256i coef_2 = _mm256_set1_epi16(i_filter_coeffs[2]);
+
+
+  
+    for (i = 0; i < half_fw; i++){
+
+        int diff_i_halffw = i - half_fw;
+        int pro_mir_end = -diff_i_halffw - 1;
+
+        /* Vertical pass. */
+
+			for (j = 0; j < width_rem_32; j=j+32){
+
+                 res0 = res4 = res8 = res12 = _mm256_set1_epi32(interim_rnd);
+		
+				//This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
+				for (fi = 0; fi <= pro_mir_end; fi++){
+					ii = pro_mir_end - fi;
+				    coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
+					d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
+					
+					mul0_lo = _mm256_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm256_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm256_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm256_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+
+					res0 = _mm256_add_epi32(tmp0_lo, res0);
+					res4 = _mm256_add_epi32(tmp0_hi, res4);
+					res8 = _mm256_add_epi32(tmp1_lo, res8);
+					res12 = _mm256_add_epi32(tmp1_hi, res12);
+				}
+				//Here the normal loop is executed where ii = i - fwidth / 2 + fi
+				for ( ; fi < fwidth; fi++)
+				{
+					ii = diff_i_halffw + fi;
+					coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
+				    d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
+					d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
+
+					mul0_lo = _mm256_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm256_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm256_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm256_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+						
+					res0 = _mm256_add_epi32(tmp0_lo, res0);
+					res4 = _mm256_add_epi32(tmp0_hi, res4);
+					res8 = _mm256_add_epi32(tmp1_lo, res8);
+					res12 = _mm256_add_epi32(tmp1_hi, res12);
+
+					//test = _mm256_add_epi32(tmp0_hi, res8);
+				}
+				
+				res0 = _mm256_srai_epi32(res0, interim_shift);	
+				res4 = _mm256_srai_epi32(res4, interim_shift);
+				res8 = _mm256_srai_epi32(res8, interim_shift);
+				res12 = _mm256_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm256_packs_epi32(res0, res4);
+				res8 = _mm256_packs_epi32(res8, res12);
+
+                // storing the result code has to be inserted
+                // _mm256_store_si256((__m256i*)(tmp+j), res0);
+                // _mm256_store_si256((__m256i*)(tmp+j+16), res8);
+                shuffle_and_store(tmp + j, res0, res8);
+
+			}
+            for(;j<width;j++)
+            {
+
+              	spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi <= pro_mir_end; fi++){
+
+					ii = pro_mir_end - fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				//Here the normal loop is executed where ii = i - fwidth / 2 + fi
+				for ( ; fi < fwidth; fi++)
+				{
+					ii = diff_i_halffw + fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+
+            }
+		
+
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+
+    }
+    
+    //This is the core loop
+    for ( ; i < (height - half_fw); i++){
+        
+        int f_l_i = i - half_fw;
+        int f_r_i = i + half_fw;
+        /* Vertical pass. */
+
+			for(j=0;j<width_rem_32;j=j+32)
+            {
+                res0 = res4 = res8 = res12 = _mm256_set1_epi32(interim_rnd);
+                //loading part
+                d0 = _mm256_loadu_si256((__m256i*)(src_8b + f_l_i * src_px_stride + j));
+                d4 = _mm256_loadu_si256((__m256i*)(src_8b + f_r_i * src_px_stride + j));
+                d1 = _mm256_loadu_si256((__m256i*)(src_8b + (f_l_i+1) * src_px_stride + j)); 
+                d3 = _mm256_loadu_si256((__m256i*)(src_8b + (f_r_i-1) * src_px_stride + j));
+                d2 = _mm256_loadu_si256((__m256i*)(src_8b + i * src_px_stride + j));
+                // converting to int16 part
+                d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
+                d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
+                d1_lo = _mm256_unpacklo_epi8(d1, _mm256_setzero_si256());
+                d1_hi = _mm256_unpackhi_epi8(d1, _mm256_setzero_si256());
+                d2_lo = _mm256_unpacklo_epi8(d2, _mm256_setzero_si256());
+                d2_hi = _mm256_unpackhi_epi8(d2, _mm256_setzero_si256());
+                d3_lo = _mm256_unpacklo_epi8(d3, _mm256_setzero_si256());
+                d3_hi = _mm256_unpackhi_epi8(d3, _mm256_setzero_si256());
+                d4_lo = _mm256_unpacklo_epi8(d4, _mm256_setzero_si256());
+                d4_hi = _mm256_unpackhi_epi8(d4, _mm256_setzero_si256());
+                // adding them to reduce too many multiplication 
+                d0_lo = _mm256_add_epi16(d0_lo, d4_lo);
+				d1_lo = _mm256_add_epi16(d1_lo, d3_lo);
+				d0_hi = _mm256_add_epi16(d0_hi, d4_hi);
+				d1_hi = _mm256_add_epi16(d1_hi, d3_hi);
+                //multiplications
+                mul0_lo = _mm256_mullo_epi16(d0_lo, coef_0);
+				mul0_hi = _mm256_mulhi_epi16(d0_lo, coef_0);
+				mul1_lo = _mm256_mullo_epi16(d0_hi, coef_0);
+				mul1_hi = _mm256_mulhi_epi16(d0_hi, coef_0);
+
+                mul2_lo = _mm256_mullo_epi16(d1_lo, coef_1);
+				mul2_hi = _mm256_mulhi_epi16(d1_lo, coef_1);
+				mul3_lo = _mm256_mullo_epi16(d1_hi, coef_1);
+				mul3_hi = _mm256_mulhi_epi16(d1_hi, coef_1);
+
+                mul4_lo = _mm256_mullo_epi16(d2_lo, coef_2);
+				mul4_hi = _mm256_mulhi_epi16(d2_lo, coef_2);
+				mul5_lo = _mm256_mullo_epi16(d2_hi, coef_2);
+				mul5_hi = _mm256_mulhi_epi16(d2_hi, coef_2);
+               //regrouping
+               	tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+				tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+				tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+				tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+               
+                tmp2_lo = _mm256_unpacklo_epi16(mul2_lo, mul2_hi);
+				tmp2_hi = _mm256_unpackhi_epi16(mul2_lo, mul2_hi);
+				tmp3_lo = _mm256_unpacklo_epi16(mul3_lo, mul3_hi);
+				tmp3_hi = _mm256_unpackhi_epi16(mul3_lo, mul3_hi);
+
+                tmp4_lo = _mm256_unpacklo_epi16(mul4_lo, mul4_hi);
+				tmp4_hi = _mm256_unpackhi_epi16(mul4_lo, mul4_hi);
+				tmp5_lo = _mm256_unpacklo_epi16(mul5_lo, mul5_hi);
+				tmp5_hi = _mm256_unpackhi_epi16(mul5_lo, mul5_hi);
+                //adding all the multiplications
+                res0 = _mm256_add_epi32(tmp0_lo, res0);
+				res4 = _mm256_add_epi32(tmp0_hi, res4);
+				res8 = _mm256_add_epi32(tmp1_lo, res8);
+				res12 = _mm256_add_epi32(tmp1_hi, res12);
+
+                res0 = _mm256_add_epi32(tmp2_lo, res0);
+				res4 = _mm256_add_epi32(tmp2_hi, res4);
+				res8 = _mm256_add_epi32(tmp3_lo, res8);
+				res12 = _mm256_add_epi32(tmp3_hi, res12);
+
+                res0 = _mm256_add_epi32(tmp4_lo, res0);
+				res4 = _mm256_add_epi32(tmp4_hi, res4);
+				res8 = _mm256_add_epi32(tmp5_lo, res8);
+				res12 = _mm256_add_epi32(tmp5_hi, res12);
+               //shifting and rounding off
+               	res0 = _mm256_srai_epi32(res0, interim_shift);	
+				res4 = _mm256_srai_epi32(res4, interim_shift);
+				res8 = _mm256_srai_epi32(res8, interim_shift);
+				res12 = _mm256_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm256_packs_epi32(res0, res4);
+				res8 = _mm256_packs_epi32(res8, res12);
+
+                // storing the result code has to be inserted
+                // _mm256_store_si256((__m256i*)(tmp+j), res0);
+                // _mm256_store_si256((__m256i*)(tmp+j+16), res8);
+                 shuffle_and_store(tmp + j, res0, res8);
+            }
+            
+            for (; j < width; j++){
+
+				spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi < (half_fw); fi++){
+					ii1 = f_l_i + fi;
+					ii2 = f_r_i - fi;
+					accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src_8b[ii1 * src_px_stride + j] + src_8b[ii2 * src_px_stride + j]);
+				}
+				accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[i * src_px_stride + j];
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+			}
+	
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+
+    }
+
+    for (; i < height; i++){
+
+        int diff_i_halffw = i - half_fw;
+        int epi_mir_i = 2 * height - diff_i_halffw - 1;
+        int epi_last_i  = height - diff_i_halffw;
+        
+        /* Vertical pass. */
+           
+			for (j = 0; j < width_rem_32; j+=32){
+				res0 = res4 = res8 = res12 = _mm256_set1_epi32(interim_rnd);
+			
+				for (fi = 0; fi < epi_last_i; fi++){
+					ii = diff_i_halffw + fi;
+					coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
+					d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
+
+					mul0_lo = _mm256_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm256_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm256_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm256_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+
+					res0 = _mm256_add_epi32(tmp0_lo, res0);
+					res4 = _mm256_add_epi32(tmp0_hi, res4);
+					res8 = _mm256_add_epi32(tmp1_lo, res8);
+					res12 = _mm256_add_epi32(tmp1_hi, res12);
+				}
+				//This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
+				for ( ; fi < fwidth; fi++)
+				{
+					ii = epi_mir_i - fi;
+					coef = _mm256_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm256_loadu_si256((__m256i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm256_unpacklo_epi8(d0, _mm256_setzero_si256());
+					d0_hi = _mm256_unpackhi_epi8(d0, _mm256_setzero_si256());
+
+					mul0_lo = _mm256_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm256_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm256_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm256_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+						
+					res0 = _mm256_add_epi32(tmp0_lo, res0);
+					res4 = _mm256_add_epi32(tmp0_hi, res4);
+					res8 = _mm256_add_epi32(tmp1_lo, res8);
+					res12 = _mm256_add_epi32(tmp1_hi, res12);
+				}
+				
+				res0 = _mm256_srai_epi32(res0, interim_shift);	
+				res4 = _mm256_srai_epi32(res4, interim_shift);
+				res8 = _mm256_srai_epi32(res8, interim_shift);
+				res12 = _mm256_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm256_packs_epi32(res0, res4);
+				res8 = _mm256_packs_epi32(res8, res12);
+
+                // storing the result code has to be inserted
+                // _mm256_store_si256((__m256i*)(tmp+j), res0);
+                // _mm256_store_si256((__m256i*)(tmp+j+16), res8);
+                 shuffle_and_store(tmp + j, res0, res8);
+            }
+
+			for (; j < width; j++){
+
+				spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi < epi_last_i; fi++){
+
+					ii = diff_i_halffw + fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				//This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
+				for ( ; fi < fwidth; fi++)
+				{
+					ii = epi_mir_i - fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+			}
+		
+
+
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_filter_avx2(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+
+    }
+    
+    return;
+}
+
+void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
+                                            int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
+                                            uint8_t interim_shift_factors[4], int level,i_dwt2buffers *dst)
+
+{
+    
+    dwt2_dtype *src_ptr0,*src_ptr1,*src_ptr2,*src_ptr3,*src_ptr;
+    dwt2_dtype *dst_ptr0,*dst_ptr1,*dst_ptr2,*dst_ptr3,*dst_ptr;
+    
+    src_ptr0=src->bands[0];src_ptr1=src->bands[2];src_ptr2=src->bands[3];src_ptr3=src->bands[1];
+    dst_ptr0=dst->bands[0];dst_ptr1=dst->bands[2];dst_ptr2=dst->bands[3];dst_ptr3=dst->bands[1];
+    
+    dst->bands[0][100]=70;
+
+    for(int a=0;a<dst->height;a++)
+    {
+        for(int b=0;b<dst->width;b++)
+        {
+            printf("%d,,",*(dst_ptr0+(a*dst->width )+b));
+        }
+    }
+
+    dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+  
+
+    // changed by me wrt my  code
+    //int px_stride = src->crop_width / sizeof(dwt2_dtype);
+    int px_stride = src->width ;
+ 
+ 
+    int left = 0;
+    int top = 0;
+
+    /*  changes made wrt to my code will be changed later */
+    min_theta++;min_theta--;max_theta++;max_theta--;interim_shift_factors[0]++;interim_shift_factors[0]--;interim_rnd_factors[0]++;interim_rnd_factors[0]--;level++;level--;
+    /*upto here*/
+
+    /*
+    int right = src->crop_width; 
+    int bottom = src->crop_height;
+    */
+
+    int right = src->width; 
+    int bottom = src->height;
+
+    int i, j, theta, src_offset, dst_offset;
+    spat_fil_accum_dtype mul_val;
+    dwt2_dtype dst_val;
+    int width_rem=src->width - (src->width)%16;
+
+
+    // x86 variables
+    __m256i d0,mul0_lo,mul0_hi,tmp0_lo,tmp0_hi;
+    __m256i d1,mul1_lo,mul1_hi,tmp1_lo,tmp1_hi;
+    __m256i d2,mul2_lo,mul2_hi,tmp2_lo,tmp2_hi;
+    __m256i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
+    __m256i res0,res1,res2,res3; 
+
+    __m256i coef_0 = _mm256_set1_epi16(factors[0]);
+    __m256i coef_1 = _mm256_set1_epi16(factors[1]);
+    __m256i coef_2 = _mm256_set1_epi16(factors[2]);
+    __m256i coef_3 = _mm256_set1_epi16(factors[3]);
+
+    __m256i rnd_0= _mm256_set1_epi16(interim_rnd_factors[0]);
+    __m256i rnd_1= _mm256_set1_epi16(interim_rnd_factors[1]);
+    __m256i rnd_2= _mm256_set1_epi16(interim_rnd_factors[2]);
+    __m256i rnd_3= _mm256_set1_epi16(interim_rnd_factors[3]);
+
+
+        for(i = top; i < bottom; ++i) {
+      
+            src_offset = px_stride*i;
+            dst_offset =  px_stride*i;
+         
+            // src_ptr0=src_ptr0 + src_offset;
+            // src_ptr1=src_ptr1 + src_offset;
+            // src_ptr2=src_ptr2 + src_offset;
+            // src_ptr3=src_ptr3 + src_offset;
+
+            // dst_ptr0=dst_ptr0+dst_offset ;
+            // dst_ptr1=dst_ptr1+dst_offset ;
+            // dst_ptr2=dst_ptr2+dst_offset ;
+            // dst_ptr3=dst_ptr3+dst_offset ;
+   
+            for(j = left; j < width_rem; j=j+16) {
+                
+           
+            d0 = _mm256_loadu_si256((__m256i*)(src_ptr0+src_offset+j ));
+            d1 = _mm256_loadu_si256((__m256i*)(src_ptr1+src_offset+j ));
+            d2 = _mm256_loadu_si256((__m256i*)(src_ptr2+src_offset+j ));
+            d3 = _mm256_loadu_si256((__m256i*)(src_ptr3+src_offset+j ));
+
+            mul0_lo = _mm256_mullo_epi16(d0, coef_0);
+			mul0_hi = _mm256_mulhi_epi16(d0, coef_0);
+            mul1_lo = _mm256_mullo_epi16(d1, coef_1);
+			mul1_hi = _mm256_mulhi_epi16(d1, coef_1);
+            mul2_lo = _mm256_mullo_epi16(d2, coef_2);
+			mul2_hi = _mm256_mulhi_epi16(d2, coef_2);
+            mul3_lo = _mm256_mullo_epi16(d3, coef_3);
+			mul3_hi = _mm256_mulhi_epi16(d3, coef_3);
+
+            tmp0_lo = _mm256_unpacklo_epi16(mul0_lo, mul0_hi);
+			tmp0_hi = _mm256_unpackhi_epi16(mul0_lo, mul0_hi);
+            tmp1_lo = _mm256_unpacklo_epi16(mul1_lo, mul1_hi);
+			tmp1_hi = _mm256_unpackhi_epi16(mul1_lo, mul1_hi);
+            tmp2_lo = _mm256_unpacklo_epi16(mul2_lo, mul2_hi);
+			tmp2_hi = _mm256_unpackhi_epi16(mul2_lo, mul2_hi);
+            tmp3_lo = _mm256_unpacklo_epi16(mul3_lo, mul3_hi);
+			tmp3_hi = _mm256_unpackhi_epi16(mul3_lo, mul3_hi);
+
+           tmp0_lo= _mm256_add_epi32(tmp0_lo, rnd_0);
+           tmp0_hi= _mm256_add_epi32(tmp0_hi, rnd_0);
+           
+           tmp1_lo= _mm256_add_epi32(tmp1_lo, rnd_1);
+           tmp1_hi= _mm256_add_epi32(tmp1_hi, rnd_1);
+           
+           tmp2_lo= _mm256_add_epi32(tmp2_lo, rnd_2);
+           tmp2_hi= _mm256_add_epi32(tmp2_hi, rnd_2);
+
+           tmp3_lo= _mm256_add_epi32(tmp3_lo, rnd_3);
+           tmp3_hi= _mm256_add_epi32(tmp3_hi, rnd_3);
+        
+           tmp0_lo= _mm256_srai_epi32(tmp0_lo, interim_shift_factors[0]);
+           tmp0_hi= _mm256_srai_epi32(tmp0_hi, interim_shift_factors[0]);
+
+           tmp1_lo= _mm256_srai_epi32(tmp1_lo, interim_shift_factors[1]);
+           tmp1_hi= _mm256_srai_epi32(tmp1_hi, interim_shift_factors[1]);
+
+           tmp2_lo= _mm256_srai_epi32(tmp2_lo, interim_shift_factors[2]);
+           tmp2_hi= _mm256_srai_epi32(tmp2_hi, interim_shift_factors[2]);
+
+           tmp3_lo= _mm256_srai_epi32(tmp3_lo, interim_shift_factors[3]);
+           tmp3_hi= _mm256_srai_epi32(tmp3_hi, interim_shift_factors[3]);
+           
+           res0 = _mm256_packs_epi32(tmp0_lo, tmp0_hi);
+           res1 = _mm256_packs_epi32(tmp1_lo, tmp1_hi);
+           res2 = _mm256_packs_epi32(tmp2_lo, tmp2_hi);
+           res3 = _mm256_packs_epi32(tmp3_lo, tmp3_hi);
+
+                
+
+
+           
+        _mm256_store_si256((__m256i*)(dst_ptr0+dst_offset+j), res0);
+        _mm256_store_si256((__m256i*)(dst_ptr1+dst_offset+j), res1);
+        _mm256_store_si256((__m256i*)(dst_ptr2+dst_offset+j), res2);
+        _mm256_store_si256((__m256i*)(dst_ptr3+dst_offset+j), res3);
+        
+
+
+
+                // mul_val = (spat_fil_accum_dtype) factors[theta] * src_ptr[src_offset + j];
+                // dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[theta]) >>
+                //                         interim_shift_factors[theta]);
+                // dst_ptr[dst_offset + j] = dst_val;
+            }
+
+            for(; j < right; ++j) {
+                mul_val = (spat_fil_accum_dtype) factors[0] * src_ptr0[j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[0]) >>
+                                        interim_shift_factors[0]);
+                dst_ptr0[j] = dst_val;
+
+                mul_val = (spat_fil_accum_dtype) factors[1] * src_ptr1[j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[1]) >>
+                                        interim_shift_factors[1]);
+                dst_ptr1[j] = dst_val;
+
+                
+                mul_val = (spat_fil_accum_dtype) factors[2] * src_ptr2[j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[2]) >>
+                                        interim_shift_factors[2]);
+                dst_ptr2[j] = dst_val;
+
+                
+                mul_val = (spat_fil_accum_dtype) factors[3] * src_ptr3[j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[3]) >>
+                                        interim_shift_factors[3]);
+                dst_ptr3[j] = dst_val;
+            }
+
+
+            // src_ptr0=src_ptr0 + src_offset;
+            // src_ptr1=src_ptr1 + src_offset;
+            // src_ptr2=src_ptr2 + src_offset;
+            // src_ptr3=src_ptr3 + src_offset;
+
+            // dst_ptr0=dst_ptr0+dst_offset ;
+            // dst_ptr1=dst_ptr1+dst_offset ;
+            // dst_ptr2=dst_ptr2+dst_offset ;
+            // dst_ptr3=dst_ptr3+dst_offset ;
+
+        }
 }
