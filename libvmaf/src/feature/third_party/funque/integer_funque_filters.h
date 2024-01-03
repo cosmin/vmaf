@@ -23,7 +23,7 @@
 #include "config.h"
 #include "funque_global_options.h"
 #include "funque_vif_options.h"
-#define ADM_REFLECT_PAD 0
+#define ADM_REFLECT_PAD 1
 #define VIF_REFLECT_PAD 1
 
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
