@@ -23,15 +23,22 @@
 #include "config.h"
 #include "funque_global_options.h"
 #include "funque_vif_options.h"
-#define ADM_REFLECT_PAD 0
+#define ADM_REFLECT_PAD 1
 #define VIF_REFLECT_PAD 1
 
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
-#define UNUSED(x) (void)(x)
+#define UNUSED(x) (void) (x)
 
-#define BAND_HVD_SAME_PENDING_DIV 1
+// Spatial Filters
 #define NGAN_21_TAP_FILTER 21
 #define NADENAU_SPAT_5_TAP_FILTER 5
+
+// Wavelet Filters
+#define NADENAU_WEIGHT_FILTER 1  // Default set to nadenau_weight
+#define WATSON_FILTER 2
+#define LI_FILTER 3
+
+#define BAND_HVD_SAME_PENDING_DIV 1
 #define SPAT_FILTER_COEFF_SHIFT 16
 #define SPAT_FILTER_INTER_SHIFT  9
 #define SPAT_FILTER_INTER_RND (1 << (SPAT_FILTER_INTER_SHIFT - 1))
@@ -62,8 +69,12 @@ typedef uint64_t ssim_mink3_accum_dtype;
 #define SSIM_SQ_ROW_SHIFT 9
 #define SSIM_SQ_COL_SHIFT 11
 #define SSIM_INTER_VAR_SHIFTS 0
-#define SSIM_INTER_L_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_L_SHIFT) is used for readability
-#define SSIM_INTER_CS_SHIFT 0 //If this is updated, the usage has to be changed in integer_ssim.c(currently 2>>SSIM_INTER_CS_SHIFT) is used for readability
+#define SSIM_INTER_L_SHIFT \
+    0  // If this is updated, the usage has to be changed in integer_ssim.c(currently
+       // 2>>SSIM_INTER_L_SHIFT) is used for readability
+#define SSIM_INTER_CS_SHIFT \
+    0  // If this is updated, the usage has to be changed in integer_ssim.c(currently
+       // 2>>SSIM_INTER_CS_SHIFT) is used for readability
 #define L_R_SHIFT 0
 #define CS_R_SHIFT 0
 #define SSIM_R_SHIFT 14
@@ -75,10 +86,7 @@ typedef struct i_dwt2buffers {
     dwt2_dtype *bands[4];
     int width;
     int height;
-    int crop_width;
-    int crop_height;
     int stride;
-    int crop_stride;
 }i_dwt2buffers;
 
 typedef struct MsSsimScore_int {
@@ -119,7 +127,7 @@ typedef struct ModuleFunqueState
                                         int width, int height, int bitdepth);
     void (*integer_spatial_filter)(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
                                    int height, int bitdepth, spat_fil_inter_dtype *tmp,
-                                   int num_taps);
+                                   char *spatial_csf_filter);
     void (*integer_funque_dwt2)(spat_fil_output_dtype *src, ptrdiff_t src_stride,
                                 i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width,
                                 int height, int spatial_csf_flag, int level);
@@ -129,9 +137,12 @@ typedef struct ModuleFunqueState
                                             uint8_t interim_shift_factors[4], int level);
     void (*integer_funque_vifdwt2_band0)(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
     int (*integer_compute_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup);
-    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels, int is_pyr);
-    int (*integer_mean_2x2_ms_ssim_funque)(int32_t *var_x_cum, int32_t *var_y_cum, int32_t *cov_xy_cum, 
-                                    int width, int height, int level);
+    int (*integer_compute_ms_ssim_funque)(i_dwt2buffers *ref, i_dwt2buffers *dist,
+                                          MsSsimScore_int *score, int max_val, float K1, float K2,
+                                          int pending_div, int32_t *div_lookup, int n_levels,
+                                          int is_pyr);
+    int (*integer_mean_2x2_ms_ssim_funque)(int32_t *var_x_cum, int32_t *var_y_cum,
+                                           int32_t *cov_xy_cum, int width, int height, int level);
     double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den);
@@ -189,18 +200,18 @@ static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
 
 static const uint8_t i_nadenau_pending_div_factors[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
-    {6, 11, 11, 11}, // L0
-    {5,  7,  7,  7}, // L1
+    {6, 11, 11, 11},  // L0
+    {5, 7, 7, 7},     // L1
 #else
-    {6, 11, 11, 14}, // L0
-    {5,  7,  7,  8}, // L1
+    {6, 11, 11, 14},  // L0
+    {5, 7, 7, 8},     // L1
 #endif
-    {4,  5,  5,  5}, // L2
-    {3,  4,  4,  4}, // L3
+    {4, 5, 5, 5},  // L2
+    {3, 4, 4, 4},  // L3
 };
-//interim_shift is same for all nadenau_weight, watson, li, hill filters
+// interim_shift is same for all nadenau_weight, watson, li, hill filters
 static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
-    { 9,  9,  9,  9},
+    {9, 9, 9, 9},
     {11, 11, 11, 11},
     {13, 13, 13, 13},
     {13, 13, 13, 13},
@@ -221,14 +232,14 @@ static const spat_fil_coeff_dtype i_watson_coeffs[4][4] = {
 
 static const uint8_t i_watson_pending_div_factors[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
-    {6, 12, 12, 12}, // L0
-    {5, 10, 10, 10}, // L1
+    {6, 12, 12, 12},  // L0
+    {5, 10, 10, 10},  // L1
 #else
-    {6, 12, 12, 14}, // L0
-    {5, 10, 10,  11}, // L1
+    {6, 12, 12, 14},  // L0
+    {5, 10, 10, 11},  // L1
 #endif
-    {4,  9,  9,  9},// L2
-    {3,  8,  8,  8}, // L3
+    {4, 9, 9, 9},  // L2
+    {3, 8, 8, 8},  // L3
 };
 
 static const spat_fil_coeff_dtype i_li_coeffs[4][4] = {
@@ -246,33 +257,34 @@ static const spat_fil_coeff_dtype i_li_coeffs[4][4] = {
 
 static const uint8_t i_li_pending_div_factors[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
-    {6, 14, 14, 14}, // L0
-    {5,  8,  8,  10}, // L1
-    {4,  5,  5,  6}, // L2
+    {6, 14, 14, 14},  // L0
+    {5, 8, 8, 10},    // L1
+    {4, 5, 5, 6},     // L2
 #else
-    {6, 14, 14, 19}, // L0
-    {5,  8,  8,  10}, // L1
-    {4,  5,  5,  6}, // L2
+    {6, 14, 14, 19},  // L0
+    {5, 8, 8, 10},    // L1
+    {4, 5, 5, 6},     // L2
 #endif
-    {3,  4,  4,  4}, // L3
+    {3, 4, 4, 4},  // L3
 };
 
 static const spat_fil_coeff_dtype i_hill_coeffs[4][4] = {
-    {16384,  22691,  20082,  22691},
-    {16384, -22164,  28535, -22164},
+    {16384, 22691, 20082, 22691},
+    {16384, -22164, 28535, -22164},
     {16384, -17920, -26774, -17920},
     {16384, -22347, -32484, -22347},
 };
 
 static const uint8_t i_hill_pending_div_factors[4][4] = {
-    {6, 10, 10, 11}, // L0
-    {5,  7,  7,  9}, // L1
-    {4,  8,  8,  7}, // L2
-    {3,  8,  8,  8}, // L3
+    {6, 10, 10, 11},  // L0
+    {5, 7, 7, 9},     // L1
+    {4, 8, 8, 7},     // L2
+    {3, 8, 8, 8},     // L3
 };
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
-                            int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps);
+                            int height, int bitdepth, spat_fil_inter_dtype *tmp,
+                            char *spatial_csf_filter);
 
 void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
                          ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag,
@@ -286,5 +298,10 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
 void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level);
+
+void integer_reflect_pad_for_input_hbd(void *src, void *dst, int width, int height,
+                                       int reflect_width, int reflect_height);
+void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, int reflect_width,
+                                   int reflect_height, int bpc);
 
 #endif /* FILTERS_FUNQUE_H_ */

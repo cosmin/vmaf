@@ -61,8 +61,9 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
 	int last_col = width & 1;
 
     int i, j;
-    
-    /* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift is required */
+
+    /* In Wavelet function level 0, 1, 2 would fit in 16-bit variable. For level 3 one right shift
+     * is required */
     if(spatial_csf == 0) {
         if(level != 3) {
             filter_shift = 0;
@@ -80,7 +81,7 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
         row_idx1 = row_idx1 < height ? row_idx1 : 2*i;
         row0_offset = (row_idx0) *src_px_stride;
         row1_offset = (row_idx1) *src_px_stride;
-        
+
         for(j=0; j< width_div_2; ++j)
 		{
 			int col_idx0 = (j << 1);
@@ -132,13 +133,13 @@ void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt
             band_a[i * dst_px_stride + j] =
                 (dwt2_dtype) ((src_a_p_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
                               filter_shift_lcpad);
-			
-			//F* F (a - b + a - b) - band H  (F*F is 1/2)
+
+            //F* F (a - b + a - b) - band H  (F*F is 1/2)
             band_h[i * dst_px_stride + j] =
                 (dwt2_dtype) ((src_a_m_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
                               filter_shift_lcpad);
-			
-			//F* F (a + b - (a + b)) - band V, Last column V will always be 0            
+
+            //F* F (a + b - (a + b)) - band V, Last column V will always be 0            
             band_v[i*dst_px_stride+j] = 0;
 
 			//F* F (a - b - (a -b)) - band D,  Last column D will always be 0
@@ -232,7 +233,9 @@ void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t
  * This function applies intermediate horizontal pass filter inside spatial filter
  */
 
-static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
+static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst,
+                                             const spat_fil_coeff_dtype *i_filter_coeffs, int width,
+                                             int filter_size, int dst_row_idx, int half_fw)
 {
     int j, fj, jj, jj1, jj2;
     /**
@@ -245,20 +248,19 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
         int diff_j_hfw = j - half_fw;
         spat_fil_accum_dtype accum = 0;
         /**
-         * The full loop is from fj = 0 to fwidth
-         * During the loop when the centre pixel is at j, 
-         * the left part is available only till j-(fwidth/2) >= 0, 
-         * hence padding (border mirroring) is required when j-fwidth/2 < 0
+         * The full loop is from fj = 0 to filter_size
+         * During the loop when the centre pixel is at j,
+         * the left part is available only till j-(filter_size/2) >= 0,
+         * hence padding (border mirroring) is required when j-filter_size/2 < 0
          */
-        //This loop does border mirroring (jj = -(j - fwidth/2 + fj + 1))
+        // This loop does border mirroring (jj = -(j - filter_size/2 + fj + 1))
         for (fj = 0; fj <= pro_j_end; fj++){
 
             jj = pro_j_end - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        //Here the normal loop is executed where jj = j - fwidth/2 + fj
-        for ( ; fj < fwidth; fj++)
-        {
+        // Here the normal loop is executed where jj = j - filter_size/2 + fj
+        for(; fj < filter_size; fj++) {
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
@@ -295,20 +297,19 @@ static inline void integer_horizontal_filter(spat_fil_inter_dtype *tmp, spat_fil
         int epi_mirr_j = (width<<1) - diff_j_hfw - 1;
         spat_fil_accum_dtype accum = 0;
         /**
-         * The full loop is from fj = 0 to fwidth
-         * During the loop when the centre pixel is at j, 
-         * the right pixels are available only till j+(fwidth/2) < width, 
-         * hence padding (border mirroring) is required when j+(fwidth/2) >= width
+         * The full loop is from fj = 0 to filter_size
+         * During the loop when the centre pixel is at j,
+         * the right pixels are available only till j+(filter_size/2) < width,
+         * hence padding (border mirroring) is required when j+(filter_size/2) >= width
          */
-        //Here the normal loop is executed where jj = j - fwidth/2 + fj
+        // Here the normal loop is executed where jj = j - filter_size/2 + fj
         for (fj = 0; fj < epi_last_j; fj++){
 
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        //This loop does border mirroring (jj = 2*width - (j - fwidth/2 + fj) - 1)
-        for ( ; fj < fwidth; fj++)
-        {
+        // This loop does border mirroring (jj = 2*width - (j - filter_size/2 + fj) - 1)
+        for(; fj < filter_size; fj++) {
             jj = epi_mirr_j - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
@@ -325,15 +326,17 @@ const spat_fil_coeff_dtype i_ngan_filter_coeffs[21] = {
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658};
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
-                            int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps)
+                            int height, int bitdepth, spat_fil_inter_dtype *tmp,
+                            char *spatial_csf_filter)
 {
-    int fwidth;
+    int filter_size;
     const spat_fil_coeff_dtype *i_filter_coeffs;
-    if(num_taps == 5) {
-        fwidth = 5;
+
+    if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
+        filter_size = 5;
         i_filter_coeffs = i_nadeanu_filter_coeffs;
-    } else {
-        fwidth = 21;
+    } else if(strcmp(spatial_csf_filter, "ngan_spat") == 0) {
+        filter_size = 21;
         i_filter_coeffs = i_ngan_filter_coeffs;
     }
 
@@ -349,9 +352,9 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
     int i, j, fi, ii, ii1, ii2;
 	// int fj, jj, jj1, jj;
     // spat_fil_coeff_dtype *coeff_ptr;
-    int half_fw = fwidth / 2;
-	
-	if(8 == bitdepth)
+    int half_fw = filter_size / 2;
+
+    if(8 == bitdepth)
 	{
 		src_8b = (uint8_t*)src;
 		src_hbd = NULL;
@@ -383,25 +386,24 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 
 				spat_fil_accum_dtype accum = 0;
 
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the top part is available only till i-(fwidth/2) >= 0, 
-				 * hence padding (border mirroring) is required when i-fwidth/2 < 0
-				 */
-				//This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
-				for (fi = 0; fi <= pro_mir_end; fi++){
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i,
+                 * the top part is available only till i-(filter_size/2) >= 0,
+                 * hence padding (border mirroring) is required when i-filter_size/2 < 0
+                 */
+                // This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
+                for (fi = 0; fi <= pro_mir_end; fi++){
 
 					ii = pro_mir_end - fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
 				}
-				//Here the normal loop is executed where ii = i - fwidth / 2 + fi
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = diff_i_halffw + fi;
+                // Here the normal loop is executed where ii = i - filter_size / 2 + fi
+                for(; fi < filter_size; fi++) {
+                    ii = diff_i_halffw + fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 		}
 		else
@@ -411,31 +413,30 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 
 				spat_fil_accum_dtype accum = 0;
 
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the top part is available only till i-(fwidth/2) >= 0, 
-				 * hence padding (border mirroring) is required when i-fwidth/2 < 0
-				 */
-				//This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
-				for (fi = 0; fi <= pro_mir_end; fi++){
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i,
+                 * the top part is available only till i-(filter_size/2) >= 0,
+                 * hence padding (border mirroring) is required when i-filter_size/2 < 0
+                 */
+                // This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
+                for (fi = 0; fi <= pro_mir_end; fi++){
 
 					ii = pro_mir_end - fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_hbd[ii * src_px_stride + j];
 				}
-				//Here the normal loop is executed where ii = i - fwidth / 2 + fi
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = diff_i_halffw + fi;
+                // Here the normal loop is executed where ii = i - filter_size / 2 + fi
+                for(; fi < filter_size; fi++) {
+                    ii = diff_i_halffw + fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_hbd[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 		}
 
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-
+        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, filter_size, i * dst_px_stride,
+                                  half_fw);
     }
     //This is the core loop
     for ( ; i < (height - half_fw); i++){
@@ -487,8 +488,8 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 		}
 
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-
+        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, filter_size, i * dst_px_stride,
+                                  half_fw);
     }
     /**
      * This loop is to handle virtual padding of the bottom border pixels
@@ -507,25 +508,24 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 
 				spat_fil_accum_dtype accum = 0;
 
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the bottom pixels are available only till i+(fwidth/2) < height, 
-				 * hence padding (border mirroring) is required when i+(fwidth/2) >= height
-				 */
-				//Here the normal loop is executed where ii = i - fwidth/2 + fi
-				for (fi = 0; fi < epi_last_i; fi++){
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i,
+                 * the bottom pixels are available only till i+(filter_size/2) < height,
+                 * hence padding (border mirroring) is required when i+(filter_size/2) >= height
+                 */
+                // Here the normal loop is executed where ii = i - filter_size/2 + fi
+                for (fi = 0; fi < epi_last_i; fi++){
 
 					ii = diff_i_halffw + fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
 				}
-				//This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = epi_mir_i - fi;
+                // This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+                for(; fi < filter_size; fi++) {
+                    ii = epi_mir_i - fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 		}
 		else
@@ -534,35 +534,102 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
 
 				spat_fil_accum_dtype accum = 0;
 
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the bottom pixels are available only till i+(fwidth/2) < height, 
-				 * hence padding (border mirroring) is required when i+(fwidth/2) >= height
-				 */
-				//Here the normal loop is executed where ii = i - fwidth/2 + fi
-				for (fi = 0; fi < epi_last_i; fi++){
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i,
+                 * the bottom pixels are available only till i+(filter_size/2) < height,
+                 * hence padding (border mirroring) is required when i+(filter_size/2) >= height
+                 */
+                // Here the normal loop is executed where ii = i - filter_size/2 + fi
+                for (fi = 0; fi < epi_last_i; fi++){
 
 					ii = diff_i_halffw + fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_hbd[ii * src_px_stride + j];
 				}
-				//This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = epi_mir_i - fi;
+                // This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+                for(; fi < filter_size; fi++) {
+                    ii = epi_mir_i - fi;
 					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_hbd[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
 			}
 			
 		}
 
         /* Horizontal pass. common for 8bit and hbd cases */
-        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-
+        integer_horizontal_filter(tmp, dst, i_filter_coeffs, width, filter_size, i * dst_px_stride,
+                                  half_fw);
     }
 
     return;
+}
+
+void integer_reflect_pad_for_input_hbd(void *src, void *dst, int width, int height,
+                                       int reflect_width, int reflect_height)
+{
+    size_t out_width = width + 2 * reflect_width;
+    size_t out_height = height + 2 * reflect_height;
+    uint16_t *src_hbd = (uint16_t *) src;
+    uint16_t *dst_hbd = (uint16_t *) dst;
+
+    for(size_t i = reflect_height; i != (out_height - reflect_height); i++) {
+        for(int j = 0; j != reflect_width; j++) {
+            dst_hbd[i * out_width + (reflect_width - 1 - j)] =
+                src_hbd[(i - reflect_height) * width + j + 1];
+        }
+
+        memcpy(&dst_hbd[i * out_width + reflect_width], &src_hbd[(i - reflect_height) * width],
+               sizeof(uint16_t) * width);
+
+        for(int j = 0; j != reflect_width; j++)
+            dst_hbd[i * out_width + out_width - reflect_width + j] =
+                dst_hbd[i * out_width + out_width - reflect_width - 2 - j];
+    }
+
+    for(int i = 0; i != reflect_height; i++) {
+        memcpy(&dst_hbd[(reflect_height - 1) * out_width - i * out_width],
+               &dst_hbd[reflect_height * out_width + (i + 1) * out_width],
+               sizeof(uint16_t) * out_width);
+        memcpy(&dst_hbd[(out_height - reflect_height) * out_width + i * out_width],
+               &dst_hbd[(out_height - reflect_height - 1) * out_width - (i + 1) * out_width],
+               sizeof(uint16_t) * out_width);
+    }
+}
+
+void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, int reflect_width,
+                                   int reflect_height, int bpc)
+{
+    if(bpc > 8) {
+        integer_reflect_pad_for_input_hbd(src, dst, width, height, reflect_width, reflect_height);
+        return;
+    }
+    size_t out_width = width + 2 * reflect_width;
+    size_t out_height = height + 2 * reflect_height;
+    uint8_t *src_8bd = (uint8_t *) src;
+    uint8_t *dst_8bd = (uint8_t *) dst;
+
+    for(size_t i = reflect_height; i != (out_height - reflect_height); i++) {
+        for(int j = 0; j != reflect_width; j++) {
+            dst_8bd[i * out_width + (reflect_width - 1 - j)] =
+                src_8bd[(i - reflect_height) * width + j + 1];
+        }
+
+        memcpy(&dst_8bd[i * out_width + reflect_width], &src_8bd[(i - reflect_height) * width],
+               sizeof(uint8_t) * width);
+
+        for(int j = 0; j != reflect_width; j++)
+            dst_8bd[i * out_width + out_width - reflect_width + j] =
+                dst_8bd[i * out_width + out_width - reflect_width - 2 - j];
+    }
+
+    for(int i = 0; i != reflect_height; i++) {
+        memcpy(&dst_8bd[(reflect_height - 1) * out_width - i * out_width],
+               &dst_8bd[reflect_height * out_width + (i + 1) * out_width],
+               sizeof(uint8_t) * out_width);
+        memcpy(&dst_8bd[(out_height - reflect_height) * out_width + i * out_width],
+               &dst_8bd[(out_height - reflect_height - 1) * out_width - (i + 1) * out_width],
+               sizeof(uint8_t) * out_width);
+    }
 }
 
 void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
@@ -576,14 +643,14 @@ void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dt
     /* put these in theta format where 0 = approx, 1 = vertical, 2 = diagonal, 3 = horizontal */
     dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
-    int px_stride = src->crop_stride / sizeof(dwt2_dtype);
+    int px_stride = src->stride / sizeof(dwt2_dtype);
 
     /* The computation of the csf values is not required for the regions which lie outside the frame
      * borders */
     int left = 0;
     int top = 0;
-    int right = src->crop_width;
-    int bottom = src->crop_height;
+    int right = src->width;
+    int bottom = src->height;
 
     int i, j, theta, src_offset, dst_offset;
     spat_fil_accum_dtype mul_val;

@@ -94,22 +94,18 @@ int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers *ref,
     prev_ref->width = ref->width;
     prev_ref->height = ref->height;
     prev_ref->stride = ref->stride;
-    prev_ref->crop_width = ref->crop_width;
-    prev_ref->crop_height = ref->crop_height;
 
     prev_dist->width = dist->width;
     prev_dist->height = dist->height;
     prev_dist->stride = dist->stride;
-    prev_dist->crop_width = dist->crop_width;
-    prev_dist->crop_height = dist->crop_height;
 
     return 0;
 }
 
 void integer_subract_subbands_c(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                              dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                              const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst, size_t width,
-                              size_t height)
+                                dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst, size_t width,
+                                size_t height)
 {
     size_t i, j;
 
@@ -167,8 +163,8 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
             temp_values[subband] = 0;
 
             integer_subract_subbands_c(ref->bands[subband], prev_ref->bands[subband], ref_temporal,
-                                     dist->bands[subband], prev_dist->bands[subband], dist_temporal,
-                                     width, height);
+                                       dist->bands[subband], prev_dist->bands[subband],
+                                       dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales(
                 ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val,
                 enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
@@ -185,8 +181,7 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
 
     // Add equations to compute ST-RRED using norm factors
     int norm_factor, num_level;
-    for(num_level = 0; num_level <= level; num_level++)
-        norm_factor = num_level + 1;
+    for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
 
     strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
     strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];

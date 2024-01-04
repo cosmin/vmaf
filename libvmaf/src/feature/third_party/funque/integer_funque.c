@@ -87,12 +87,18 @@ typedef struct IntFunqueState
     VmafPicture res_ref_pic;
     VmafPicture res_dist_pic;
 
+    void *pad_ref;
+    void *pad_dist;
+
     const char *wavelet_csfs;
+    int spatial_csf_filter;
+    int wavelet_csf_filter;
+    char *spatial_csf_filter_type;
+    char *wavelet_csf_filter_type;
     spat_fil_coeff_dtype csf_factors[4][4];
     uint16_t csf_interim_rnd[4][4];
     uint8_t csf_interim_shift[4][4];
 
-    size_t resizer_out_stride;
     spat_fil_inter_dtype *spat_tmp_buf;
     spat_fil_output_dtype *filter_buffer;
     size_t filter_buffer_stride;
@@ -104,12 +110,12 @@ typedef struct IntFunqueState
     // funque configurable parameters
     bool enable_resize;
     bool enable_spatial_csf;
-    int num_taps;
     int vif_levels;
     int adm_levels;
     int needed_dwt_levels;
     int needed_full_dwt_levels;
     int ssim_levels;
+    int ms_ssim_levels;
     int strred_levels;
     double norm_view_dist;
     int ref_display_height;
@@ -163,16 +169,26 @@ static const VmafOption options[] = {
         .default_val.b = true,
     },
     {
-        .name = "num_taps",
-        .alias = "ntaps",
+        .name = "spatial_csf_filter",
+        .alias = "spatial_csf_filter",
         .help = "Select number of taps to be used for spatial filter",
-        .offset = offsetof(IntFunqueState, num_taps),
+        .offset = offsetof(IntFunqueState, spatial_csf_filter),
         .type = VMAF_OPT_TYPE_INT,
-        .default_val.b = NADENAU_SPAT_5_TAP_FILTER,
+        .default_val.i = NADENAU_SPAT_5_TAP_FILTER,
         .min = NADENAU_SPAT_5_TAP_FILTER,
         .max = NGAN_21_TAP_FILTER,
     },
-{
+    {
+        .name = "wavelet_csf_filter",
+        .alias = "wave_filter",
+        .help = "Select wavelet filter",
+        .offset = offsetof(IntFunqueState, wavelet_csf_filter),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = NADENAU_WEIGHT_FILTER,
+        .min = NADENAU_WEIGHT_FILTER,
+        .max = LI_FILTER,
+    },
+    {
         .name = "norm_view_dist",
         .alias = "nvd",
         .help = "normalized viewing distance = viewing distance / ref display's physical height",
@@ -183,7 +199,7 @@ static const VmafOption options[] = {
         .max = 24.0,
         .flags = VMAF_OPT_FLAG_FEATURE_PARAM,
     },
-{
+    {
         .name = "ref_display_height",
         .alias = "rdf",
         .help = "reference display height in pixels",
@@ -211,6 +227,16 @@ static const VmafOption options[] = {
         .offset = offsetof(IntFunqueState, ssim_levels),
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = DEFAULT_SSIM_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
+    {
+        .name = "ms_ssim_levels",
+        .alias = "ms_ssiml",
+        .help = "Number of DWT levels for MS_SSIM",
+        .offset = offsetof(IntFunqueState, ms_ssim_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_MS_SSIM_LEVELS,
         .min = MIN_LEVELS,
         .max = MAX_LEVELS,
     },
@@ -284,6 +310,56 @@ static const VmafOption options[] = {
 
     {0}};
 
+static int integer_alloc_dwt2buffers(i_dwt2buffers *dwt2out, int w, int h)
+{
+    dwt2out->width = (int) w;
+    dwt2out->height = (int) h;
+    dwt2out->stride = dwt2out->width * sizeof(dwt2_dtype);
+
+    for(unsigned i = 0; i < 4; i++) {
+        dwt2out->bands[i] = aligned_malloc(dwt2out->stride * dwt2out->height, 32);
+        if(!dwt2out->bands[i])
+            goto fail;
+        memset(dwt2out->bands[i], 0, dwt2out->stride * dwt2out->height);
+    }
+    return 0;
+
+fail:
+    for(unsigned i = 0; i < 4; i++) {
+        if(dwt2out->bands[i])
+            aligned_free(dwt2out->bands[i]);
+        dwt2out->bands[i] = NULL;
+    }
+    return -ENOMEM;
+}
+void integer_select_filter_type(IntFunqueState *s)
+{
+    if(s->enable_spatial_csf == 1) {
+        if(s->spatial_csf_filter == 5)
+            s->spatial_csf_filter_type = "nadenau_spat";
+        else if(s->spatial_csf_filter == 21)
+            s->spatial_csf_filter_type = "ngan_spat";
+    } else {
+        switch(s->wavelet_csf_filter) {
+            case 1:
+                s->wavelet_csf_filter_type = "nadenau_weight";
+                break;
+
+            case 2:
+                s->wavelet_csf_filter_type = "watson";
+                break;
+
+            case 3:
+                s->wavelet_csf_filter_type = "li";
+                break;
+
+            default:
+                s->wavelet_csf_filter_type = "nadenau_weight";
+                break;
+        }
+    }
+}
+
 static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 unsigned bpc, unsigned w, unsigned h)
 {
@@ -303,40 +379,90 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h + 1) >> 1;
     }
 
-    s->needed_dwt_levels = MAX(MAX(s->vif_levels, s->adm_levels), MAX(s->ssim_levels, s->strred_levels));
+    s->needed_dwt_levels =
+        MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
-    s->width_aligned_stride = ALIGN_CEIL(w * sizeof(float));
-    s->resizer_out_stride = (s->width_aligned_stride + 3) / 4;
+    int ref_process_width, ref_process_height, dist_process_width, dist_process_height,
+        process_wh_div_factor;
 
+    int last_w = w;
+    int last_h = h;
+
+    if(s->ms_ssim_levels != 0) {
+#if ENABLE_PADDING
+        int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
+        ref_process_width =
+            (int) (((last_w + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        ref_process_height =
+            (int) (((last_h + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        dist_process_width =
+            (int) (((last_w + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        dist_process_height =
+            (int) (((last_h + two_pow_level_m1) >> s->needed_dwt_levels) << s->needed_dwt_levels);
+
+#else  // Cropped width and height
+        ref_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        ref_process_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        dist_process_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
+        dist_process_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+#endif
+
+        last_w = ref_process_width;
+        last_h = ref_process_height;
+    } else {
+        ref_process_width = last_w;
+        ref_process_height = last_h;
+        dist_process_width = last_w;
+        dist_process_height = last_h;
+    }
+
+    s->width_aligned_stride = ALIGN_CEIL(ref_process_width * sizeof(float));
+
+    int bitdepth_factor = (bpc == 8 ? 1 : 2);
     if (s->enable_resize)
     {
-        int bitdepth_factor = (bpc == 8 ? 1 : 2);
-        s->res_ref_pic.data[0] = aligned_malloc(s->resizer_out_stride * h * bitdepth_factor, 32);
+        s->res_ref_pic.data[0] =
+            aligned_malloc(s->width_aligned_stride * ref_process_height * bitdepth_factor, 32);
         if (!s->res_ref_pic.data[0])
             goto fail;
-        s->res_dist_pic.data[0] = aligned_malloc(s->resizer_out_stride * h * bitdepth_factor, 32);
+        s->res_dist_pic.data[0] =
+            aligned_malloc(s->width_aligned_stride * dist_process_height * bitdepth_factor, 32);
 
         if (!s->res_dist_pic.data[0])
             goto fail;
     }
 
     /* This buffer is common along spatial and wavelet buffers*/
-    s->filter_buffer = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_output_dtype)) * h, 32);
+    s->filter_buffer = aligned_malloc(
+        ALIGN_CEIL(ref_process_width * sizeof(spat_fil_output_dtype)) * ref_process_height, 32);
     if(!s->filter_buffer)
         goto fail;
-    s->filter_buffer_stride = w * sizeof(spat_fil_output_dtype);
+    s->filter_buffer_stride = ref_process_width * sizeof(spat_fil_output_dtype);
 
-    /*currently hardcoded to nadeanu_weight To be made configurable via model file*/
-    s->wavelet_csfs = "nadenau_weight";
+#if ENABLE_PADDING
+    s->pad_ref = aligned_malloc(s->width_aligned_stride * ref_process_height * bitdepth_factor, 32);
+    if(!s->pad_ref)
+        goto fail;
+    memset(s->pad_ref, 0, s->width_aligned_stride * ref_process_height * bitdepth_factor);
+
+    s->pad_dist =
+        aligned_malloc(s->width_aligned_stride * dist_process_height * bitdepth_factor, 32);
+    if(!s->pad_dist)
+        goto fail;
+    memset(s->pad_dist, 0, s->width_aligned_stride * dist_process_height * bitdepth_factor);
+#endif
+
+    integer_select_filter_type(s);
 
     if (s->enable_spatial_csf) {
-        s->spat_tmp_buf = aligned_malloc(ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)), 32);
+        s->spat_tmp_buf =
+            aligned_malloc(ALIGN_CEIL(ref_process_width * sizeof(spat_fil_inter_dtype)), 32);
         if(!s->spat_tmp_buf)
             goto fail;
         // memset(s->spat_tmp_buf, 0, ALIGN_CEIL(w * sizeof(spat_fil_inter_dtype)));
     } else {
-        if(strcmp(s->wavelet_csfs, "nadenau_weight") == 0) {
+        if(strcmp(s->wavelet_csf_filter_type, "nadenau_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_nadenau_weight_coeffs[level][0];
                 s->csf_factors[level][1] = i_nadenau_weight_coeffs[level][1];
@@ -353,7 +479,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csfs, "watson") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_watson_coeffs[level][0];
                 s->csf_factors[level][1] = i_watson_coeffs[level][1];
@@ -370,7 +496,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csfs, "li") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_li_coeffs[level][0];
                 s->csf_factors[level][1] = i_li_coeffs[level][1];
@@ -390,85 +516,40 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         }
     }
 
-    int last_w, last_h;
-    last_w = w;
-    last_h = h;
-
-    int rc_width, rc_height, dc_width, dc_height, crop_div_factor;
-    rc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    rc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    dc_width = (int) ((last_w >> s->needed_dwt_levels) << s->needed_dwt_levels);
-    dc_height = (int) ((last_h >> s->needed_dwt_levels) << s->needed_dwt_levels);
+    int err = 0;
+    int tref_width, tref_height, tdist_width, tdist_height;
 
     for(int level = 0; level < s->needed_dwt_levels; level++) {
-    // dwt output dimensions
-        s->i_ref_dwt2out[level].width = (int) (last_w + 1) / 2;
-        s->i_ref_dwt2out[level].height = (int) (last_h + 1) / 2;
-        s->i_ref_dwt2out[level].stride =
-            (int) ALIGN_CEIL(s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype));
+        // dwt output dimensions
+        process_wh_div_factor = pow(2, (level + 1));
+        tref_width = (ref_process_width + (process_wh_div_factor * 3 / 4)) / process_wh_div_factor;
+        tref_height =
+            (ref_process_height + (process_wh_div_factor * 3 / 4)) / process_wh_div_factor;
+        tdist_width =
+            (dist_process_width + (process_wh_div_factor * 3 / 4)) / process_wh_div_factor;
+        tdist_height =
+            (dist_process_height + (process_wh_div_factor * 3 / 4)) / process_wh_div_factor;
 
-        s->i_dist_dwt2out[level].width = (int) (last_w + 1) / 2;
-        s->i_dist_dwt2out[level].height = (int) (last_h + 1) / 2;
-        s->i_dist_dwt2out[level].stride =
-            (int) ALIGN_CEIL(s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype));
-
-        crop_div_factor = pow(2, (level+1));
-        s->i_ref_dwt2out[level].crop_width = rc_width / crop_div_factor;
-        s->i_ref_dwt2out[level].crop_height = rc_height / crop_div_factor;
-        s->i_ref_dwt2out[level].crop_stride = s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype);
-        
-        s->i_dist_dwt2out[level].crop_width = dc_width / crop_div_factor;
-        s->i_dist_dwt2out[level].crop_height = dc_height / crop_div_factor;
-        s->i_dist_dwt2out[level].crop_stride = s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype);
-        
-        //TODO: Remove crop width or use crop width rightly in all the places
-        s->i_ref_dwt2out[level].width = s->i_ref_dwt2out[level].crop_width;
-        s->i_ref_dwt2out[level].height = s->i_ref_dwt2out[level].crop_height;
-        s->i_ref_dwt2out[level].stride = s->i_ref_dwt2out[level].crop_stride;
-        s->i_dist_dwt2out[level].width = s->i_dist_dwt2out[level].crop_width;
-        s->i_dist_dwt2out[level].height = s->i_dist_dwt2out[level].crop_height;
-        s->i_dist_dwt2out[level].stride = s->i_dist_dwt2out[level].crop_stride;
-
-        s->i_prev_ref[level].width = (int) (last_w + 1) / 2;
-        s->i_prev_ref[level].height = (int) (last_h + 1) / 2;
-        s->i_prev_ref[level].stride =
-            (int) ALIGN_CEIL(s->i_prev_ref[level].width * sizeof(dwt2_dtype));
-
-        s->i_prev_dist[level].width = (int) (last_w + 1) / 2;
-        s->i_prev_dist[level].height = (int) (last_h + 1) / 2;
-        s->i_prev_dist[level].stride =
-            (int) ALIGN_CEIL(s->i_prev_dist[level].width * sizeof(dwt2_dtype));
+        err |= integer_alloc_dwt2buffers(&s->i_ref_dwt2out[level], tref_width, tref_height);
+        err |= integer_alloc_dwt2buffers(&s->i_dist_dwt2out[level], tdist_width, tdist_height);
 
         s->i_prev_ref[level].bands[0] = NULL;
         s->i_prev_dist[level].bands[0] = NULL;
 
-    // Memory allocation for dwt output bands
-        for(unsigned i = 0; i < 4; i++) {
-            s->i_ref_dwt2out[level].bands[i] =
-                aligned_malloc(s->i_ref_dwt2out[level].stride * s->i_ref_dwt2out[level].height, 32);
-            if(!s->i_ref_dwt2out[level].bands[i])
-                goto fail;
-
-            s->i_dist_dwt2out[level].bands[i] = aligned_malloc(
-                s->i_dist_dwt2out[level].stride * s->i_dist_dwt2out[level].height, 32);
-            if(!s->i_dist_dwt2out[level].bands[i])
-                goto fail;
-
-            s->i_prev_ref[level].bands[i] =
-                aligned_malloc(s->i_prev_ref[level].stride * s->i_prev_ref[level].height, 32);
-            if(!s->i_prev_ref[level].bands[i])
-            goto fail;
-
-            s->i_prev_dist[level].bands[i] =
-                aligned_malloc(s->i_prev_dist[level].stride * s->i_prev_dist[level].height, 32);
-            if(!s->i_prev_dist[level].bands[i])
-            goto fail;
-    }
+        for(int subband = 1; subband < 4; subband++) {
+            s->i_prev_ref[level].bands[subband] =
+                calloc(tref_width * tref_height, sizeof(dwt2_dtype));
+            s->i_prev_dist[level].bands[subband] =
+                calloc(tref_width * tref_height, sizeof(dwt2_dtype));
+        }
 
         /* Last width and height is half of the current layer */
         last_w = (int) (last_w + 1) / 2;
         last_h = (int) (last_h + 1) / 2;
     }
+
+    if(err)
+        goto fail;
 
     s->modules.integer_funque_picture_copy = integer_funque_picture_copy;
     s->modules.integer_spatial_filter = integer_spatial_filter;
@@ -494,7 +575,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         if (bpc == 8)
         {
             if(s->num_taps == 21)
-            s->modules.integer_spatial_filter = integer_spatial_filter_neon;
+                s->modules.integer_spatial_filter = integer_spatial_filter_neon;
             else
                 s->modules.integer_spatial_filter = integer_spatial_5tap_filter_neon;
         }
@@ -561,7 +642,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #endif
 
     // funque_log_generate(s->log_18);
-	div_lookup_generator(s->adm_div_lookup);
+    div_lookup_generator(s->adm_div_lookup);
     strred_funque_log_generate(s->log_18);
     strred_funque_generate_log22(s->log_22);
 
@@ -572,6 +653,12 @@ fail:
         aligned_free(s->res_ref_pic.data[0]);
     if (s->res_dist_pic.data[0])
         aligned_free(s->res_dist_pic.data[0]);
+#if ENABLE_PADDING
+    if(s->pad_ref)
+        aligned_free(s->pad_ref);
+    if(s->pad_dist)
+        aligned_free(s->pad_dist);
+#endif
     if(s->filter_buffer)
         aligned_free(s->filter_buffer);
     if(s->spat_tmp_buf)
@@ -639,59 +726,122 @@ static int extract(VmafFeatureExtractor *fex,
         res_dist_pic = dist_pic;
     }
 
-    // if(s->enable_spatial_csf)
-    // {
-        s->i_process_ref_width = (res_ref_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_ref_height = (res_ref_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_dist_width = (res_dist_pic->w[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-        s->i_process_dist_height = (res_dist_pic->h[0] >> s->needed_dwt_levels) << s->needed_dwt_levels;
-    // }
-    // else
-    // {
-    //     s->i_process_ref_width   = (ref_pic->w[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_ref_height  = (ref_pic->h[0]  >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_dist_width  = (dist_pic->w[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    //     s->i_process_dist_height = (dist_pic->h[0] >> (s->needed_dwt_levels + 1)) << s->needed_dwt_levels;
-    // }
+    if(s->ms_ssim_levels != 0) {
+#if ENABLE_PADDING
+        int two_pow_level_m1 = pow(2, (s->needed_dwt_levels - 1));
+        s->i_process_ref_width = ((res_ref_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels)
+                                 << s->needed_dwt_levels;
+        s->i_process_ref_height = ((res_ref_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels)
+                                  << s->needed_dwt_levels;
+        s->i_process_dist_width = ((res_dist_pic->w[0] + two_pow_level_m1) >> s->needed_dwt_levels)
+                                  << s->needed_dwt_levels;
+        s->i_process_dist_height = ((res_dist_pic->h[0] + two_pow_level_m1) >> s->needed_dwt_levels)
+                                   << s->needed_dwt_levels;
+#else
+        s->i_process_ref_width = (res_ref_pic->w[0] >> s->needed_dwt_levels)
+                                 << s->needed_dwt_levels;
+        s->i_process_ref_height = (res_ref_pic->h[0] >> s->needed_dwt_levels)
+                                  << s->needed_dwt_levels;
+        s->i_process_dist_width = (res_dist_pic->w[0] >> s->needed_dwt_levels)
+                                  << s->needed_dwt_levels;
+        s->i_process_dist_height = (res_dist_pic->h[0] >> s->needed_dwt_levels)
+                                   << s->needed_dwt_levels;
+#endif
+    } else {
+        s->i_process_ref_width = res_ref_pic->w[0];
+        s->i_process_ref_height = res_ref_pic->h[0];
+        s->i_process_dist_width = res_dist_pic->w[0];
+        s->i_process_dist_height = res_dist_pic->h[0];
+    }
 
+#if ENABLE_PADDING
+    int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
+
+    int reflect_width, reflect_height;
+    reflect_width = (s->i_process_ref_width - res_ref_pic->w[0]) / 2;
+    reflect_height = (s->i_process_ref_height - res_ref_pic->h[0]) / 2;
+    integer_reflect_pad_for_input(res_ref_pic->data[0], s->pad_ref, res_ref_pic->w[0],
+                                  res_ref_pic->h[0], reflect_width, reflect_height,
+                                  res_ref_pic->bpc);
+
+    reflect_width = (s->i_process_dist_width - res_dist_pic->w[0]) / 2;
+    reflect_height = (s->i_process_dist_height - res_dist_pic->h[0]) / 2;
+    integer_reflect_pad_for_input(res_dist_pic->data[0], s->pad_dist, res_dist_pic->w[0],
+                                  res_dist_pic->h[0], reflect_width, reflect_height,
+                                  res_ref_pic->bpc);
+
+    if(s->enable_spatial_csf) {
+        s->modules.integer_spatial_filter(s->pad_ref, s->filter_buffer, s->filter_buffer_stride,
+                                          s->i_process_ref_width, s->i_process_ref_height,
+                                          (int) res_ref_pic->bpc, s->spat_tmp_buf,
+                                          s->spatial_csf_filter_type);
+        s->modules.integer_funque_dwt2(
+            s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_process_ref_width,
+            s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf, -1);
+        s->modules.integer_spatial_filter(s->pad_dist, s->filter_buffer, s->filter_buffer_stride,
+                                          s->i_process_dist_width, s->i_process_dist_height,
+                                          (int) res_dist_pic->bpc, s->spat_tmp_buf,
+                                          s->spatial_csf_filter_type);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
+                                       s->enable_spatial_csf, -1);
+    } else {
+        s->modules.integer_funque_picture_copy(s->pad_ref, s->filter_buffer,
+                                               s->filter_buffer_stride, s->i_process_ref_width,
+                                               s->i_process_ref_height, (int) res_ref_pic->bpc);
+        s->modules.integer_funque_dwt2(
+            s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_process_ref_width,
+            s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf, 0);
+
+        s->modules.integer_funque_picture_copy(s->pad_dist, s->filter_buffer,
+                                               s->filter_buffer_stride, s->i_process_dist_width,
+                                               s->i_process_dist_height, (int) res_dist_pic->bpc);
+        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
+                                       &s->i_dist_dwt2out[0], s->i_process_dist_width,
+                                       s->i_process_dist_width, s->i_process_dist_height,
+                                       s->enable_spatial_csf, 0);
+    }
+#else
     int bitdepth_pow2 = (1 << res_ref_pic->bpc) - 1;
 
     if (s->enable_spatial_csf) {
-        s->modules.integer_spatial_filter(
-            res_ref_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_ref_pic->w[0],
-            res_ref_pic->h[0], (int) res_ref_pic->bpc, s->spat_tmp_buf, s->num_taps);
-        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
-                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
-                                       -1);
-        s->modules.integer_spatial_filter(
-            res_dist_pic->data[0], s->filter_buffer, s->filter_buffer_stride, res_dist_pic->w[0],
-            res_dist_pic->h[0], (int) res_dist_pic->bpc, s->spat_tmp_buf, s->num_taps);
+        s->modules.integer_spatial_filter(res_ref_pic->data[0], s->filter_buffer,
+                                          s->filter_buffer_stride, s->i_process_ref_width,
+                                          s->i_process_ref_height, (int) res_ref_pic->bpc,
+                                          s->spat_tmp_buf, s->spatial_csf_filter_type);
+        s->modules.integer_funque_dwt2(
+            s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_process_ref_width,
+            s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf, -1);
+        s->modules.integer_spatial_filter(res_dist_pic->data[0], s->filter_buffer,
+                                          s->filter_buffer_stride, s->i_process_dist_width,
+                                          s->i_process_dist_height, (int) res_dist_pic->bpc,
+                                          s->spat_tmp_buf, s->spatial_csf_filter_type);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, -1);
     } else {
         s->modules.integer_funque_picture_copy(res_ref_pic->data[0], s->filter_buffer,
-                                               s->filter_buffer_stride, res_ref_pic->w[0],
-                                               res_ref_pic->h[0], (int) res_ref_pic->bpc);
-        s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
-                                       &s->i_ref_dwt2out[0], s->i_process_ref_width,
-                                       s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf,
-                                       0);
+                                               s->filter_buffer_stride, s->i_process_ref_width,
+                                               s->i_process_ref_height, (int) res_ref_pic->bpc);
+        s->modules.integer_funque_dwt2(
+            s->filter_buffer, s->filter_buffer_stride, &s->i_ref_dwt2out[0], s->i_process_ref_width,
+            s->i_process_ref_width, s->i_process_ref_height, s->enable_spatial_csf, 0);
 
         s->modules.integer_funque_picture_copy(res_dist_pic->data[0], s->filter_buffer,
-                                               s->filter_buffer_stride, res_dist_pic->w[0],
-                                               res_dist_pic->h[0], (int) res_dist_pic->bpc);
+                                               s->filter_buffer_stride, s->i_process_dist_width,
+                                               s->i_process_dist_height, (int) res_dist_pic->bpc);
         s->modules.integer_funque_dwt2(s->filter_buffer, s->filter_buffer_stride,
                                        &s->i_dist_dwt2out[0], s->i_process_dist_width,
                                        s->i_process_dist_width, s->i_process_dist_height,
                                        s->enable_spatial_csf, 0);
     }
+#endif
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore_int ms_ssim_score[MAX_LEVELS];
-    //s->score = &ms_ssim_score;
+    // s->score = &ms_ssim_score;
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
     double vif_score[MAX_LEVELS], vif_score_num[MAX_LEVELS], vif_score_den[MAX_LEVELS];
@@ -727,19 +877,21 @@ static int extract(VmafFeatureExtractor *fex,
                 // from here on out we only need approx band for VIF
                 integer_funque_vifdwt2_band0(
                     s->i_ref_dwt2out[level].bands[0], s->i_ref_dwt2out[level + 1].bands[0],
-                    ((s->i_ref_dwt2out[level + 1].stride + 1) / 2), s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    ((s->i_ref_dwt2out[level + 1].stride + 1) / 2), s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
                 integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
-                                    s->i_ref_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_ref_dwt2out[level + 1],
-                                    s->i_ref_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
-                                    s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
+                                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
+                                    &s->i_ref_dwt2out[level + 1],
+                                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                                     s->enable_spatial_csf, level + 1);
                 integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
-                                    s->i_dist_dwt2out[level].crop_width * sizeof(dwt2_dtype), &s->i_dist_dwt2out[level + 1],
-                                    s->i_dist_dwt2out[level + 1].crop_width * sizeof(dwt2_dtype),
-                                    s->i_dist_dwt2out[level].crop_width, s->i_dist_dwt2out[level].crop_height,
+                                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
+                                    &s->i_dist_dwt2out[level + 1],
+                                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
                                     s->enable_spatial_csf, level + 1);
             }
         }
@@ -764,74 +916,85 @@ static int extract(VmafFeatureExtractor *fex,
             }
         }
 
-       //TODO: Need to modify for crop width and height
-        if ((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
+        // TODO: Need to modify for crop width and height
+        if((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err = integer_compute_adm_funque(
                 s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level],
-                &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].crop_width,
-                s->i_ref_dwt2out[level].crop_height, ADM_BORDER_FACTOR, s->adm_div_lookup);
-            
+                &adm_score_num[level], &adm_score_den[level], s->i_ref_dwt2out[level].width,
+                s->i_ref_dwt2out[level].height, ADM_BORDER_FACTOR, s->adm_div_lookup);
+
             float adm_pending_div = pending_div_factor;
-            if (!s->enable_spatial_csf)
-                adm_pending_div = ( 1 << (i_nadenau_pending_div_factors[level][1])) * bitdepth_pow2;
+            if(!s->enable_spatial_csf)
+                adm_pending_div = (1 << (i_nadenau_pending_div_factors[level][1])) * bitdepth_pow2;
 
-            adm_num += adm_score_num[level]/adm_pending_div;
-            adm_den += adm_score_den[level]/adm_pending_div;
+            adm_num += adm_score_num[level] / adm_pending_div;
+            adm_den += adm_score_den[level] / adm_pending_div;
 
-    if (err)
-        return err;
+            if(err)
+                return err;
         }
 
-        if((s->ssim_levels != 0) && (level < s->ssim_levels))
-        {
-            err = s->modules.integer_compute_ms_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01, 0.03, pending_div_factor, s->adm_div_lookup, (level + 1), (int) (s->enable_spatial_csf == false));
+        if((s->ms_ssim_levels != 0) && (level < s->ms_ssim_levels)) {
+            err = s->modules.integer_compute_ms_ssim_funque(
+                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ms_ssim_score[level], 1, 0.01,
+                0.03, pending_div_factor, s->adm_div_lookup, (level + 1),
+                (int) (s->enable_spatial_csf == false));
 
-            err = s->modules.integer_mean_2x2_ms_ssim_funque(var_x_cum, var_y_cum, cov_xy_cum, s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height, level);
+            err = s->modules.integer_mean_2x2_ms_ssim_funque(var_x_cum, var_y_cum, cov_xy_cum,
+                                                             s->i_ref_dwt2out[level].width,
+                                                             s->i_ref_dwt2out[level].height, level);
 
-            if(level != s->ssim_levels - 1) {
+            if(level != s->ms_ssim_levels - 1) {
                 ms_ssim_score[level + 1].var_x_cum = ms_ssim_score[level].var_x_cum;
                 ms_ssim_score[level + 1].var_y_cum = ms_ssim_score[level].var_y_cum;
                 ms_ssim_score[level + 1].cov_xy_cum = ms_ssim_score[level].cov_xy_cum;
             }
         }
-        if((s->ssim_levels != 0) && (level < s->ssim_levels))
-        {
+        if((s->ssim_levels != 0) && (level < s->ssim_levels)) {
             int16_t ssim_pending_div = 0;
             float k1 = 0.01;
             float k2 = 0.03;
-            if (s->enable_spatial_csf) {
-                ssim_pending_div = ((1 << ( spatfilter_shifts + dwt_shifts)) * bitdepth_pow2) >> level;
+            if(s->enable_spatial_csf) {
+                ssim_pending_div =
+                    ((1 << (spatfilter_shifts + dwt_shifts)) * bitdepth_pow2) >> level;
+            } else {
+                ssim_pending_div = (1 << i_nadenau_pending_div_factors[level][0]) * 255;
+                k2 = k2 * (1 << (i_nadenau_pending_div_factors[level][1] -
+                                 i_nadenau_pending_div_factors[level][0]));
             }
-            else {
-                ssim_pending_div = (1<<i_nadenau_pending_div_factors[level][0]) * 255;
-                k2 = k2 * (1 << (i_nadenau_pending_div_factors[level][1] - i_nadenau_pending_div_factors[level][0]));
-            }
-            err = s->modules.integer_compute_ssim_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, k1, k2, ssim_pending_div, s->adm_div_lookup);
+            err = s->modules.integer_compute_ssim_funque(
+                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &ssim_score[level], 1, k1, k2,
+                ssim_pending_div, s->adm_div_lookup);
         }
 
-    if (err)
-        return err;
+        if(err)
+            return err;
 
-        if ((s->vif_levels != 0) && (level <= s->vif_levels - 1)) {
+        if((s->vif_levels != 0) && (level <= s->vif_levels - 1)) {
             int16_t vif_pending_div = 0;
-            if (s->enable_spatial_csf)
-            {
-                vif_pending_div = (1 << ( spatfilter_shifts + dwt_shifts - level)) * bitdepth_pow2;
-            }
-            else{
-                vif_pending_div = ( 1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
+            if(s->enable_spatial_csf) {
+                vif_pending_div = (1 << (spatfilter_shifts + dwt_shifts - level)) * bitdepth_pow2;
+            } else {
+                vif_pending_div = (1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
             }
 #if USE_DYNAMIC_SIGMA_NSQ
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
-                    &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, vif_pending_div, s->log_18, 0);
+            err = s->modules.integer_compute_vif_funque(
+                s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0],
+                s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, &vif_score[level],
+                &vif_score_num[level], &vif_score_den[level], 9, 1, (double) 5.0, vif_pending_div,
+                s->log_18, 0);
 #else
-            err = s->modules.integer_compute_vif_funque(s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0], s->i_ref_dwt2out[level].crop_width, s->i_ref_dwt2out[level].crop_height,
-                    &vif_score[level], &vif_score_num[level], &vif_score_den[level], 9, 1, (double)5.0, vif_pending_div, s->log_18);
+            err = s->modules.integer_compute_vif_funque(
+                s->i_ref_dwt2out[level].bands[0], s->i_dist_dwt2out[level].bands[0],
+                s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, &vif_score[level],
+                &vif_score_num[level], &vif_score_den[level], 9, 1, (double) 5.0, vif_pending_div,
+                s->log_18);
 #endif
             vif_num += vif_score_num[level];
             vif_den += vif_score_den[level];
 
-    if (err) return err;
+            if(err)
+                return err;
         }
 
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
@@ -840,200 +1003,200 @@ static int extract(VmafFeatureExtractor *fex,
             if(index == 0) {
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             } else {
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height, &s->strred_scores, BLOCK_SIZE, level, s->log_18,
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height, &s->strred_scores, BLOCK_SIZE, level, s->log_18,
                     s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
 
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].crop_width,
-                    s->i_ref_dwt2out[level].crop_height);
+                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
+                    s->i_ref_dwt2out[level].height);
             }
             if(err)
                 return err;
         }
     }
 
-    if(s->ssim_levels != 0) {
+    if(s->ms_ssim_levels != 0) {
         err |= integer_compute_ms_ssim_mean_scales(ms_ssim_score, s->ssim_levels);
     }
 
-    if (s->vif_levels > 0){
+    if(s->vif_levels > 0) {
+        double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
 
-    double vif = vif_den > 0 ? vif_num / vif_den : 1.0;
+        err |=
+            vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                    "FUNQUE_integer_feature_vif_score", vif, index);
 
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_vif_score",
-                                                   vif, index);
-
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_vif_scale0_score",
-                                                   vif_score[0], index);
-
-        if (s->vif_levels > 1) {
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                        s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
-                                                        vif_score[1], index);
-
-            if (s->vif_levels > 2) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                            s->feature_name_dict, "FUNQUE_integer_feature_vif_scale2_score",
-                                                            vif_score[2], index);
-
-                if (s->vif_levels > 3) {
-                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                s->feature_name_dict, "FUNQUE_integer_feature_vif_scale3_score",
-                                                                vif_score[3], index);
-                }
-            }
-        }
-    }
-
-    if (s->adm_levels > 0) {
-        double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_score",
-                                                   adm, index);
-
-    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                   s->feature_name_dict, "FUNQUE_integer_feature_adm_scale0_score",
-                                                   adm_score[0], index);
-        if (s->adm_levels > 1) {
-
-            err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                            s->feature_name_dict, "FUNQUE_integer_feature_adm_scale1_score",
-                                                            adm_score[1], index);
-
-            if (s->adm_levels > 2) {
-                err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                s->feature_name_dict, "FUNQUE_integer_feature_adm_scale2_score",
-                                                                adm_score[2], index);
-
-                if (s->adm_levels > 3) {
-                    err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                    s->feature_name_dict, "FUNQUE_integer_feature_adm_scale3_score",
-                                                                    adm_score[3], index);
-                }
-            }
-        }
-    }
-
-if (s->ssim_levels > 0) {
-       err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                       "FUNQUE_integer_feature_ssim_scale0_score",
-                                         ssim_score[0], index);
-
-       if (s->ssim_levels > 1) {
-           err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                          s->feature_name_dict,
-                                                          "FUNQUE_integer_feature_ssim_scale1_score",
-                                                          ssim_score[1], index);
-    
-           if (s->ssim_levels > 2) {
-               err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                              s->feature_name_dict,
-                                                              "FUNQUE_integer_feature_ssim_scale2_score",
-                                                              ssim_score[2], index);
-    
-               if (s->ssim_levels > 3) {
-                   err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                                  s->feature_name_dict,
-                                                                  "FUNQUE_integer_feature_ssim_scale3_score",
-                                                                  ssim_score[3], index);
-               }
-           }
-       }
-}
-
-if(s->strred_levels > 0) {
-    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                                         "FUNQUE_integer_feature_strred_scale0_score",
-                                         s->strred_scores.strred_vals[0], index);
-    if(s->strred_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                                                       "FUNQUE_integer_feature_strred_scale1_score",
-                                                       s->strred_scores.strred_vals[1], index);
+                                                       "FUNQUE_integer_feature_vif_scale0_score",
+                                                       vif_score[0], index);
 
-        if(s->strred_levels > 2) {
+        if(s->vif_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(
-                feature_collector, s->feature_name_dict,
-                "FUNQUE_integer_feature_strred_scale2_score", s->strred_scores.strred_vals[2],
-                index);
+                feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_vif_scale1_score",
+                vif_score[1], index);
 
-            if(s->strred_levels > 3) {
+            if(s->vif_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
-                    "FUNQUE_integer_feature_strred_scale3_score", s->strred_scores.strred_vals[3],
-                    index);
+                    "FUNQUE_integer_feature_vif_scale2_score", vif_score[2], index);
+
+                if(s->vif_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_vif_scale3_score", vif_score[3], index);
+                }
             }
         }
     }
-}
 
-if(s->ssim_levels > 0) {
-    err |= vmaf_feature_collector_append_with_dict(
-        feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ms_ssim_mean_scale0_score",
-        s->score[0].ms_ssim_mean, index);
+    if(s->adm_levels > 0) {
+        double adm = adm_den > 0 ? adm_num / adm_den : 1.0;
+        err |=
+            vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                    "FUNQUE_integer_feature_adm_score", adm, index);
 
-    err |= vmaf_feature_collector_append_with_dict(
-        feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ms_ssim_cov_scale0_score",
-        s->score[0].ms_ssim_cov, index);
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_integer_feature_adm_scale0_score",
+                                                       adm_score[0], index);
+        if(s->adm_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_adm_scale1_score",
+                adm_score[1], index);
 
-    err |= vmaf_feature_collector_append_with_dict(
-        feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score",
-        s->score[0].ms_ssim_mink3, index);
+            if(s->adm_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_integer_feature_adm_scale2_score", adm_score[2], index);
 
-    if(s->ssim_levels > 1) {
-        err |= vmaf_feature_collector_append_with_dict(
-            feature_collector, s->feature_name_dict,
-            "FUNQUE_integer_feature_ms_ssim_mean_scale1_score", s->score[1].ms_ssim_mean, index);
+                if(s->adm_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_adm_scale3_score", adm_score[3], index);
+                }
+            }
+        }
+    }
 
-        err |= vmaf_feature_collector_append_with_dict(
-            feature_collector, s->feature_name_dict,
-            "FUNQUE_integer_feature_ms_ssim_cov_scale1_score", s->score[1].ms_ssim_cov, index);
+    if(s->ssim_levels > 0) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_integer_feature_ssim_scale0_score",
+                                                       ssim_score[0], index);
 
-        err |= vmaf_feature_collector_append_with_dict(
-            feature_collector, s->feature_name_dict,
-            "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score", s->score[1].ms_ssim_mink3, index);
+        if(s->ssim_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict, "FUNQUE_integer_feature_ssim_scale1_score",
+                ssim_score[1], index);
 
-        if(s->ssim_levels > 2) {
+            if(s->ssim_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_integer_feature_ssim_scale2_score", ssim_score[2], index);
+
+                if(s->ssim_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_ssim_scale3_score", ssim_score[3], index);
+                }
+            }
+        }
+    }
+
+    if(s->strred_levels > 0) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_integer_feature_strred_scale0_score",
+                                                       s->strred_scores.strred_vals[0], index);
+        if(s->strred_levels > 1) {
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict,
-                "FUNQUE_integer_feature_ms_ssim_mean_scale2_score", s->score[2].ms_ssim_mean,
+                "FUNQUE_integer_feature_strred_scale1_score", s->strred_scores.strred_vals[1],
+                index);
+
+            if(s->strred_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_integer_feature_strred_scale2_score", s->strred_scores.strred_vals[2],
+                    index);
+
+                if(s->strred_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_strred_scale3_score",
+                        s->strred_scores.strred_vals[3], index);
+                }
+            }
+        }
+    }
+
+    if(s->ms_ssim_levels > 0) {
+        err |= vmaf_feature_collector_append_with_dict(
+            feature_collector, s->feature_name_dict,
+            "FUNQUE_integer_feature_ms_ssim_mean_scale0_score", s->score[0].ms_ssim_mean, index);
+
+        err |= vmaf_feature_collector_append_with_dict(
+            feature_collector, s->feature_name_dict,
+            "FUNQUE_integer_feature_ms_ssim_cov_scale0_score", s->score[0].ms_ssim_cov, index);
+
+        err |= vmaf_feature_collector_append_with_dict(
+            feature_collector, s->feature_name_dict,
+            "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score", s->score[0].ms_ssim_mink3, index);
+
+        if(s->ms_ssim_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict,
+                "FUNQUE_integer_feature_ms_ssim_mean_scale1_score", s->score[1].ms_ssim_mean,
                 index);
 
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict,
-                "FUNQUE_integer_feature_ms_ssim_cov_scale2_score", s->score[2].ms_ssim_cov, index);
+                "FUNQUE_integer_feature_ms_ssim_cov_scale1_score", s->score[1].ms_ssim_cov, index);
 
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict,
-                "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score", s->score[2].ms_ssim_mink3, index);
+                "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score", s->score[1].ms_ssim_mink3,
+                index);
 
-            if(s->ssim_levels > 3) {
+            if(s->ms_ssim_levels > 2) {
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
-                    "FUNQUE_integer_feature_ms_ssim_mean_scale3_score", s->score[3].ms_ssim_mean,
+                    "FUNQUE_integer_feature_ms_ssim_mean_scale2_score", s->score[2].ms_ssim_mean,
                     index);
 
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
-                    "FUNQUE_integer_feature_ms_ssim_cov_scale3_score", s->score[3].ms_ssim_cov,
+                    "FUNQUE_integer_feature_ms_ssim_cov_scale2_score", s->score[2].ms_ssim_cov,
                     index);
 
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
-                    "FUNQUE_integer_feature_ms_ssim_mink3_scale3_score", s->score[3].ms_ssim_mink3,
+                    "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score", s->score[2].ms_ssim_mink3,
                     index);
+
+                if(s->ms_ssim_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
+                        s->score[3].ms_ssim_mean, index);
+
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_ms_ssim_cov_scale3_score", s->score[3].ms_ssim_cov,
+                        index);
+
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_ms_ssim_mink3_scale3_score",
+                        s->score[3].ms_ssim_mink3, index);
+                }
             }
         }
     }
-}
 
     free(var_x_cum);
     free(var_y_cum);
@@ -1070,43 +1233,42 @@ static int close(VmafFeatureExtractor *fex)
     return 0;
 }
 
-static const char *provided_features[] = {
-    "FUNQUE_integer_feature_vif_score",
-    "FUNQUE_integer_feature_vif_scale0_score",
-    "FUNQUE_integer_feature_vif_scale1_score",
-    "FUNQUE_integer_feature_vif_scale2_score",
-    "FUNQUE_integer_feature_vif_scale3_score",
+static const char *provided_features[] = {"FUNQUE_integer_feature_vif_score",
+                                          "FUNQUE_integer_feature_vif_scale0_score",
+                                          "FUNQUE_integer_feature_vif_scale1_score",
+                                          "FUNQUE_integer_feature_vif_scale2_score",
+                                          "FUNQUE_integer_feature_vif_scale3_score",
 
-   "FUNQUE_integer_feature_adm_score",
-   "FUNQUE_integer_feature_adm_scale0_score",
-   "FUNQUE_integer_feature_adm_scale1_score",
-   "FUNQUE_integer_feature_adm_scale2_score",
-    "FUNQUE_integer_feature_adm_scale3_score",
+                                          "FUNQUE_integer_feature_adm_score",
+                                          "FUNQUE_integer_feature_adm_scale0_score",
+                                          "FUNQUE_integer_feature_adm_scale1_score",
+                                          "FUNQUE_integer_feature_adm_scale2_score",
+                                          "FUNQUE_integer_feature_adm_scale3_score",
 
-    "FUNQUE_integer_feature_ssim_scale0_score",
-    "FUNQUE_integer_feature_ssim_scale1_score",
-    "FUNQUE_integer_feature_ssim_scale2_score",
-    "FUNQUE_integer_feature_ssim_scale3_score",
+                                          "FUNQUE_integer_feature_ssim_scale0_score",
+                                          "FUNQUE_integer_feature_ssim_scale1_score",
+                                          "FUNQUE_integer_feature_ssim_scale2_score",
+                                          "FUNQUE_integer_feature_ssim_scale3_score",
 
-    "FUNQUE_integer_feature_strred_scale0_score",
-    "FUNQUE_integer_feature_strred_scale1_score",
-    "FUNQUE_integer_feature_strred_scale2_score",
-    "FUNQUE_integer_feature_strred_scale3_score",
+                                          "FUNQUE_integer_feature_strred_scale0_score",
+                                          "FUNQUE_integer_feature_strred_scale1_score",
+                                          "FUNQUE_integer_feature_strred_scale2_score",
+                                          "FUNQUE_integer_feature_strred_scale3_score",
 
-    "FUNQUE_integer_feature_ms_ssim_mean_scale0_score",
-    "FUNQUE_integer_feature_ms_ssim_mean_scale1_score",
-    "FUNQUE_integer_feature_ms_ssim_mean_scale2_score",
-    "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale0_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale1_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale2_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale3_score",
-    "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score",
-    "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score",
-    "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score",
-    "FUNQUE_integer_feature_ms_ssim_mink3_scale3_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mean_scale0_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mean_scale1_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mean_scale2_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
+                                          "FUNQUE_integer_feature_ms_ssim_cov_scale0_score",
+                                          "FUNQUE_integer_feature_ms_ssim_cov_scale1_score",
+                                          "FUNQUE_integer_feature_ms_ssim_cov_scale2_score",
+                                          "FUNQUE_integer_feature_ms_ssim_cov_scale3_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score",
+                                          "FUNQUE_integer_feature_ms_ssim_mink3_scale3_score",
 
-    NULL};
+                                          NULL};
 
 VmafFeatureExtractor vmaf_fex_integer_funque = {
     .name = "integer_funque",
