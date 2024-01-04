@@ -574,7 +574,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     if (flags & VMAF_ARM_CPU_FLAG_NEON) {
         if (bpc == 8)
         {
-            if(s->num_taps == 21)
+            if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_neon;
             else
                 s->modules.integer_spatial_filter = integer_spatial_5tap_filter_neon;
@@ -592,6 +592,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
 
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
     }
 #elif ARCH_ARM
     if (bpc == 8)
@@ -606,7 +607,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
         if (bpc == 8)
         {
-            if(s->num_taps == 21)
+            if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
             else
                 s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx2;
@@ -881,13 +882,13 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
-                integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
+                s->modules.integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
                                     s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
                                     &s->i_ref_dwt2out[level + 1],
                                     s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
                                     s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
                                     s->enable_spatial_csf, level + 1);
-                integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
+                s->modules.integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
                                     s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
                                     &s->i_dist_dwt2out[level + 1],
                                     s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
@@ -899,18 +900,18 @@ static int extract(VmafFeatureExtractor *fex,
         if(!s->enable_spatial_csf) {
             if(level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
+                s->modules.integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
                                                 3, s->csf_interim_rnd[level],
                                                 s->csf_interim_shift[level], level);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
+                s->modules.integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
                                                 3, s->csf_interim_rnd[level],
                                                 s->csf_interim_shift[level], level);
             } else {
                 // we only need CSF on approx band
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
+                s->modules.integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
                                                 0, s->csf_interim_rnd[level],
                                                 s->csf_interim_shift[level], level);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
+                s->modules.integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
                                                 0, s->csf_interim_rnd[level],
                                                 s->csf_interim_shift[level], level);
             }
