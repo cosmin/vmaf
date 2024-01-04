@@ -222,7 +222,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             rowcube_1minus_map += const1_minus_map * const1_minus_map * const1_minus_map;
 #else
             accum_map += map;
-            map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype)map * map));
+            //map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype)map * map));
 #endif
         }
 #if ENABLE_MINK3POOL
@@ -235,11 +235,13 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     *score = ssim_clip(ssim_val, 0, 1);
 #else
 
-    accum_map_sq = map_sq_insum / (height * width);
-    double ssim_mean = (double)accum_map / (height * width);
-    double ssim_std;
-    ssim_std = sqrt(MAX(0, ((double)accum_map_sq - ssim_mean * ssim_mean)));
-    *score = (ssim_std / ssim_mean);
+    // accum_map_sq = map_sq_insum / (height * width);
+    // double ssim_mean = (double)accum_map / (height * width);
+    // double ssim_std;
+    // ssim_std = sqrt(MAX(0, ((double)accum_map_sq - ssim_mean * ssim_mean)));
+    // *score = (ssim_std / ssim_mean);
+
+    *score = (double) accum_map / (height * width) / (1 << SSIM_SHIFT_DIV);
 
 #endif
 
