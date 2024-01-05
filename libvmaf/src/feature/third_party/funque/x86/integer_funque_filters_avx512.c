@@ -399,6 +399,184 @@ void integer_funque_dwt2_avx512(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_
     }
 }
 
+void integer_funque_dwt2_avx512(spat_fil_output_dtype *src, ptrdiff_t src_stride,
+                                i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width,
+                                int height, int spatial_csf, int level)
+{
+    int src_px_stride = src_stride / sizeof(dwt2_dtype);
+    int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
+    int8_t const_2_wl0 = 1;
+
+    /**
+     * Absolute value of filter coefficients are 1/sqrt(2)
+     * The filter is handled by multiplying square of coefficients in final stage
+     * Hence the value becomes 1/2, and this is handled using shifts
+     * Also extra required out shift is done along with filter shift itself
+     */
+    int8_t filter_shift = 1 + DWT2_OUT_SHIFT;
+    int8_t filter_shift_rnd__val = 1 << (filter_shift - 1);
+
+    /**
+     * Last column due to padding the values are left shifted and then right shifted
+     * Hence using updated shifts. Subtracting 1 due to left shift
+     */
+    int8_t filter_shift_lcpad = 1 + DWT2_OUT_SHIFT - 1;
+    int8_t filter_shift_lcpad_rnd = 1 << (filter_shift_lcpad - 1);
+
+    if(spatial_csf == 0)
+    {
+        if(level != 3)
+        {
+            filter_shift = 0;
+            filter_shift_rnd__val = 0;
+            const_2_wl0 = 2;
+            filter_shift_lcpad = 0;
+            filter_shift_lcpad_rnd = 0;
+        }
+    }
+
+    __m512i filter_shift_rnd = _mm512_set1_epi32(filter_shift_rnd__val);
+
+    dwt2_dtype *band_a = dwt2_dst->bands[0];
+    dwt2_dtype *band_h = dwt2_dst->bands[1];
+    dwt2_dtype *band_v = dwt2_dst->bands[2];
+    dwt2_dtype *band_d = dwt2_dst->bands[3];
+
+    int16_t row_idx0, row_idx1, col_idx0;
+
+    int row0_offset, row1_offset;
+
+    int last_col = width & 1;
+
+    int i, j, k;
+    __m512i multi_const_1 = _mm512_set_epi16(1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
+                                             1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0);
+    __m512i multi_const_2 = _mm512_set_epi16(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
+                                             0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1);
+
+    for(i = 0; i < (height + 1) >> 1; ++i)
+    {
+        row_idx0 = i << 1;
+        row_idx1 = (i << 1) + 1;
+        row_idx1 = row_idx1 < height ? row_idx1 : i << 1;
+        row0_offset = (row_idx0) *src_px_stride;
+        row1_offset = (row_idx1) *src_px_stride;
+
+        for(j = 0; j <= width - 32; j += 32)
+        {
+            col_idx0 = j;
+            k = (j >> 1);
+
+            __m512i loaded_data_ac = _mm512_loadu_si512((__m512i *) (src + row0_offset + col_idx0));
+
+            __m512i a_32bit = _mm512_madd_epi16(loaded_data_ac, multi_const_2);
+            __m512i c_32bit = _mm512_madd_epi16(loaded_data_ac, multi_const_1);
+
+            __m512i a_add_c = _mm512_add_epi32(a_32bit, c_32bit);
+            __m512i a_sub_c = _mm512_sub_epi32(a_32bit, c_32bit);
+
+            __m512i loaded_data_bd = _mm512_loadu_si512((__m512i *) (src + row1_offset + col_idx0));
+
+            __m512i b_32bit = _mm512_madd_epi16(loaded_data_bd, multi_const_2);
+            __m512i d_32bit = _mm512_madd_epi16(loaded_data_bd, multi_const_1);
+
+            __m512i b_add_d = _mm512_add_epi32(b_32bit, d_32bit);
+            __m512i b_sub_d = _mm512_sub_epi32(b_32bit, d_32bit);
+
+            __m512i inter_a = _mm512_srai_epi32(
+                _mm512_add_epi32(_mm512_add_epi32(a_add_c, b_add_d), filter_shift_rnd),
+                filter_shift);
+            _mm256_storeu_si256((__m256i *) (band_a + i * dst_px_stride + k),
+                                _mm512_cvtepi32_epi16(inter_a));
+
+            __m512i inter_h = _mm512_srai_epi32(
+                _mm512_add_epi32(_mm512_sub_epi32(a_add_c, b_add_d), filter_shift_rnd),
+                filter_shift);
+            _mm256_storeu_si256((__m256i *) (band_h + i * dst_px_stride + k),
+                                _mm512_cvtepi32_epi16(inter_h));
+
+            __m512i inter_v = _mm512_srai_epi32(
+                _mm512_add_epi32(_mm512_add_epi32(a_sub_c, b_sub_d), filter_shift_rnd),
+                filter_shift);
+            _mm256_storeu_si256((__m256i *) (band_v + i * dst_px_stride + k),
+                                _mm512_cvtepi32_epi16(inter_v));
+
+            __m512i inter_d = _mm512_srai_epi32(
+                _mm512_add_epi32(_mm512_sub_epi32(a_sub_c, b_sub_d), filter_shift_rnd),
+                filter_shift);
+            _mm256_storeu_si256((__m256i *) (band_d + i * dst_px_stride + k),
+                                _mm512_cvtepi32_epi16(inter_d));
+        }
+        for(; j < width - 1; j += 2)
+        {
+            col_idx0 = j;
+            int col_idx1 = j + 1;
+            int k = (j >> 1);
+
+            // a & b 2 values in adjacent rows at the same coloumn
+            spat_fil_output_dtype src_a = src[row0_offset + col_idx0];
+            spat_fil_output_dtype src_b = src[row1_offset + col_idx0];
+
+            // c & d are adjacent values to a & b in teh same row
+            spat_fil_output_dtype src_c = src[row0_offset + col_idx1];
+            spat_fil_output_dtype src_d = src[row1_offset + col_idx1];
+
+            // a + b & a - b
+            int32_t src_a_p_b = src_a + src_b;
+            int32_t src_a_m_b = src_a - src_b;
+
+            // c + d & c - d
+            int32_t src_c_p_d = src_c + src_d;
+            int32_t src_c_m_d = src_c - src_d;
+
+            // F* F (a + b + c + d) - band A  (F*F is 1/2)
+            band_a[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_p_b + src_c_p_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a - b + c - d) - band H  (F*F is 1/2)
+            band_h[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_m_b + src_c_m_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a + b - c + d) - band V  (F*F is 1/2)
+            band_v[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_p_b - src_c_p_d) + filter_shift_rnd__val) >> filter_shift);
+
+            // F* F (a - b - c - d) - band D  (F*F is 1/2)
+            band_d[i * dst_px_stride + k] =
+                (dwt2_dtype) (((src_a_m_b - src_c_m_d) + filter_shift_rnd__val) >> filter_shift);
+        }
+        if(last_col)
+        {
+            col_idx0 = j;
+            int k = j >> 1;
+
+            // a & b 2 values in adjacent rows at the last coloumn
+            spat_fil_output_dtype src_a = src[row0_offset + col_idx0];
+            spat_fil_output_dtype src_b = src[row1_offset + col_idx0];
+
+            // a + b	& a - b
+            int32_t src_a_p_b = src_a + src_b;
+            int32_t src_a_m_b = src_a - src_b;
+
+            // F* F (a + b + a + b) - band A  (F*F is 1/2)
+            band_a[i * dst_px_stride + k] =
+                (dwt2_dtype) ((src_a_p_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
+
+            // F* F (a - b + a - b) - band H  (F*F is 1/2)
+            band_h[i * dst_px_stride + k] =
+                (dwt2_dtype) ((src_a_m_b * const_2_wl0 + filter_shift_lcpad_rnd) >>
+                              filter_shift_lcpad);
+
+            // F* F (a + b - (a + b)) - band V, Last column V will always be 0
+            band_v[i * dst_px_stride + k] = 0;
+
+            // F* F (a - b - (a -b)) - band D,  Last column D will always be 0
+            band_d[i * dst_px_stride + k] = 0;
+        }
+    }
+}
+
 void integer_funque_vifdwt2_band0_avx512(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
@@ -3386,4 +3564,181 @@ void integer_spatial_filter_avx512(void *src, spat_fil_output_dtype *dst, int wi
     aligned_free(tmp);
 
     return;
+}
+
+void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
+                                     int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
+                                     uint8_t interim_shift_factors[4], int level)
+
+{
+	UNUSED(min_theta);
+	UNUSED(max_theta);
+	UNUSED(level);
+
+    dwt2_dtype *src_ptr0=src->bands[0];
+	dwt2_dtype *src_ptr1=src->bands[2];
+	dwt2_dtype *src_ptr2=src->bands[3];
+	dwt2_dtype *src_ptr3=src->bands[1];
+
+    dwt2_dtype *dst_ptr0=src->bands[0];
+	dwt2_dtype *dst_ptr1=src->bands[2];
+	dwt2_dtype *dst_ptr2=src->bands[3];
+	dwt2_dtype *dst_ptr3=src->bands[1];
+
+    //dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+    int px_stride = src->stride / sizeof(dwt2_dtype);
+
+    int left = 0;
+    int top = 0;
+
+    /*  changes made wrt to my code will be changed later */
+    min_theta++;min_theta--;max_theta++;max_theta--;interim_shift_factors[0]++;interim_shift_factors[0]--;interim_rnd_factors[0]++;interim_rnd_factors[0]--;level++;level--;
+    /*upto here*/
+
+    /*
+    int right = src->crop_width; 
+    int bottom = src->crop_height;
+    */
+
+    int right = src->width; 
+    int bottom = src->height;
+
+    int i, j, theta, src_offset, dst_offset;
+    spat_fil_accum_dtype mul_val;
+    dwt2_dtype dst_val;
+    int width_rem=src->width - (src->width)%32;
+// 
+
+    // x86 variables
+    __m512i d0,mul0_lo,mul0_hi,tmp0_lo,tmp0_hi;
+    __m512i d1,mul1_lo,mul1_hi,tmp1_lo,tmp1_hi;
+    __m512i d2,mul2_lo,mul2_hi,tmp2_lo,tmp2_hi;
+    __m512i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
+    __m512i res0,res1,res2,res3,fres0,fres1,fres2,fres3;
+    __m512i result0_lo,result0_hi,result1_lo,result1_hi,result2_lo,result2_hi,result3_lo,result3_hi;
+    __m512i mask= _mm512_set_epi16(0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF);
+   
+
+    __m512i coef_0 = _mm512_set1_epi16(factors[0]);
+    __m512i coef_1 = _mm512_set1_epi16(factors[1]);
+    __m512i coef_2 = _mm512_set1_epi16(factors[2]);
+    __m512i coef_3 = _mm512_set1_epi16(factors[3]);
+
+    __m512i rnd_0= _mm512_set1_epi32(interim_rnd_factors[0]);
+    __m512i rnd_1= _mm512_set1_epi32(interim_rnd_factors[1]);
+    __m512i rnd_2= _mm512_set1_epi32(interim_rnd_factors[2]);
+    __m512i rnd_3= _mm512_set1_epi32(interim_rnd_factors[3]);
+    
+
+        for(i = top; i < bottom; ++i) {
+      
+            src_offset = px_stride*i;
+            dst_offset =  px_stride*i;
+         
+
+   
+            for(j = left; j < width_rem; j=j+32) {
+                
+           
+            d0 = _mm512_loadu_si512((__m512i*)(src_ptr0+src_offset+j ));
+            d1 = _mm512_loadu_si512((__m512i*)(src_ptr1+src_offset+j ));
+            d2 = _mm512_loadu_si512((__m512i*)(src_ptr2+src_offset+j ));
+            d3 = _mm512_loadu_si512((__m512i*)(src_ptr3+src_offset+j ));
+
+            mul0_lo = _mm512_mullo_epi16(d0, coef_0);
+			mul0_hi = _mm512_mulhi_epi16(d0, coef_0);
+            mul1_lo = _mm512_mullo_epi16(d1, coef_1);
+			mul1_hi = _mm512_mulhi_epi16(d1, coef_1);
+            mul2_lo = _mm512_mullo_epi16(d2, coef_2);
+			mul2_hi = _mm512_mulhi_epi16(d2, coef_2);
+            mul3_lo = _mm512_mullo_epi16(d3, coef_3);
+			mul3_hi = _mm512_mulhi_epi16(d3, coef_3);
+
+            tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+			tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+            tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+			tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+            tmp2_lo = _mm512_unpacklo_epi16(mul2_lo, mul2_hi);
+			tmp2_hi = _mm512_unpackhi_epi16(mul2_lo, mul2_hi);
+            tmp3_lo = _mm512_unpacklo_epi16(mul3_lo, mul3_hi);
+			tmp3_hi = _mm512_unpackhi_epi16(mul3_lo, mul3_hi);
+
+           tmp0_lo= _mm512_add_epi32(tmp0_lo, rnd_0);
+           tmp0_hi= _mm512_add_epi32(tmp0_hi, rnd_0);
+           
+           tmp1_lo= _mm512_add_epi32(tmp1_lo, rnd_1);
+           tmp1_hi= _mm512_add_epi32(tmp1_hi, rnd_1);
+           
+           tmp2_lo= _mm512_add_epi32(tmp2_lo, rnd_2);
+           tmp2_hi= _mm512_add_epi32(tmp2_hi, rnd_2);
+
+           tmp3_lo= _mm512_add_epi32(tmp3_lo, rnd_3);
+           tmp3_hi= _mm512_add_epi32(tmp3_hi, rnd_3);
+
+       
+        
+           tmp0_lo= _mm512_srai_epi32(tmp0_lo, interim_shift_factors[0]);
+           tmp0_hi= _mm512_srai_epi32(tmp0_hi, interim_shift_factors[0]);
+
+           tmp1_lo= _mm512_srai_epi32(tmp1_lo, interim_shift_factors[1]);
+           tmp1_hi= _mm512_srai_epi32(tmp1_hi, interim_shift_factors[1]);
+
+           tmp2_lo= _mm512_srai_epi32(tmp2_lo, interim_shift_factors[2]);
+           tmp2_hi= _mm512_srai_epi32(tmp2_hi, interim_shift_factors[2]);
+
+           tmp3_lo= _mm512_srai_epi32(tmp3_lo, interim_shift_factors[3]);
+           tmp3_hi= _mm512_srai_epi32(tmp3_hi, interim_shift_factors[3]);
+           
+
+
+   
+         result0_lo= _mm512_and_si512(tmp0_lo, mask); 
+         result0_hi= _mm512_and_si512(tmp0_hi, mask);
+         result1_lo= _mm512_and_si512(tmp1_lo, mask); 
+         result1_hi= _mm512_and_si512(tmp1_hi, mask); 
+         result2_lo= _mm512_and_si512(tmp2_lo, mask); 
+         result2_hi= _mm512_and_si512(tmp2_hi, mask); 
+         result3_lo= _mm512_and_si512(tmp3_lo, mask); 
+         result3_hi= _mm512_and_si512(tmp3_hi, mask);  
+
+          res0 = _mm512_packus_epi32(result0_lo, result0_hi);
+          res1 = _mm512_packus_epi32(result1_lo, result1_hi);
+          res2 = _mm512_packus_epi32(result2_lo, result2_hi);
+          res3 = _mm512_packus_epi32(result3_lo, result3_hi);
+          
+
+
+           
+        _mm512_storeu_si512((__m512i*)(dst_ptr0+dst_offset+j), res0);
+        _mm512_storeu_si512((__m512i*)(dst_ptr1+dst_offset+j), res1);
+        _mm512_storeu_si512((__m512i*)(dst_ptr2+dst_offset+j), res2);
+        _mm512_storeu_si512((__m512i*)(dst_ptr3+dst_offset+j), res3);
+        
+
+        }
+
+        for(; j < right; ++j) {
+                mul_val = (spat_fil_accum_dtype) factors[0] * src_ptr0[src_offset+j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[0]) >>
+                                        interim_shift_factors[0]);
+                dst_ptr0[dst_offset+j] = dst_val;
+
+                mul_val = (spat_fil_accum_dtype) factors[1] * src_ptr1[src_offset+j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[1]) >>
+                                        interim_shift_factors[1]);
+                dst_ptr1[dst_offset+j] = dst_val;
+
+                
+                mul_val = (spat_fil_accum_dtype) factors[2] * src_ptr2[src_offset+j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[2]) >>
+                                        interim_shift_factors[2]);
+                dst_ptr2[dst_offset+j] = dst_val;
+
+                
+                mul_val = (spat_fil_accum_dtype) factors[3] * src_ptr3[src_offset+j];
+                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[3]) >>
+                                        interim_shift_factors[3]);
+                dst_ptr3[dst_offset+j] = dst_val;
+            }
+        }
 }

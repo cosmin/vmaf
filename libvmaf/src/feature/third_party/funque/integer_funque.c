@@ -71,6 +71,7 @@
 #include "x86/integer_funque_ssim_avx512.h"
 #include "x86/integer_funque_adm_avx512.h"
 #include "x86/integer_funque_vif_avx512.h"
+#include "x86/integer_funque_strred_avx512.h"
 #endif
 #endif
 
@@ -666,11 +667,10 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx2;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx2;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
-
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx2;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #else
@@ -693,21 +693,58 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
-
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #endif
     }
 #if HAVE_AVX512
     if (flags & VMAF_X86_CPU_FLAG_AVX512) {
-        s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
-        s->resize_module.resizer_step = step_avx512;
-        s->resize_module.hbd_resizer_step = hbd_step_avx512;
-        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx512;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+#if ENABLE_SIMD_PROFILING
+        if (bpc == 8)
+        {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx512;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_avx2;
+
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_avx512;
+        s->resize_module.resizer_step = step_avx512;
+        s->resize_module.hbd_resizer_step = hbd_step_avx512;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx512;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+
+#else
+        if (bpc == 8)
+        {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_filter;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step;
+        s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#endif
     }
 #endif
 #endif
@@ -987,7 +1024,6 @@ static int extract(VmafFeatureExtractor *fex,
             }
         }
 
-        // TODO: Need to modify for crop width and height
         if((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err = integer_compute_adm_funque(
                 s->modules, s->i_ref_dwt2out[level], s->i_dist_dwt2out[level], &adm_score[level],

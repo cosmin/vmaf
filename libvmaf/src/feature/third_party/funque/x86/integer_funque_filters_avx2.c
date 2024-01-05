@@ -3393,7 +3393,9 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
 {
-
+	UNUSED(min_theta);
+	UNUSED(max_theta);
+	UNUSED(level);
     // dwt2_dtype *src_ptr0,*src_ptr1,*src_ptr2,*src_ptr3,*src_ptr;
     // dwt2_dtype *dst_ptr0,*dst_ptr1,*dst_ptr2,*dst_ptr3,*dst_ptr;
     
@@ -3407,8 +3409,8 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
 	dwt2_dtype *dst_ptr2=src->bands[3];
 	dwt2_dtype *dst_ptr3=src->bands[1];
 
-    dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
-    int px_stride = src->width / sizeof(dwt2_dtype);
+//    dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+    int px_stride = src->stride / sizeof(dwt2_dtype);
 
     /* The computation of the csf values is not required for the regions which lie outside the frame borders */
     int left = 0;
@@ -3416,7 +3418,7 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
     int right = src->width;
     int bottom = src->height;
 
-    int i, j, theta, src_offset, dst_offset;
+    int i, j, src_offset, dst_offset;
     spat_fil_accum_dtype mul_val;
     dwt2_dtype dst_val;
     int width_rem=src->width - (src->width)%16;
@@ -3426,8 +3428,8 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
     __m256i d2,mul2_lo,mul2_hi,tmp2_lo,tmp2_hi;
     __m256i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
     __m256i res0,res1,res2,res3,fres0,fres1,fres2,fres3;
-    __m256i result0_lo,result0_hi,result1_lo,result1_hi;
-	__m256i result2_lo,result2_hi,result3_lo,result3_hi;
+//    __m256i result0_lo,result0_hi,result1_lo,result1_hi;
+//	__m256i result2_lo,result2_hi,result3_lo,result3_hi;
     __m256i mask= _mm256_set_epi16(0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF);
 
     __m256i coef_0 = _mm256_set1_epi16(factors[0]);
@@ -3442,8 +3444,8 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
 
         for(i = top; i < bottom; ++i) {
       
-            src_offset = px_stride*i;
-            dst_offset =  px_stride*i;
+            src_offset = i * px_stride;
+            dst_offset = i * px_stride;
 
             for(j = left; j < width_rem; j=j+16) {
                 
