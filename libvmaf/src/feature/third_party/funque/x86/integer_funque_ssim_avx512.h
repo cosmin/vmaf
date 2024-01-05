@@ -23,3 +23,5 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
                                         MsSsimScore_int *score, int max_val, float K1, float K2,
                                         int pending_div, int32_t *div_lookup, int n_levels,
                                         int is_pyr);
+int integer_mean_2x2_ms_ssim_funque_avx512(int32_t* var_x_cum, int32_t* var_y_cum,
+                                         int32_t* cov_xy_cum, int width, int height, int level);

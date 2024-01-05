@@ -30,6 +30,7 @@
 #include "../integer_funque_filters.h"
 #include <immintrin.h>
 
+#if 0
 void integer_funque_dwt2_avx512(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height)
 {
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
@@ -398,7 +399,7 @@ void integer_funque_dwt2_avx512(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_
         }
     }
 }
-
+#endif
 void integer_funque_dwt2_avx512(spat_fil_output_dtype *src, ptrdiff_t src_stride,
                                 i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width,
                                 int height, int spatial_csf, int level)
