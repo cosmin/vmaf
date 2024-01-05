@@ -329,8 +329,8 @@ void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_strid
                             int height, int bitdepth, spat_fil_inter_dtype *tmp,
                             char *spatial_csf_filter)
 {
-    int filter_size;
-    const spat_fil_coeff_dtype *i_filter_coeffs;
+    int filter_size = 0;
+    const spat_fil_coeff_dtype *i_filter_coeffs = 0;
 
     if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
         filter_size = 5;
