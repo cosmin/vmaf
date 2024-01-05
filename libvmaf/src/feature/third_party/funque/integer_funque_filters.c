@@ -632,7 +632,7 @@ void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, 
     }
 }
 
-void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
+void integer_funque_dwt2_inplace_csf_c(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
 {
