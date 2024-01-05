@@ -699,8 +699,8 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
             __m256i varXcum32x8_hb = _mm256_loadu_si256((__m256i *)(var_x_cum + index_cum + 8));
             __m256i varYcum32x8_lb = _mm256_loadu_si256((__m256i *)(var_y_cum + index_cum));
             __m256i varYcum32x8_hb = _mm256_loadu_si256((__m256i *)(var_y_cum + index_cum + 8));
-            __m256i covXYcum32x8_lb = _mm256_loadu_si256((__m256i *)(var_x_cum + index_cum));
-            __m256i covXYcum32x8_hb = _mm256_loadu_si256((__m256i *)(var_x_cum + index_cum + 8));
+            __m256i covXYcum32x8_lb = _mm256_loadu_si256((__m256i *)(cov_xy_cum + index_cum));
+            __m256i covXYcum32x8_hb = _mm256_loadu_si256((__m256i *)(cov_xy_cum + index_cum + 8));
 
             varXcum32x8_lb = _mm256_srai_epi32(varXcum32x8_lb , is_pyr_sft);
             varXcum32x8_hb = _mm256_srai_epi32(varXcum32x8_hb , is_pyr_sft);
