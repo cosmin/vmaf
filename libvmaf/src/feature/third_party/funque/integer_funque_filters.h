@@ -212,7 +212,7 @@ static const uint8_t i_nadenau_pending_div_factors[4][4] = {
     {3, 4, 4, 4},  // L3
 };
 // interim_shift is same for all nadenau_weight, watson, li, hill filters
-static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
+static const uint8_t i_interim_shift[4][4] = {
     {9, 9, 9, 9},
     {11, 11, 11, 11},
     {13, 13, 13, 13},

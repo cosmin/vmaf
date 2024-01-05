@@ -17,7 +17,7 @@
                 "enable_resize": false,
 
                 "spatial_csf_filter": 5,
-                "wavelet_csf_filter": 2,
+                "wavelet_csf_filter": 1,
                 "vif_levels": 4,
                 "adm_levels": 4,
                 "strred_levels": 4,
