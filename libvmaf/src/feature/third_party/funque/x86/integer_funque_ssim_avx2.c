@@ -535,9 +535,9 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int width = ref->width;
     int height = ref->height;
 
-    int32_t *var_x_cum = (score->var_x_cum);
-    int32_t *var_y_cum = (score->var_y_cum);
-    int32_t *cov_xy_cum = (score->cov_xy_cum);
+    int32_t* var_x_cum = *(score->var_x_cum);
+    int32_t* var_y_cum = *(score->var_y_cum);
+    int32_t* cov_xy_cum = *(score->cov_xy_cum);
 
     if(is_pyr)
     {
@@ -619,13 +619,12 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
     __m128i C1_128 = _mm_set1_epi32(C1);
     __m128i C2_128 = _mm_set1_epi32(C2);
 
-    int32_t *lNumVal = (int32_t *) malloc(width * sizeof(int32_t )); 
-    int32_t *csNumVal = (int32_t *) malloc(width * sizeof(int32_t ));
-    int32_t *lDenVal = (int32_t *) malloc(width * sizeof(int32_t ));
-    int32_t *csDenVal = (int32_t *) malloc(width * sizeof(int32_t ));
+    int32_t *lNumVal = (int32_t *) malloc(width * sizeof(int32_t)); 
+    int32_t *csNumVal = (int32_t *) malloc(width * sizeof(int32_t));
+    int32_t *lDenVal = (int32_t *) malloc(width * sizeof(int32_t));
+    int32_t *csDenVal = (int32_t *) malloc(width * sizeof(int32_t));
 
     int width_rem_size16 = width - (width % 16);
-    int width_rem_size8 = width - (width % 8);
     int index = 0, j, k;
     int index_cum = 0;
     for(int i = 0; i < height; i++)
@@ -782,9 +781,9 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
             cs_den_lo = _mm256_add_epi32(cs_den_lo, C2_256);
             cs_den_hi = _mm256_add_epi32(cs_den_hi, C2_256);
 
-            __m256i l_num_lo0, l_num_lo1, l_num_hi0, l_num_hi1, cs_num_lo0, cs_num_lo1, cs_num_hi0,
-                cs_num_hi1, l_den_lo0, l_den_lo1, l_den_hi0, l_den_hi1, cs_den_lo0, cs_den_lo1,
-                cs_den_hi0, cs_den_hi1;
+            // __m256i l_num_lo0, l_num_lo1, l_num_hi0, l_num_hi1, cs_num_lo0, cs_num_lo1, cs_num_hi0,
+            //     cs_num_hi1, l_den_lo0, l_den_lo1, l_den_hi0, l_den_hi1, cs_den_lo0, cs_den_lo1,
+            //     cs_den_hi0, cs_den_hi1;
 
             // cvt_1_32x8_to_2_64x4(l_num_lo, l_num_lo0, l_num_lo1);
             // cvt_1_32x8_to_2_64x4(l_num_hi, l_num_hi0, l_num_hi1);
@@ -798,8 +797,8 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
             // cvt_1_32x8_to_2_64x4(cs_den_lo, cs_den_lo0, cs_den_lo1);
             // cvt_1_32x8_to_2_64x4(cs_den_hi, cs_den_hi0, cs_den_hi1);
 
-            __m256i map_num_lo0, map_num_lo1, map_num_hi0, map_num_hi1;
-            __m256i map_den_lo0, map_den_lo1, map_den_hi0, map_den_hi1;
+            // __m256i map_num_lo0, map_num_lo1, map_num_hi0, map_num_hi1;
+            // __m256i map_den_lo0, map_den_lo1, map_den_hi0, map_den_hi1;
 
             // Multiply64Bit_256(l_num_lo0, cs_num_lo0, map_num_lo0);
             // Multiply64Bit_256(l_num_lo1, cs_num_lo1, map_num_lo1);

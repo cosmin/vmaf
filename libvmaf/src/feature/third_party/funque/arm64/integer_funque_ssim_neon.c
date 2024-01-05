@@ -255,7 +255,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
 {
     int ret = 1;
 
-    int cum_array_width = (ref->crop_width) * (1 << n_levels);
+    int cum_array_width = (ref->width) * (1 << n_levels);
 
     int win_size = (n_levels << 1); 
     int win_size_c2 = win_size;
@@ -264,8 +264,8 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int pending_div_c2 = pending_div;
     int pending_div_offset = 0;
     int pending_div_halfround = 0;
-    int width = ref->crop_width;
-    int height = ref->crop_height;
+    int width = ref->width;
+    int height = ref->height;
 
     int32_t* var_x_cum = *(score->var_x_cum);
     int32_t* var_y_cum = *(score->var_y_cum);
@@ -348,10 +348,10 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int32x4_t dupC1 = vdupq_n_s32(C1);
     int32x4_t dupC2 = vdupq_n_s32(C2);
 
-    int32_t *lNumVal = (int32_t *)malloc(width * sizeof(int32_t *));
-    int32_t *csNumVal = (int32_t *)malloc(width * sizeof(int32_t *));
-    int32_t *lDenVal = (int32_t *)malloc(width * sizeof(int32_t *));
-    int32_t *csDenVal = (int32_t *)malloc(width * sizeof(int32_t *));
+    int32_t *lNumVal = (int32_t *)malloc(width * sizeof(int32_t));
+    int32_t *csNumVal = (int32_t *)malloc(width * sizeof(int32_t));
+    int32_t *lDenVal = (int32_t *)malloc(width * sizeof(int32_t));
+    int32_t *csDenVal = (int32_t *)malloc(width * sizeof(int32_t));
 
     int neg_win_size = -win_size;
     int neg_win_size_c2 = -win_size_c2;
@@ -513,6 +513,10 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_size;
             var_y_band0  = ((ssim_inter_dtype)my * my) >> win_size;
             cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_size;
+
+            var_x_cum[index_cum] = var_x_cum[index_cum] << sft_if_pyr;
+            var_y_cum[index_cum] = var_y_cum[index_cum] << sft_if_pyr;
+            cov_xy_cum[index_cum] = cov_xy_cum[index_cum] << sft_if_pyr;
 
             var_x_cum[index_cum] += (var_x >> win_size_c2);
             var_y_cum[index_cum] += (var_y >> win_size_c2);
