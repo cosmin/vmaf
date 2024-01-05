@@ -188,7 +188,7 @@ static const VmafOption options[] = {
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = NADENAU_WEIGHT_FILTER,
         .min = NADENAU_WEIGHT_FILTER,
-        .max = LI_FILTER,
+        .max = MANNOS_WEIGHT_FILTER,
     },
     {
         .name = "norm_view_dist",
@@ -348,11 +348,19 @@ void integer_select_filter_type(IntFunqueState *s)
                 break;
 
             case 2:
-                s->wavelet_csf_filter_type = "watson";
+                s->wavelet_csf_filter_type = "li";
                 break;
 
             case 3:
-                s->wavelet_csf_filter_type = "li";
+                s->wavelet_csf_filter_type = "hill";
+                break;
+
+            case 4:
+                s->wavelet_csf_filter_type = "watson";
+                break;
+
+            case 5:
+                s->wavelet_csf_filter_type = "mannos_weight";
                 break;
 
             default:
@@ -481,7 +489,41 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
+        }   else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_li_coeffs[level][0];
+                s->csf_factors[level][1] = i_li_coeffs[level][1];
+                s->csf_factors[level][2] = i_li_coeffs[level][2];
+                s->csf_factors[level][3] = i_li_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+            }
+        }   else if(strcmp(s->wavelet_csf_filter_type, "hill") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_hill_coeffs[level][0];
+                s->csf_factors[level][1] = i_hill_coeffs[level][1];
+                s->csf_factors[level][2] = i_hill_coeffs[level][2];
+                s->csf_factors[level][3] = i_hill_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+            }
+        }   else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_watson_coeffs[level][0];
                 s->csf_factors[level][1] = i_watson_coeffs[level][1];
@@ -498,12 +540,12 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
             }
-        } else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
+        }   else if(strcmp(s->wavelet_csf_filter_type, "mannos_weight") == 0) {
             for(int level = 0; level < 4; level++) {
-                s->csf_factors[level][0] = i_li_coeffs[level][0];
-                s->csf_factors[level][1] = i_li_coeffs[level][1];
-                s->csf_factors[level][2] = i_li_coeffs[level][2];
-                s->csf_factors[level][3] = i_li_coeffs[level][3];
+                s->csf_factors[level][0] = i_mannos_weight_coeffs[level][0];
+                s->csf_factors[level][1] = i_mannos_weight_coeffs[level][1];
+                s->csf_factors[level][2] = i_mannos_weight_coeffs[level][2];
+                s->csf_factors[level][3] = i_mannos_weight_coeffs[level][3];
 
                 s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
                 s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];

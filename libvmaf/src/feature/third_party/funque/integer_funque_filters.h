@@ -35,8 +35,10 @@
 
 // Wavelet Filters
 #define NADENAU_WEIGHT_FILTER 1  // Default set to nadenau_weight
-#define WATSON_FILTER 2
-#define LI_FILTER 3
+#define LI_FILTER 2
+#define HILL_FILTER 3
+#define WATSON_FILTER 4
+#define MANNOS_WEIGHT_FILTER 5
 
 #define BAND_HVD_SAME_PENDING_DIV 1
 #define SPAT_FILTER_COEFF_SHIFT 16
@@ -217,31 +219,6 @@ static const uint8_t i_nadenau_weight_interim_shift[4][4] = {
     {13, 13, 13, 13},
 };
 
-static const spat_fil_coeff_dtype i_watson_coeffs[4][4] = {
-#if BAND_HVD_SAME_PENDING_DIV
-    {16384, 18226, 6177, 18226},
-    {16384, 16769, 7497, 16769},
-#else
-    {16384, 22544, 23331, 22544},
-    {16384, 27836, 24297, 27836},
-#endif
-    {16384, 22740, 12791, 22740},
-    {16384, 23946, 16417, 23946},
-    /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
-};
-
-static const uint8_t i_watson_pending_div_factors[4][4] = {
-#if BAND_HVD_SAME_PENDING_DIV
-    {6, 12, 12, 12},  // L0
-    {5, 10, 10, 10},  // L1
-#else
-    {6, 12, 12, 14},  // L0
-    {5, 10, 10, 11},  // L1
-#endif
-    {4, 9, 9, 9},  // L2
-    {3, 8, 8, 8},  // L3
-};
-
 static const spat_fil_coeff_dtype i_li_coeffs[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
     {16384, 22842, 967, 22842},
@@ -269,17 +246,79 @@ static const uint8_t i_li_pending_div_factors[4][4] = {
 };
 
 static const spat_fil_coeff_dtype i_hill_coeffs[4][4] = {
-    {16384, 22691, 20082, 22691},
-    {16384, -22164, 28535, -22164},
+#if BAND_HVD_SAME_PENDING_DIV
+    {16384,  22691, 10041,  22691},
+    {16384, -22164,  7134, -22164},
+    {16384, -8960, -26774, -8960 },
+#else
+    {16384,  22691,  20082,  22691},
+    {16384, -22164,  28535, -22164},
     {16384, -17920, -26774, -17920},
+#endif
     {16384, -22347, -32484, -22347},
 };
 
 static const uint8_t i_hill_pending_div_factors[4][4] = {
+#if BAND_HVD_SAME_PENDING_DIV
+    {6, 10, 10, 10},  // L0
+    {5, 7, 7, 7},     // L1
+    {4, 7, 7, 7},     // L2
+#else
     {6, 10, 10, 11},  // L0
     {5, 7, 7, 9},     // L1
     {4, 8, 8, 7},     // L2
+#endif
     {3, 8, 8, 8},     // L3
+};
+
+static const spat_fil_coeff_dtype i_watson_coeffs[4][4] = {
+#if BAND_HVD_SAME_PENDING_DIV
+    {16384, 18226, 6177, 18226},
+    {16384, 16769, 7497, 16769},
+#else
+    {16384, 22544, 23331, 22544},
+    {16384, 27836, 24297, 27836},
+#endif
+    {16384, 22740, 12791, 22740},
+    {16384, 23946, 16417, 23946},
+    /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
+};
+
+static const uint8_t i_watson_pending_div_factors[4][4] = {
+#if BAND_HVD_SAME_PENDING_DIV
+    {6, 12, 12, 12},  // L0
+    {5, 10, 10, 10},  // L1
+#else
+    {6, 12, 12, 14},  // L0
+    {5, 10, 10, 11},  // L1
+#endif
+    {4, 9, 9, 9},  // L2
+    {3, 8, 8, 8},  // L3
+};
+
+static const spat_fil_coeff_dtype i_mannos_weight_coeffs[4][4] = {
+#if BAND_HVD_SAME_PENDING_DIV
+    {16384, 29856, 1021, 29856},
+    {16384, 29492, 7375, 29492},
+#else
+    {16384, 29856, 32663, 29856},
+    {16384, 29492, 29501, 29492},
+#endif
+    {16384, 25627, 16194, 25627},
+    {16384, 32145, 32145, 32145},
+    /*{ 1, 0.98396102, 0.96855064, 0.98396102},*/
+};
+
+static const uint8_t i_mannos_weight_pending_div_factors[4][4] = {
+#if BAND_HVD_SAME_PENDING_DIV
+    {6, 14, 14, 14},  // L0
+    {5,  8,  8,  8},  // L1
+#else
+    {6, 14, 14, 19},  // L0
+    {5,  8,  8, 10},  // L1
+#endif
+    {4,  5,  5,  5},  // L2
+    {3,  4,  4,  4},  // L3
 };
 
 void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
