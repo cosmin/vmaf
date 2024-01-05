@@ -618,7 +618,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx2;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
-        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx2;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx2;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
