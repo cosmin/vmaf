@@ -61,6 +61,7 @@
     r_32x8_hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(a_16x16, 0x0E)); \
 }
 
+#if 0
 #define Multiply64Bit_512(ab, cd, res) \
 { \
     __m512i ac = _mm512_mul_epu32(ab, cd); \
@@ -882,6 +883,7 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
     ret = 0;
     return ret;
 }
+#endif
 
 static inline int16_t ms_ssim_get_best_i16_from_u32_avx512(uint32_t temp, int *x)
 {
@@ -1038,8 +1040,8 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
             __m512i dis_b0 = _mm512_loadu_si512((__m512i *) (dist->bands[0] + index));
 
             __m512i ref_b0_lo, ref_b0_hi, dis_b0_lo, dis_b0_hi;
-            cvt_1_16x16_to_2_32x8(ref_b0, ref_b0_lo, ref_b0_hi);
-            cvt_1_16x16_to_2_32x8(dis_b0, dis_b0_lo, dis_b0_hi);
+            cvt_1_16x16_to_2_32x8_512(ref_b0, ref_b0_lo, ref_b0_hi);
+            cvt_1_16x16_to_2_32x8_512(dis_b0, dis_b0_lo, dis_b0_hi);
 
             __m512i var_x_b0_lo = _mm512_mullo_epi32(ref_b0_lo, ref_b0_lo);
             __m512i var_x_b0_hi = _mm512_mullo_epi32(ref_b0_hi, ref_b0_hi);
@@ -1085,12 +1087,12 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
 
             __m512i ref_b1_lo, ref_b1_hi, dis_b1_lo, dis_b1_hi, ref_b2_lo, ref_b2_hi, dis_b2_lo,
                 dis_b2_hi, ref_b3_lo, ref_b3_hi, dis_b3_lo, dis_b3_hi;
-            cvt_1_16x16_to_2_32x8(ref_b1, ref_b1_lo, ref_b1_hi);
-            cvt_1_16x16_to_2_32x8(dis_b1, dis_b1_lo, dis_b1_hi);
-            cvt_1_16x16_to_2_32x8(ref_b2, ref_b2_lo, ref_b2_hi);
-            cvt_1_16x16_to_2_32x8(dis_b2, dis_b2_lo, dis_b2_hi);
-            cvt_1_16x16_to_2_32x8(ref_b3, ref_b3_lo, ref_b3_hi);
-            cvt_1_16x16_to_2_32x8(dis_b3, dis_b3_lo, dis_b3_hi);
+            cvt_1_16x16_to_2_32x8_512(ref_b1, ref_b1_lo, ref_b1_hi);
+            cvt_1_16x16_to_2_32x8_512(dis_b1, dis_b1_lo, dis_b1_hi);
+            cvt_1_16x16_to_2_32x8_512(ref_b2, ref_b2_lo, ref_b2_hi);
+            cvt_1_16x16_to_2_32x8_512(dis_b2, dis_b2_lo, dis_b2_hi);
+            cvt_1_16x16_to_2_32x8_512(ref_b3, ref_b3_lo, ref_b3_hi);
+            cvt_1_16x16_to_2_32x8_512(dis_b3, dis_b3_lo, dis_b3_hi);
 
             __m512i varXcum32x8_lb = _mm512_loadu_si512((__m512i *)(var_x_cum + index_cum));
             __m512i varXcum32x8_hb = _mm512_loadu_si512((__m512i *)(var_x_cum + index_cum + 16));

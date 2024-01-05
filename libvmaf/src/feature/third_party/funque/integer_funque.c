@@ -80,7 +80,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-#define ENABLE_SIMD_PROFILING 1
+#define ENABLE_SIMD_PROFILING 0
 
 typedef struct IntFunqueState
 {
@@ -703,7 +703,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         if (bpc == 8)
         {
             if(s->spatial_csf_filter == 21)
-                s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+                s->modules.integer_spatial_filter = integer_spatial_filter;
             else
                 s->modules.integer_spatial_filter = integer_spatial_filter;
         }
@@ -714,7 +714,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
-        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step_avx512;
