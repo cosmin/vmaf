@@ -80,7 +80,7 @@
 #include <time.h>
 #include <sys/time.h>
 
-#define ENABLE_SIMD_PROFILING 0
+#define ENABLE_SIMD_PROFILING 1
 
 typedef struct IntFunqueState
 {
@@ -618,6 +618,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #if ARCH_AARCH64
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_ARM_CPU_FLAG_NEON) {
+#if ENABLE_SIMD_PROFILING
         if (bpc == 8)
         {
             if(s->spatial_csf_filter == 21)
@@ -639,6 +640,29 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#else
+        if (bpc == 8)
+        {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_filter;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step;
+        s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#endif
     }
 #elif ARCH_ARM
     if (bpc == 8)
