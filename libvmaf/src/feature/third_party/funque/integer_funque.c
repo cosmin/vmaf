@@ -707,14 +707,14 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             else
                 s->modules.integer_spatial_filter = integer_spatial_filter;
         }
-        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_avx512;
 
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
         s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
-        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step_avx512;

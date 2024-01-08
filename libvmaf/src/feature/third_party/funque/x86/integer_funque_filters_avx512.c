@@ -3570,39 +3570,31 @@ void integer_spatial_filter_avx512(void *src, spat_fil_output_dtype *dst, int wi
 void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
-
 {
-	UNUSED(min_theta);
-	UNUSED(max_theta);
-	UNUSED(level);
+    dwt2_dtype *src_ptr0,*src_ptr1,*src_ptr2,*src_ptr3,*src_ptr;
+    dwt2_dtype *dst_ptr0,*dst_ptr1,*dst_ptr2,*dst_ptr3,*dst_ptr;
+    
+    src_ptr0=src->bands[0];src_ptr1=src->bands[2];src_ptr2=src->bands[3];src_ptr3=src->bands[1];
+    dst_ptr0=src->bands[0];dst_ptr1=src->bands[2];dst_ptr2=src->bands[3];dst_ptr3=src->bands[1];
 
-    dwt2_dtype *src_ptr0=src->bands[0];
-	dwt2_dtype *src_ptr1=src->bands[2];
-	dwt2_dtype *src_ptr2=src->bands[3];
-	dwt2_dtype *src_ptr3=src->bands[1];
 
-    dwt2_dtype *dst_ptr0=src->bands[0];
-	dwt2_dtype *dst_ptr1=src->bands[2];
-	dwt2_dtype *dst_ptr2=src->bands[3];
-	dwt2_dtype *dst_ptr3=src->bands[1];
 
-    //dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+    dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
+  
+
+    // changed by me wrt my  code
     int px_stride = src->stride / sizeof(dwt2_dtype);
-
+ 
+ 
+ 
     int left = 0;
     int top = 0;
 
-    /*  changes made wrt to my code will be changed later */
-    min_theta++;min_theta--;max_theta++;max_theta--;interim_shift_factors[0]++;interim_shift_factors[0]--;interim_rnd_factors[0]++;interim_rnd_factors[0]--;level++;level--;
-    /*upto here*/
-
-    /*
-    int right = src->crop_width; 
-    int bottom = src->crop_height;
-    */
 
     int right = src->width; 
     int bottom = src->height;
+  
+
 
     int i, j, theta, src_offset, dst_offset;
     spat_fil_accum_dtype mul_val;
@@ -3617,8 +3609,8 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
     __m512i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
     __m512i res0,res1,res2,res3,fres0,fres1,fres2,fres3;
     __m512i result0_lo,result0_hi,result1_lo,result1_hi,result2_lo,result2_hi,result3_lo,result3_hi;
-    __m512i mask= _mm512_set_epi16(0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF);
-   
+    __m512i mask= _mm512_set_epi16(0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,
+                    0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF);
 
     __m512i coef_0 = _mm512_set1_epi16(factors[0]);
     __m512i coef_1 = _mm512_set1_epi16(factors[1]);
@@ -3635,12 +3627,9 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
       
             src_offset = px_stride*i;
             dst_offset =  px_stride*i;
-         
 
-   
             for(j = left; j < width_rem; j=j+32) {
-                
-           
+
             d0 = _mm512_loadu_si512((__m512i*)(src_ptr0+src_offset+j ));
             d1 = _mm512_loadu_si512((__m512i*)(src_ptr1+src_offset+j ));
             d2 = _mm512_loadu_si512((__m512i*)(src_ptr2+src_offset+j ));
@@ -3689,10 +3678,7 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
 
            tmp3_lo= _mm512_srai_epi32(tmp3_lo, interim_shift_factors[3]);
            tmp3_hi= _mm512_srai_epi32(tmp3_hi, interim_shift_factors[3]);
-           
 
-
-   
          result0_lo= _mm512_and_si512(tmp0_lo, mask); 
          result0_hi= _mm512_and_si512(tmp0_hi, mask);
          result1_lo= _mm512_and_si512(tmp1_lo, mask); 

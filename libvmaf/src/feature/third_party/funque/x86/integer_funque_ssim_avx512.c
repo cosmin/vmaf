@@ -1621,30 +1621,32 @@ int integer_mean_2x2_ms_ssim_funque_avx512(int32_t* var_x_cum, int32_t* var_y_cu
 
     int index = 0;
     int index_cum = 0;
-    int i = 0;
-    int j = 0;
     int cum_array_width = (width) * (1 << (level + 1));
 
     __m512i shuffleMask = _mm512_setr_epi32(1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14);
-    __m512i permIndex = _mm512_setr_epi32(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15);
-    __m512i vec_constant = _mm512_set1_epi32(2);
 
-    for(i = 0; i < (height >> 1); i++)
+    __m512i permIndex = _mm512_setr_epi32(0, 2, 4, 6, 8, 10, 12, 14, 1, 3, 5, 7, 9, 11, 13, 15);
+
+    __m512i vec_constant = _mm512_set1_epi32(2);
+    int i = 0;
+    int j = 0;
+
+    for (i = 0; i < (height >> 1); i++)
     {
-        for(j = 0; j <= width - 16; j += 16)
+        for (j = 0; j <= width - 16; j += 16)
         {
             index = i * cum_array_width + (j >> 1);
 
-            __m512i var_x_cum_1 = _mm512_loadu_si512((__m512i*) (var_x_cum + index_cum));
-            __m512i var_y_cum_1 = _mm512_loadu_si512((__m512i*) (var_y_cum + index_cum));
-            __m512i cov_xy_cum_1 = _mm512_loadu_si512((__m512i*) (cov_xy_cum + index_cum));
+            __m512i var_x_cum_1 = _mm512_loadu_si512((__m512i *)(var_x_cum + index_cum));
+            __m512i var_y_cum_1 = _mm512_loadu_si512((__m512i *)(var_y_cum + index_cum));
+            __m512i cov_xy_cum_1 = _mm512_loadu_si512((__m512i *)(cov_xy_cum + index_cum));
 
             __m512i var_x_cum_2 =
-                _mm512_loadu_si512((__m512i*) (var_x_cum + cum_array_width + index_cum));
+                _mm512_loadu_si512((__m512i *)(var_x_cum + cum_array_width + index_cum));
             __m512i var_y_cum_2 =
-                _mm512_loadu_si512((__m512i*) (var_y_cum + cum_array_width + index_cum));
+                _mm512_loadu_si512((__m512i *)(var_y_cum + cum_array_width + index_cum));
             __m512i cov_xy_cum_2 =
-                _mm512_loadu_si512((__m512i*) (cov_xy_cum + cum_array_width + index_cum));
+                _mm512_loadu_si512((__m512i *)(cov_xy_cum + cum_array_width + index_cum));
 
             __m512i var_x_cum_sum = _mm512_add_epi32(var_x_cum_1, var_x_cum_2);
             __m512i var_y_cum_sum = _mm512_add_epi32(var_y_cum_1, var_y_cum_2);
@@ -1677,38 +1679,37 @@ int integer_mean_2x2_ms_ssim_funque_avx512(int32_t* var_x_cum, int32_t* var_y_cu
                                      vec_constant),
                     2));
 
-            _mm256_store_si256((__m256i*) (var_x_cum + index),
-                               _mm512_extracti32x8_epi32(var_x_cum_inter, 1));
-            _mm256_store_si256((__m256i*) (var_y_cum + index),
-                               _mm512_extracti32x8_epi32(var_y_cum_inter, 1));
-            _mm256_store_si256((__m256i*) (cov_xy_cum + index),
-                               _mm512_extracti32x8_epi32(cov_xy_cum_inter, 1));
+            _mm256_storeu_si256((__m256i *)(var_x_cum + index),
+                                _mm512_extracti32x8_epi32(var_x_cum_inter, 1));
+            _mm256_storeu_si256((__m256i *)(var_y_cum + index),
+                                _mm512_extracti32x8_epi32(var_y_cum_inter, 1));
+            _mm256_storeu_si256((__m256i *)(cov_xy_cum + index),
+                                _mm512_extracti32x8_epi32(cov_xy_cum_inter, 1));
 
             index_cum += 16;
         }
-        for(; j < width; j += 2)
+        for (; j < width; j += 2)
         {
             index = i * cum_array_width + (j >> 1);
             var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
-                          var_x_cum[index_cum + (cum_array_width)] +
-                          var_x_cum[index_cum + (cum_array_width) + 1];
+                               var_x_cum[index_cum + (cum_array_width)] +
+                               var_x_cum[index_cum + (cum_array_width) + 1];
             var_x_cum[index] = (var_x_cum[index] + 2) >> 2;
 
             var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
-                          var_y_cum[index_cum + (cum_array_width)] +
-                          var_y_cum[index_cum + (cum_array_width) + 1];
+                               var_y_cum[index_cum + (cum_array_width)] +
+                               var_y_cum[index_cum + (cum_array_width) + 1];
             var_y_cum[index] = (var_y_cum[index] + 2) >> 2;
 
             cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
-                          cov_xy_cum[index_cum + (cum_array_width)] +
-                          cov_xy_cum[index_cum + (cum_array_width) + 1];
+                                cov_xy_cum[index_cum + (cum_array_width)] +
+                                cov_xy_cum[index_cum + (cum_array_width) + 1];
             cov_xy_cum[index] = (cov_xy_cum[index] + 2) >> 2;
 
             index_cum += 2;
         }
         index_cum += ((cum_array_width << 1) - width);
     }
-
     ret = 0;
     return ret;
 }
