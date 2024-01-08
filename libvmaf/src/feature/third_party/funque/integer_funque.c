@@ -705,7 +705,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter;
             else
-                s->modules.integer_spatial_filter = integer_spatial_filter;
+                s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx512;
         }
         s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_avx512;
 

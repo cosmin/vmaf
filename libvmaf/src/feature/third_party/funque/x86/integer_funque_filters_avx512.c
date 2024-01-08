@@ -3567,6 +3567,441 @@ void integer_spatial_filter_avx512(void *src, spat_fil_output_dtype *dst, int wi
     return;
 }
 
+
+const spat_fil_coeff_dtype i_ngan_filter_coeffs_avx512[21] = {
+    -900,  -1054, -1239, -1452, -1669, -1798, -1547, -66,   4677,  14498, 21495,
+    14498, 4677,  -66,   -1547, -1798, -1669, -1452, -1239, -1054, -900};
+
+const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_avx512[5] = {1658, 15139, 31193, 15139, 1658};
+
+#define shuffle_and_store_avx512(addr, v0, v8) \
+{ \
+    _mm512_storeu_si512((__m512i*)(addr), v0); \
+    _mm512_storeu_si512((__m512i*)(addr + 32), v8); \
+}
+
+
+static inline void integer_horizontal_5tap_filter_avx512(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int filter_size, int dst_row_idx, int half_fw)
+{
+    int j, fj, jj, jj1, jj2;
+
+    for (j = 0; j < half_fw; j++)
+    {
+        int pro_j_end  = half_fw - j - 1;
+        int diff_j_hfw = j - half_fw;
+        spat_fil_accum_dtype accum = 0;
+
+        //This loop does border mirroring (jj = -(j - filter_size/2 + fj + 1))
+        for (fj = 0; fj <= pro_j_end; fj++){
+
+            jj = pro_j_end - fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        //Here the normal loop is executed where jj = j - filter_size/2 + fj
+        for ( ; fj < filter_size; fj++)
+        {
+            jj = diff_j_hfw + fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+    }
+
+    //This is the core loop
+    for ( ; j < (width - half_fw); j++)
+    {
+        int f_l_j = j - half_fw;
+        int f_r_j = j + half_fw;
+        spat_fil_accum_dtype accum = 0;
+
+        for (fj = 0; fj < half_fw; fj++){
+
+            jj1 = f_l_j + fj;
+            jj2 = f_r_j - fj;
+            accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]);
+        }
+        accum += (spat_fil_inter_dtype) i_filter_coeffs[half_fw] * tmp[j];
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+    }
+  
+    for ( ; j < width; j++)
+    {
+        int diff_j_hfw = j - half_fw;
+        int epi_last_j = width - diff_j_hfw;
+        int epi_mirr_j = (width<<1) - diff_j_hfw - 1;
+        spat_fil_accum_dtype accum = 0;
+
+        for (fj = 0; fj < epi_last_j; fj++){
+
+            jj = diff_j_hfw + fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        //This loop does border mirroring (jj = 2*width - (j - filter_size/2 + fj) - 1)
+        for ( ; fj < filter_size; fj++)
+        {
+            jj = epi_mirr_j - fj;
+            accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
+        }
+        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+
+    }
+}
+
+
+void integer_spatial_5tap_filter_avx512(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
+{	
+    int filter_size = 0;
+    const spat_fil_coeff_dtype *i_filter_coeffs = 0;
+
+    if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
+        filter_size = 5;
+        i_filter_coeffs = i_nadeanu_filter_coeffs_avx512;
+    } else if(strcmp(spatial_csf_filter, "ngan_spat") == 0) {
+        filter_size = 21;
+        i_filter_coeffs = i_ngan_filter_coeffs_avx512;
+    }
+  
+    int src_px_stride = width;
+    int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype); 
+
+    
+ 
+
+	uint8_t *src_8b = NULL;
+
+    int i, j, fi, ii, ii1, ii2;
+
+    int width_rem_64=width-(width%64); 
+    int half_fw = filter_size / 2;
+    
+    src_8b = (uint8_t*)src;
+		
+	int	interim_rnd = SPAT_FILTER_INTER_RND;
+	int	interim_shift = SPAT_FILTER_INTER_SHIFT;
+	
+
+
+    __m512i d0,d1,d2,d3,d4,coef;
+    __m512i d0_lo,d0_hi,d1_lo,d1_hi,d2_lo,d2_hi,d3_lo,d3_hi,d4_lo,d4_hi;
+
+    __m512i mul0_lo, mul0_hi, mul1_lo, mul1_hi,mul2_lo, mul2_hi,mul3_lo, mul3_hi,mul4_lo, mul4_hi,mul5_lo, mul5_hi;
+     
+    __m512i  res0, res4, res8, res12;
+	__m512i tmp0_lo, tmp0_hi, tmp1_lo, tmp1_hi,tmp2_lo, tmp2_hi,tmp3_lo, tmp3_hi, tmp4_lo, tmp4_hi,tmp5_lo, tmp5_hi;
+
+    __m512i coef_0 = _mm512_set1_epi16(i_filter_coeffs[0]);
+    __m512i coef_1 = _mm512_set1_epi16(i_filter_coeffs[1]);
+    __m512i coef_2 = _mm512_set1_epi16(i_filter_coeffs[2]);
+
+
+  
+    for (i = 0; i < half_fw; i++){
+
+        int diff_i_halffw = i - half_fw;
+        int pro_mir_end = -diff_i_halffw - 1;
+
+        /* Vertical pass. */
+
+			for (j = 0; j < width_rem_64; j=j+64){
+
+                 res0 = res4 = res8 = res12 = _mm512_set1_epi32(interim_rnd);
+		
+				//This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
+				for (fi = 0; fi <= pro_mir_end; fi++){
+					ii = pro_mir_end - fi;
+				    coef = _mm512_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm512_loadu_si512((__m512i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 0));
+					d0_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 1));
+					
+					mul0_lo = _mm512_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm512_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm512_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm512_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+
+					res0 = _mm512_add_epi32(tmp0_lo, res0);
+					res4 = _mm512_add_epi32(tmp0_hi, res4);
+					res8 = _mm512_add_epi32(tmp1_lo, res8);
+					res12 = _mm512_add_epi32(tmp1_hi, res12);
+				}
+				//Here the normal loop is executed where ii = i - filter_size / 2 + fi
+				for ( ; fi < filter_size; fi++)
+				{
+					ii = diff_i_halffw + fi;
+					coef = _mm512_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm512_loadu_si512((__m512i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 0));
+					d0_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 1));
+
+					mul0_lo = _mm512_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm512_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm512_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm512_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+						
+					res0 = _mm512_add_epi32(tmp0_lo, res0);
+					res4 = _mm512_add_epi32(tmp0_hi, res4);
+					res8 = _mm512_add_epi32(tmp1_lo, res8);
+					res12 = _mm512_add_epi32(tmp1_hi, res12);
+
+					
+				}
+				
+				res0 = _mm512_srai_epi32(res0, interim_shift);	
+				res4 = _mm512_srai_epi32(res4, interim_shift);
+				res8 = _mm512_srai_epi32(res8, interim_shift);
+				res12 = _mm512_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm512_packs_epi32(res0, res4);
+				res8 = _mm512_packs_epi32(res8, res12);
+
+                shuffle_and_store_avx512(tmp + j, res0, res8);
+
+			}
+            for(;j<width;j++)
+            {
+
+              	spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi <= pro_mir_end; fi++){
+
+					ii = pro_mir_end - fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				//Here the normal loop is executed where ii = i - filter_size / 2 + fi
+				for ( ; fi < filter_size; fi++)
+				{
+					ii = diff_i_halffw + fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+
+            }
+		
+
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_5tap_filter_avx512(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+
+    }
+    
+    //This is the core loop
+    for ( ; i < (height - half_fw); i++){
+        
+        int f_l_i = i - half_fw;
+        int f_r_i = i + half_fw;
+        /* Vertical pass. */
+
+			for(j=0;j<width_rem_64;j=j+64)
+            {
+                res0 = res4 = res8 = res12 = _mm512_set1_epi32(interim_rnd);
+                //loading part
+                d0 = _mm512_loadu_si512((__m512i*)(src_8b + (f_l_i * src_px_stride) + j));
+                d4 = _mm512_loadu_si512((__m512i*)(src_8b + (f_r_i * src_px_stride) + j));
+                d1 = _mm512_loadu_si512((__m512i*)(src_8b + (f_l_i+1) * src_px_stride + j)); 
+                d3 = _mm512_loadu_si512((__m512i*)(src_8b + (f_r_i-1) * src_px_stride + j));
+                d2 = _mm512_loadu_si512((__m512i*)(src_8b + i * src_px_stride + j));
+                // converting to int16 part
+				d0_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 0));
+				d0_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 1));
+				d1_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d1, 0));
+				d1_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d1, 1));
+				d2_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d2, 0));
+				d2_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d2, 1));
+				d3_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d3, 0));
+				d3_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d3, 1));
+				d4_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d4, 0));
+				d4_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d4, 1));
+                // adding them to reduce too many multiplication 
+                d0_lo = _mm512_add_epi16(d0_lo, d4_lo);
+				d1_lo = _mm512_add_epi16(d1_lo, d3_lo);
+				d0_hi = _mm512_add_epi16(d0_hi, d4_hi);
+				d1_hi = _mm512_add_epi16(d1_hi, d3_hi);
+                //multiplications
+                mul0_lo = _mm512_mullo_epi16(d0_lo, coef_0);
+				mul0_hi = _mm512_mulhi_epi16(d0_lo, coef_0);
+				mul1_lo = _mm512_mullo_epi16(d0_hi, coef_0);
+				mul1_hi = _mm512_mulhi_epi16(d0_hi, coef_0);
+
+                mul2_lo = _mm512_mullo_epi16(d1_lo, coef_1);
+				mul2_hi = _mm512_mulhi_epi16(d1_lo, coef_1);
+				mul3_lo = _mm512_mullo_epi16(d1_hi, coef_1);
+				mul3_hi = _mm512_mulhi_epi16(d1_hi, coef_1);
+
+                mul4_lo = _mm512_mullo_epi16(d2_lo, coef_2);
+				mul4_hi = _mm512_mulhi_epi16(d2_lo, coef_2);
+				mul5_lo = _mm512_mullo_epi16(d2_hi, coef_2);
+				mul5_hi = _mm512_mulhi_epi16(d2_hi, coef_2);
+               //regrouping
+               	tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+				tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+				tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+				tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+               
+                tmp2_lo = _mm512_unpacklo_epi16(mul2_lo, mul2_hi);
+				tmp2_hi = _mm512_unpackhi_epi16(mul2_lo, mul2_hi);
+				tmp3_lo = _mm512_unpacklo_epi16(mul3_lo, mul3_hi);
+				tmp3_hi = _mm512_unpackhi_epi16(mul3_lo, mul3_hi);
+
+                tmp4_lo = _mm512_unpacklo_epi16(mul4_lo, mul4_hi);
+				tmp4_hi = _mm512_unpackhi_epi16(mul4_lo, mul4_hi);
+				tmp5_lo = _mm512_unpacklo_epi16(mul5_lo, mul5_hi);
+				tmp5_hi = _mm512_unpackhi_epi16(mul5_lo, mul5_hi);
+                //adding all the multiplications
+                res0 = _mm512_add_epi32(tmp0_lo, res0);
+				res4 = _mm512_add_epi32(tmp0_hi, res4);
+				res8 = _mm512_add_epi32(tmp1_lo, res8);
+				res12 = _mm512_add_epi32(tmp1_hi, res12);
+
+                res0 = _mm512_add_epi32(tmp2_lo, res0);
+				res4 = _mm512_add_epi32(tmp2_hi, res4);
+				res8 = _mm512_add_epi32(tmp3_lo, res8);
+				res12 = _mm512_add_epi32(tmp3_hi, res12);
+
+                res0 = _mm512_add_epi32(tmp4_lo, res0);
+				res4 = _mm512_add_epi32(tmp4_hi, res4);
+				res8 = _mm512_add_epi32(tmp5_lo, res8);
+				res12 = _mm512_add_epi32(tmp5_hi, res12);
+               //shifting and rounding off
+               	res0 = _mm512_srai_epi32(res0, interim_shift);	
+				res4 = _mm512_srai_epi32(res4, interim_shift);
+				res8 = _mm512_srai_epi32(res8, interim_shift);
+				res12 = _mm512_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm512_packs_epi32(res0, res4);
+				res8 = _mm512_packs_epi32(res8, res12);
+
+                // storing the result code has to be inserted
+   
+                 shuffle_and_store_avx512(tmp + j, res0, res8);
+            }
+            
+            for (; j < width; j++){
+
+				spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi < (half_fw); fi++){
+					ii1 = f_l_i + fi;
+					ii2 = f_r_i - fi;
+					accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src_8b[ii1 * src_px_stride + j] + src_8b[ii2 * src_px_stride + j]);
+				}
+				accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[i * src_px_stride + j];
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+			}
+	
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_5tap_filter_avx512(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+
+    }
+
+    for (; i < height; i++){
+
+        int diff_i_halffw = i - half_fw;
+        int epi_mir_i = 2 * height - diff_i_halffw - 1;
+        int epi_last_i  = height - diff_i_halffw;
+        
+        /* Vertical pass. */
+           
+			for (j = 0; j < width_rem_64; j+=64){
+				res0 = res4 = res8 = res12 = _mm512_set1_epi32(interim_rnd);
+			
+				for (fi = 0; fi < epi_last_i; fi++){
+					ii = diff_i_halffw + fi;
+					coef = _mm512_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm512_loadu_si512((__m512i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 0));
+					d0_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 1));
+
+					mul0_lo = _mm512_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm512_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm512_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm512_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+
+					res0 = _mm512_add_epi32(tmp0_lo, res0);
+					res4 = _mm512_add_epi32(tmp0_hi, res4);
+					res8 = _mm512_add_epi32(tmp1_lo, res8);
+					res12 = _mm512_add_epi32(tmp1_hi, res12);
+				}
+				//This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+				for ( ; fi < filter_size; fi++)
+				{
+					ii = epi_mir_i - fi;
+					coef = _mm512_set1_epi16(i_filter_coeffs[fi]);
+					d0 = _mm512_loadu_si512((__m512i*)(src_8b + ii * src_px_stride + j));
+					d0_lo = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 0));
+					d0_hi = _mm512_cvtepu8_epi16(_mm512_extracti32x8_epi32(d0, 1));
+
+					mul0_lo = _mm512_mullo_epi16(d0_lo, coef);
+					mul0_hi = _mm512_mulhi_epi16(d0_lo, coef);
+					mul1_lo = _mm512_mullo_epi16(d0_hi, coef);
+					mul1_hi = _mm512_mulhi_epi16(d0_hi, coef);
+
+					// regroup the 2 parts of the result
+					tmp0_lo = _mm512_unpacklo_epi16(mul0_lo, mul0_hi);
+					tmp0_hi = _mm512_unpackhi_epi16(mul0_lo, mul0_hi);
+					tmp1_lo = _mm512_unpacklo_epi16(mul1_lo, mul1_hi);
+					tmp1_hi = _mm512_unpackhi_epi16(mul1_lo, mul1_hi);
+						
+					res0 = _mm512_add_epi32(tmp0_lo, res0);
+					res4 = _mm512_add_epi32(tmp0_hi, res4);
+					res8 = _mm512_add_epi32(tmp1_lo, res8);
+					res12 = _mm512_add_epi32(tmp1_hi, res12);
+				}
+				
+				res0 = _mm512_srai_epi32(res0, interim_shift);	
+				res4 = _mm512_srai_epi32(res4, interim_shift);
+				res8 = _mm512_srai_epi32(res8, interim_shift);
+				res12 = _mm512_srai_epi32(res12, interim_shift);
+								
+				res0 = _mm512_packs_epi32(res0, res4);
+				res8 = _mm512_packs_epi32(res8, res12);
+
+
+                 shuffle_and_store_avx512(tmp + j, res0, res8);
+            }
+
+			for (; j < width; j++){
+
+				spat_fil_accum_dtype accum = 0;
+
+				for (fi = 0; fi < epi_last_i; fi++){
+
+					ii = diff_i_halffw + fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				//This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+				for ( ; fi < filter_size; fi++)
+				{
+					ii = epi_mir_i - fi;
+					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+				}
+				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+			}
+		
+
+
+        /* Horizontal pass. common for 8bit and hbd cases */
+        integer_horizontal_5tap_filter_avx512(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+
+    }
+    return;
+}
+
 void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level)
