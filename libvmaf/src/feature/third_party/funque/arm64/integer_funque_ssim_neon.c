@@ -336,7 +336,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int16x8_t ref16x8_b0, dist16x8_b0, ref16x8_b1, dist16x8_b1;
     int16x8_t ref16x8_b2, dist16x8_b2, ref16x8_b3, dist16x8_b3;
     int16x4_t tmpRef16x8_low, tmpDist16x8_low;
-    int32x4_t var32x4_lb0, var32x4_hb0, cov32x4_lb0, cov32x4_hb0;
+    int32x4_t varX32x4_lb0, varX32x4_hb0, varY32x4_lb0, varY32x4_hb0, cov32x4_lb0, cov32x4_hb0;
     int32x4_t lDen32x4_lb0, lDen32x4_hb0, csDen32x4_lb1, csDen32x4_hb1;
     int32x4_t addlNum32x4_lb0, addlNum32x4_hb0, addlDen32x4_lb0, addlDen32x4_hb0;
     int32x4_t varSftX32x4_lb1, varSftX32x4_hb1, varSftY32x4_lb1, varSftY32x4_hb1;
@@ -373,23 +373,29 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             tmpRef16x8_low = vget_low_s16(ref16x8_b0);
             tmpDist16x8_low = vget_low_s16(dist16x8_b0);
 
-            var32x4_lb0 = vmull_s16(tmpRef16x8_low, tmpRef16x8_low);
-            var32x4_hb0 = vmull_high_s16(ref16x8_b0, ref16x8_b0);
-            var32x4_lb0 = vmlal_s16(var32x4_lb0, tmpDist16x8_low, tmpDist16x8_low);
-            var32x4_hb0 = vmlal_high_s16(var32x4_hb0, dist16x8_b0, dist16x8_b0);
+            varX32x4_lb0 = vmull_s16(tmpRef16x8_low, tmpRef16x8_low);
+            varX32x4_hb0 = vmull_high_s16(ref16x8_b0, ref16x8_b0);
+            varY32x4_lb0 = vmull_s16(tmpDist16x8_low, tmpDist16x8_low);
+            varY32x4_hb0 = vmull_high_s16(dist16x8_b0, dist16x8_b0);
             cov32x4_lb0 = vmull_s16(tmpRef16x8_low, tmpDist16x8_low);
             cov32x4_hb0 = vmull_high_s16(ref16x8_b0, dist16x8_b0);
 
-            var32x4_lb0 = vshlq_n_s32(var32x4_lb0, neg_win_size);
-            var32x4_hb0 = vshlq_n_s32(var32x4_hb0, neg_win_size);
+            varX32x4_lb0 = vshlq_n_s32(varX32x4_lb0, neg_win_size);
+            varX32x4_hb0 = vshlq_n_s32(varX32x4_hb0, neg_win_size);
+            varY32x4_lb0 = vshlq_n_s32(varY32x4_lb0, neg_win_size);
+            varY32x4_hb0 = vshlq_n_s32(varY32x4_hb0, neg_win_size);
             cov32x4_lb0 = vshlq_n_s32(cov32x4_lb0, neg_win_size);
             cov32x4_hb0 = vshlq_n_s32(cov32x4_hb0, neg_win_size);
 
-            lDen32x4_lb0 = vshrq_n_s32(var32x4_lb0, SSIM_INTER_L_SHIFT);
-            lDen32x4_hb0 = vshrq_n_s32(var32x4_hb0, SSIM_INTER_L_SHIFT);
+            varX32x4_lb0 = vaddq_s32(varX32x4_lb0, varY32x4_lb0);
+            varX32x4_hb0 = vaddq_s32(varX32x4_hb0, varY32x4_hb0);
+            lDen32x4_lb0 = vshrq_n_s32(varX32x4_lb0, SSIM_INTER_L_SHIFT);
+            lDen32x4_hb0 = vshrq_n_s32(varX32x4_hb0, SSIM_INTER_L_SHIFT);
 
-            addlNum32x4_lb0 = vmlaq_n_s32(dupC1, cov32x4_lb0, 2);
-            addlNum32x4_hb0 = vmlaq_n_s32(dupC1, cov32x4_hb0, 2);
+            cov32x4_lb0 = vaddq_s32(cov32x4_lb0, cov32x4_lb0);
+            cov32x4_hb0 = vaddq_s32(cov32x4_hb0, cov32x4_hb0);
+            addlNum32x4_lb0 = vaddq_s32(cov32x4_lb0, dupC1);
+            addlNum32x4_hb0 = vaddq_s32(cov32x4_hb0, dupC1);
             addlDen32x4_lb0 = vaddq_s32(lDen32x4_lb0, dupC1);
             addlDen32x4_hb0 = vaddq_s32(lDen32x4_hb0, dupC1);
 
@@ -594,13 +600,13 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     double cs_cov = cs_std / cs_mean;
     double ssim_cov = ssim_std / ssim_mean;
 
-    double mink3_cbrt_const_l = pow(2,(39/3));
-    double mink3_cbrt_const_cs = pow(2,(38.0/3));
-    double mink3_cbrt_const_map = pow(2,(38.0/3));
+    double mink3_cbrt_const_l = pow(2, (39 / 3));
+    double mink3_cbrt_const_cs = pow(2, (38.0 / 3));
+    double mink3_cbrt_const_map = pow(2, (38.0 / 3));
 
-    double l_mink3 = mink3_cbrt_const_l - (double)cbrt(accum_mink3_l / (width * height));
-    double cs_mink3 = mink3_cbrt_const_cs - (double)cbrt(accum_mink3_cs / (width * height));
-    double ssim_mink3 = mink3_cbrt_const_map - (double)cbrt(accum_mink3_map / (width * height));
+    double l_mink3 = mink3_cbrt_const_l - (double) cbrt(accum_mink3_l / (width * height));
+    double cs_mink3 = mink3_cbrt_const_cs - (double) cbrt(accum_mink3_cs / (width * height));
+    double ssim_mink3 = mink3_cbrt_const_map - (double) cbrt(accum_mink3_map / (width * height));
 
     score->ssim_mean = ssim_mean / (1 << (SSIM_SHIFT_DIV * 2));
     score->l_mean = l_mean / (1 << SSIM_SHIFT_DIV);
@@ -608,14 +614,9 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     score->ssim_cov = ssim_cov;
     score->l_cov = l_cov;
     score->cs_cov = cs_cov;
-    score->l_mink3 = l_mink3 / pow(2,(39/3));
-    score->cs_mink3 = cs_mink3 / pow(2,(38.0/3));
-    score->ssim_mink3 = ssim_mink3 / pow(2,(38.0/3));
-
-    free(lNumVal);
-    free(csNumVal);
-    free(lDenVal);
-    free(csDenVal);
+    score->l_mink3 = l_mink3 / pow(2, (39 / 3));
+    score->cs_mink3 = cs_mink3 / pow(2, (38.0 / 3));
+    score->ssim_mink3 = ssim_mink3 / pow(2, (38.0 / 3));
 
     ret = 0;
 
