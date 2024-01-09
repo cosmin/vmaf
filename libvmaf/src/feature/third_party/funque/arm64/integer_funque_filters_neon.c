@@ -1042,9 +1042,6 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
     int left = 0;
     int top = 0;
 
-    // int right = src->width;
-    // int bottom = src->height;
-
     int right = src->width - ((src->width) % 32);
     int bottom = src->height;
 
@@ -1104,7 +1101,7 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
             src_4 = vld1q_s16(angles[0] + src_offset + 8 + j);
             src_5 = vld1q_s16(angles[1] + src_offset + 8 + j);
             src_6 = vld1q_s16(angles[2] + src_offset + 8 + j);
-            src_6 = vld1q_s16(angles[3] + src_offset + 8 + j);
+            src_7 = vld1q_s16(angles[3] + src_offset + 8 + j);
 
             src_8 = vld1q_s16(angles[0] + src_offset + 16 + j);
             src_9 = vld1q_s16(angles[1] + src_offset + 16 + j);
@@ -1268,7 +1265,7 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
         for (theta = min_theta; theta <= max_theta; ++theta)
         {
             src_ptr = angles[theta];
-            dst_ptr = src->bands[theta];
+            dst_ptr = angles[theta];
 
             for (i = top; i < bottom; ++i)
             {
