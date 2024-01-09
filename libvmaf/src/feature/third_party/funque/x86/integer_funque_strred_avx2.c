@@ -115,8 +115,6 @@ float integer_rred_entropies_and_scales_avx2(const dwt2_dtype *x_t, const dwt2_d
 
         int i = 0;
         int j = 0;
-        dwt2_dtype src_x_val, src_y_val;
-        int32_t src_xx_val, src_yy_val;
 
         // The height loop is broken into 2 parts,
         // 1st loop, prev kh row is not available to subtract during vertical summation

@@ -50,6 +50,12 @@
     r_64x4_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(a_32x8, 1)); \
 }
 
+#define cvt_1_32x8_to_2_64x4(a_32x8, r_64x4_lo, r_64x4_hi)                       \
+    {                                                                            \
+        r_64x4_lo = _mm512_cvtepi32_epi64(_mm512_castsi512_si256(a_32x8));       \
+        r_64x4_hi = _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(a_32x8, 1)); \
+}
+
 #define cvt_1_32x4_to_2_64x2(a_32x8, r_64x4_lo, r_64x4_hi) \
 { \
     r_64x4_lo = _mm_cvtepi32_epi64(a_32x8); \
@@ -472,7 +478,6 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
     int16_t i16_cs_den;
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
-    ssim_inter_dtype l_num, l_den, cs_num, cs_den;
 
     ssim_accum_dtype accum_map = 0;
     ssim_accum_dtype accum_l = 0;
@@ -503,8 +508,6 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
 
     __m512i C1_512 = _mm512_set1_epi32(C1);
     __m512i C2_512 = _mm512_set1_epi32(C2);
-    __m256i C1_256 = _mm256_set1_epi32(C1);
-    __m256i C2_256 = _mm256_set1_epi32(C2);
 
     int32_t *lNumVal = (int32_t *) malloc(width * sizeof(int32_t )); 
     int32_t *csNumVal = (int32_t *) malloc(width * sizeof(int32_t ));
@@ -673,31 +676,6 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
             __m512i l_num_lo0, l_num_lo1, l_num_hi0, l_num_hi1, cs_num_lo0, cs_num_lo1, cs_num_hi0,
                 cs_num_hi1, l_den_lo0, l_den_lo1, l_den_hi0, l_den_hi1, cs_den_lo0, cs_den_lo1,
                 cs_den_hi0, cs_den_hi1;
-
-            // cvt_1_32x8_to_2_64x4(l_num_lo, l_num_lo0, l_num_lo1);
-            // cvt_1_32x8_to_2_64x4(l_num_hi, l_num_hi0, l_num_hi1);
-
-            // cvt_1_32x8_to_2_64x4(cs_num_lo, cs_num_lo0, cs_num_lo1);
-            // cvt_1_32x8_to_2_64x4(cs_num_hi, cs_num_hi0, cs_num_hi1);
-
-            // cvt_1_32x8_to_2_64x4(l_den_lo, l_den_lo0, l_den_lo1);
-            // cvt_1_32x8_to_2_64x4(l_den_hi, l_den_hi0, l_den_hi1);
-
-            // cvt_1_32x8_to_2_64x4(cs_den_lo, cs_den_lo0, cs_den_lo1);
-            // cvt_1_32x8_to_2_64x4(cs_den_hi, cs_den_hi0, cs_den_hi1);
-
-            __m512i map_num_lo0, map_num_lo1, map_num_hi0, map_num_hi1;
-            __m512i map_den_lo0, map_den_lo1, map_den_hi0, map_den_hi1;
-
-            // Multiply64Bit_512(l_num_lo0, cs_num_lo0, map_num_lo0);
-            // Multiply64Bit_512(l_num_lo1, cs_num_lo1, map_num_lo1);
-            // Multiply64Bit_512(l_num_hi0, cs_num_hi0, map_num_hi0);
-            // Multiply64Bit_512(l_num_hi1, cs_num_hi1, map_num_hi1);
-
-            // Multiply64Bit_512(l_den_lo0, cs_den_lo0, map_den_lo0);
-            // Multiply64Bit_512(l_den_lo1, cs_den_lo1, map_den_lo1);
-            // Multiply64Bit_512(l_den_hi0, cs_den_hi0, map_den_hi0);
-            // Multiply64Bit_512(l_den_hi1, cs_den_hi1, map_den_hi1);
 
             _mm512_storeu_si512((__m512i *) (csNumVal + j), cs_num_lo);
             _mm512_storeu_si512((__m512i *) (csNumVal + j + 16), cs_num_hi);

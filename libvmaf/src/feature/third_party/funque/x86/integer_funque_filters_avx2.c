@@ -3024,23 +3024,16 @@ void integer_horizontal_5tap_filter_avx2(spat_fil_inter_dtype *tmp, spat_fil_out
     }
 }
 
-const spat_fil_coeff_dtype i_ngan_filter_coeffs_avx2[21] = {
-    -900,  -1054, -1239, -1452, -1669, -1798, -1547, -66,   4677,  14498, 21495,
-    14498, 4677,  -66,   -1547, -1798, -1669, -1452, -1239, -1054, -900};
-
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_avx2[5] = {1658, 15139, 31193, 15139, 1658};
 
 void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
-{    
+{
     int filter_size = 0;
     const spat_fil_coeff_dtype *i_filter_coeffs;
 
     if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
         filter_size = 5;
         i_filter_coeffs = i_nadeanu_filter_coeffs_avx2;
-    } else if(strcmp(spatial_csf_filter, "ngan_spat") == 0) {
-        filter_size = 21;
-        i_filter_coeffs = i_ngan_filter_coeffs_avx2;
     }
 
     int src_px_stride = width;

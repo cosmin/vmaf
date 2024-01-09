@@ -69,7 +69,7 @@ static inline int16_t ms_ssim_get_best_i16_from_u32(uint32_t temp, int *x)
 
 const double int_exps[5] = {0.0448000000, 0.2856000000, 0.3001000000, 0.2363000000, 0.1333000000};
 
-int integer_compute_ssim_funque(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
+int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
 {
     int ret = 1;
 

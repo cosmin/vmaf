@@ -435,7 +435,6 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int16_t i16_cs_den;
     dwt2_dtype mx, my;
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
-    ssim_inter_dtype l_num, l_den, cs_num, cs_den;
 
     ssim_accum_dtype accum_map = 0;
     ssim_accum_dtype accum_l = 0;
@@ -461,15 +460,12 @@ int integer_compute_ms_ssim_funque_avx2(i_dwt2buffers *ref, i_dwt2buffers *dist,
     ssim_mink3_accum_dtype accum_mink3_l = 0;
     ssim_mink3_accum_dtype accum_mink3_cs = 0;
 
-    int16_t i16_map_den;
     int is_pyr_sft = (is_pyr == 1) ? 0 : 2;
     int const_factor = 2 >> SSIM_INTER_L_SHIFT;
     __m256i const_fact = _mm256_set1_epi32(const_factor);
 
     __m256i C1_256 = _mm256_set1_epi32(C1);
     __m256i C2_256 = _mm256_set1_epi32(C2);
-    __m128i C1_128 = _mm_set1_epi32(C1);
-    __m128i C2_128 = _mm_set1_epi32(C2);
 
     int32_t *lNumVal = (int32_t *) malloc(width * sizeof(int32_t)); 
     int32_t *csNumVal = (int32_t *) malloc(width * sizeof(int32_t));

@@ -4042,7 +4042,7 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
     __m512i d1,mul1_lo,mul1_hi,tmp1_lo,tmp1_hi;
     __m512i d2,mul2_lo,mul2_hi,tmp2_lo,tmp2_hi;
     __m512i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
-    __m512i res0,res1,res2,res3,fres0,fres1,fres2,fres3;
+    __m512i res0,res1,res2,res3;
     __m512i result0_lo,result0_hi,result1_lo,result1_hi,result2_lo,result2_hi,result3_lo,result3_hi;
     __m512i mask= _mm512_set_epi16(0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,
                     0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF);
@@ -4059,7 +4059,7 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
     
 
         for(i = top; i < bottom; ++i) {
-      
+
             src_offset = px_stride*i;
             dst_offset =  px_stride*i;
 

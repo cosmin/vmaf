@@ -27,7 +27,7 @@
 #include "integer_funque_filters.h"
 #include <time.h>
 
-void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
+void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
                          ptrdiff_t dst_stride, int width, int height, int spatial_csf, int level)
 {
     int src_px_stride = src_stride / sizeof(dwt2_dtype);
@@ -325,7 +325,7 @@ const spat_fil_coeff_dtype i_ngan_filter_coeffs[21] = {
 
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658};
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+void integer_spatial_filter_c(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
                             int height, int bitdepth, spat_fil_inter_dtype *tmp,
                             char *spatial_csf_filter)
 {
