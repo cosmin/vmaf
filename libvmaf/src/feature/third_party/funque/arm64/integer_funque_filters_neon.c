@@ -806,123 +806,108 @@ const spat_fil_coeff_dtype i_ngan_filter_coeffs_neon[21] = {
 
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_neon[5] = {1658, 15139, 31193, 15139, 1658};
 
-void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, int num_taps)
-{	
-    
+void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, 
+                                            spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
+{
     if(bitdepth==8)
     {
-    int fwidth;
-    const spat_fil_coeff_dtype *i_filter_coeffs;
-    if(num_taps == 5) {
-        fwidth = 5;
-        i_filter_coeffs = i_nadeanu_filter_coeffs_neon;
-    } 
-    else {
-        fwidth = 21;
-        i_filter_coeffs = i_ngan_filter_coeffs_neon;
-    }
+        int filter_size;
+        const spat_fil_coeff_dtype *i_filter_coeffs;
+        if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
+            filter_size = 5;
+            i_filter_coeffs = i_nadeanu_filter_coeffs_neon;
+        } else if(strcmp(spatial_csf_filter, "ngan_spat") == 0) {
+            filter_size = 21;
+            i_filter_coeffs = i_ngan_filter_coeffs_neon;
+        }
 
-    int src_px_stride = width;
-    int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);  // changes made by me here
-    uint8_t *src_8b = NULL;
-    int i, j, fi, ii,increment,increment1,increment2,increment3,increment4;
-    int half_fw = fwidth / 2;
-	src_8b = (uint8_t*)src;
-    int eff_width=width-(width%8);
+        int src_px_stride = width;
+        int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);  // changes made by me here
+        uint8_t *src_8b = NULL;
+        int i, j, fi, ii,increment,increment1,increment2,increment3,increment4;
+        int half_fw = filter_size / 2;
+        src_8b = (uint8_t*)src;
+        int eff_width=width-(width%8);
 
-    int interim_rnd = SPAT_FILTER_INTER_RND,interim_shift = SPAT_FILTER_INTER_SHIFT;
-    
+        int interim_rnd = SPAT_FILTER_INTER_RND,interim_shift = SPAT_FILTER_INTER_SHIFT;
 
-    // declare all the neon variables
-    uint8x8_t src8x8_0,src8x8_1,src8x8_2,src8x8_3,src8x8_4;
-    int16x8_t src16x8_0,src16x8_1,src16x8_2,src16x8_3;
-    int16x4_t half_round16x4_lb, half_round16x4_hb;
+        // declare all the neon variables
+        uint8x8_t src8x8_0,src8x8_1,src8x8_2,src8x8_3,src8x8_4;
+        int16x8_t src16x8_0,src16x8_1,src16x8_2,src16x8_3;
+        int16x4_t half_round16x4_lb, half_round16x4_hb;
 
-    for (i = 0; i < half_fw; i++){
+        for (i = 0; i < half_fw; i++){
 
-        int diff_i_halffw = i - half_fw;
-        int pro_mir_end = -diff_i_halffw - 1;
+            int diff_i_halffw = i - half_fw;
+            int pro_mir_end = -diff_i_halffw - 1;
 
+            for (j = 0; j < eff_width; j=j+8)
+               {
+                    int32x4_t accum_lb=vdupq_n_s32(0);
+                    int32x4_t accum_hb=vdupq_n_s32(0); 
 
+                    for (fi = 0; fi <= pro_mir_end; fi++)
+                    {
 
-		for (j = 0; j < eff_width; j=j+8)
-           {
+                        ii = pro_mir_end - fi;
+                        increment=ii * src_px_stride + j;
+                        src8x8_0=vld1_u8(src_8b + increment);
+                        src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                        accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
+                        accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
+
+                    }
+                    for ( ; fi < filter_size; fi++)
+                    {
+                        ii = diff_i_halffw + fi;
+                        
+                        increment=ii * src_px_stride + j;
+                        src8x8_0=vld1_u8(src_8b + increment);
+                        src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                        accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
+                        accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
+                    }
+                    half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
+                    half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
+                    vst1_s16(tmp + j,half_round16x4_lb);
+                    vst1_s16(tmp + j+4,half_round16x4_hb);
+                }
+
+               // for the last columns  of each row
+                for (j = eff_width; j < width; j++){
+
+                    spat_fil_accum_dtype accum = 0;
+
+                    /**
+                     * The full loop is from fi = 0 to filter_size
+                     * During the loop when the centre pixel is at i, 
+                     * the top part is available only till i-(filter_size/2) >= 0, 
+                     * hence padding (border mirroring) is required when i-filter_size/2 < 0
+                     */
+                    //This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
+                    for (fi = 0; fi <= pro_mir_end; fi++){
+
+                        ii = pro_mir_end - fi;
+                        accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                    }
+                    //Here the normal loop is executed where ii = i - filter_size / 2 + fi
+                    for ( ; fi < filter_size; fi++)
+                    {
+                        ii = diff_i_halffw + fi;
+                        accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                    }
+                    tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                }
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+        }
+
+        for ( ; i < (height - half_fw); i++){
+            int f_l_i = i - half_fw;
+            int f_r_i = i + half_fw;
+
+            for (j = 0; j < eff_width; j=j+8)
+            {
                 int32x4_t accum_lb=vdupq_n_s32(0);
-                int32x4_t accum_hb=vdupq_n_s32(0); 
-
-			    for (fi = 0; fi <= pro_mir_end; fi++)
-                {
-
-					ii = pro_mir_end - fi;
-                    increment=ii * src_px_stride + j;
-                    src8x8_0=vld1_u8(src_8b + increment);
-                    src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
-                    accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
-                    accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-
-				}
-				
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = diff_i_halffw + fi;
-                    
-                    increment=ii * src_px_stride + j;
-                    src8x8_0=vld1_u8(src_8b + increment);
-                    src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
-
-                    accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
-                    accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-
-				}
-                
-                half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
-                half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
-                vst1_s16(tmp + j,half_round16x4_lb);
-                vst1_s16(tmp + j+4,half_round16x4_hb);
-                
-				
-			}
-		   
-           // for the last columns  of each row
-        	for (j = eff_width; j < width; j++){
-
-				spat_fil_accum_dtype accum = 0;
-
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the top part is available only till i-(fwidth/2) >= 0, 
-				 * hence padding (border mirroring) is required when i-fwidth/2 < 0
-				 */
-				//This loop does border mirroring (ii = -(i - fwidth/2 + fi + 1))
-				for (fi = 0; fi <= pro_mir_end; fi++){
-
-					ii = pro_mir_end - fi;
-					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				//Here the normal loop is executed where ii = i - fwidth / 2 + fi
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = diff_i_halffw + fi;
-					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
-			}
-
-        
-        integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-
-    }
- 
-    for ( ; i < (height - half_fw); i++){
-        
-        int f_l_i = i - half_fw;
-        int f_r_i = i + half_fw;
-
-		for (j = 0; j < eff_width; j=j+8)
-           {
-
-				int32x4_t accum_lb=vdupq_n_s32(0);
                 int32x4_t accum_hb=vdupq_n_s32(0);
 
 
@@ -937,85 +922,69 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
                 src8x8_1=vld1_u8(src_8b + increment1);
                 src8x8_3=vld1_u8(src_8b + increment3);
                 src8x8_2=vld1_u8(src_8b + increment2);
-      
-               src16x8_2=vreinterpretq_s16_u16(vmovl_u8(src8x8_2));
 
+               src16x8_2 = vreinterpretq_s16_u16(vmovl_u8(src8x8_2));
                src16x8_1 = vreinterpretq_s16_u16(vaddl_u8(src8x8_0, src8x8_4));
                src16x8_3 = vreinterpretq_s16_u16(vaddl_u8(src8x8_1, src8x8_3));
 
                 accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_1), i_filter_coeffs[0]);
                 accum_hb = vmlal_high_n_s16(accum_hb, src16x8_1, i_filter_coeffs[0]);
-                
                 accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_3), i_filter_coeffs[1]);
                 accum_hb = vmlal_high_n_s16(accum_hb, src16x8_3, i_filter_coeffs[1]);
-             
 
                 accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_2), i_filter_coeffs[2]);
                 accum_hb = vmlal_high_n_s16(accum_hb, src16x8_2, i_filter_coeffs[2]);
-               
-				
                 half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
                 half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
 
                 vst1_s16(tmp + j,half_round16x4_lb);
                 vst1_s16(tmp + j+4,half_round16x4_hb);
-            
-			}
-           // for processing last row if present
+            }
 
-			for (j = eff_width; j < width; j++){
+            for (j = eff_width; j < width; j++){
 
-				spat_fil_accum_dtype accum = 0;
+                spat_fil_accum_dtype accum = 0;
 
-				/**
-				 * The filter coefficients are symmetric, 
-				 * hence the corresponding pixels for whom coefficient values would be same are added first & then multiplied by coeff
-				 * The centre pixel is multiplied and accumulated outside the loop
-				*/
-				for (fi = 0; fi < (half_fw); fi++){
-					int ii1 = f_l_i + fi;
-					int ii2 = f_r_i - fi;
-					accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src_8b[ii1 * src_px_stride + j] + src_8b[ii2 * src_px_stride + j]);
-				}
-				accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[i * src_px_stride + j];
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
-			}
-        
-		
+                /**
+                 * The filter coefficients are symmetric, 
+                 * hence the corresponding pixels for whom coefficient values would be same are added first & then multiplied by coeff
+                 * The centre pixel is multiplied and accumulated outside the loop
+                */
+                for (fi = 0; fi < (half_fw); fi++){
+                    int ii1 = f_l_i + fi;
+                    int ii2 = f_r_i - fi;
+                    accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src_8b[ii1 * src_px_stride + j] + src_8b[ii2 * src_px_stride + j]);
+                }
+                accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[i * src_px_stride + j];
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+            }
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+        }
 
-      integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
+        for (; i < height; i++){
 
-    }
+            int diff_i_halffw = i - half_fw;
+            int epi_mir_i = 2 * height - diff_i_halffw - 1;
+            int epi_last_i  = height - diff_i_halffw;
 
-    for (; i < height; i++){
-
-        int diff_i_halffw = i - half_fw;
-        int epi_mir_i = 2 * height - diff_i_halffw - 1;
-        int epi_last_i  = height - diff_i_halffw;
-
-		for (j = 0; j < eff_width; j=j+8)
-           {
-
+            for (j = 0; j < eff_width; j=j+8)
+            {
                 int32x4_t accum_lb=vdupq_n_s32(0);
                 int32x4_t accum_hb=vdupq_n_s32(0);
 
-				for (fi = 0; fi < epi_last_i; fi++){
+                for (fi = 0; fi < epi_last_i; fi++){
 
-					ii = diff_i_halffw + fi;
-                    
+                    ii = diff_i_halffw + fi;
                     increment=ii * src_px_stride + j;
                     src8x8_0=vld1_u8(src_8b + increment);
                     src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
 
                     accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
                     accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-
-				
-				}
-			
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = epi_mir_i - fi;
+                }
+                for ( ; fi < filter_size; fi++)
+                {
+                    ii = epi_mir_i - fi;
 
                     increment=ii * src_px_stride + j;
                     src8x8_0=vld1_u8(src_8b + increment);
@@ -1023,46 +992,38 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
 
                     accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
                     accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-
-
-				}
+                }
 
                 half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
                 half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
                 vst1_s16(tmp + j,half_round16x4_lb);
                 vst1_s16(tmp + j+4,half_round16x4_hb); 
+            }
+            for (j = eff_width; j < width; j++){
+                spat_fil_accum_dtype accum = 0;
 
-		
-			}
-        for (j = eff_width; j < width; j++){
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i, 
+                 * the bottom pixels are available only till i+(filter_size/2) < height, 
+                 * hence padding (border mirroring) is required when i+(filter_size/2) >= height
+                 */
+                //Here the normal loop is executed where ii = i - filter_size/2 + fi
+                for (fi = 0; fi < epi_last_i; fi++){
 
-				spat_fil_accum_dtype accum = 0;
-
-				/**
-				 * The full loop is from fi = 0 to fwidth
-				 * During the loop when the centre pixel is at i, 
-				 * the bottom pixels are available only till i+(fwidth/2) < height, 
-				 * hence padding (border mirroring) is required when i+(fwidth/2) >= height
-				 */
-				//Here the normal loop is executed where ii = i - fwidth/2 + fi
-				for (fi = 0; fi < epi_last_i; fi++){
-
-					ii = diff_i_halffw + fi;
-					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				//This loop does border mirroring (ii = 2*height - (i - fwidth/2 + fi) - 1)
-				for ( ; fi < fwidth; fi++)
-				{
-					ii = epi_mir_i - fi;
-					accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-				}
-				tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
-			}
-        
-		
-		integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, fwidth, i*dst_px_stride, half_fw);
-
-    }
+                    ii = diff_i_halffw + fi;
+                    accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                }
+                //This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+                for ( ; fi < filter_size; fi++)
+                {
+                    ii = epi_mir_i - fi;
+                    accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+            }
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+        }
     }
 
     return;
