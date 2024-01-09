@@ -37,10 +37,14 @@ typedef struct strred_results {
 
 } strred_results;
 
+int compute_srred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
+                         size_t width, size_t height, float** spat_scales_ref, float** spat_scales_dist,
+                         struct strred_results* strred_scores, int block_size, int level);
+
 int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
                           struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
-                          size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level);
+                          size_t width, size_t height, float** spat_scales_ref, float** spat_scales_dist, 
+                          struct strred_results* strred_scores, int block_size, int level);
 
 int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
                                   struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,

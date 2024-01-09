@@ -658,6 +658,23 @@ static int extract(VmafFeatureExtractor *fex,
     s->strred_scores.temp_vals_cumsum = 0;
     s->strred_scores.spat_temp_vals_cumsum = 0;
 
+    float* spat_scales_ref[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    float* spat_scales_dist[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
+
+    if((s->strred_levels != 0) && (index != 0)) {
+        for (int level = 0; level <= s->strred_levels-1; level++) {
+            for(size_t subband = 1; subband < total_subbands; subband++) {
+                size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
+                size_t r_width = s->ref_dwt2out[level].width + (2 * x_reflect);
+                size_t r_height = s->ref_dwt2out[level].height + (2 * x_reflect);
+
+                spat_scales_ref[level][subband] = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+                spat_scales_dist[level][subband] = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+            }
+        }
+    }
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
         if (level+1 < s->needed_dwt_levels) {
@@ -684,6 +701,9 @@ static int extract(VmafFeatureExtractor *fex,
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 0);
             }
         }
+    }
+
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
 
         if ((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err |= compute_adm_funque(s->ref_dwt2out[level], s->dist_dwt2out[level], &adm_score[level], &adm_score_num[level], &adm_score_den[level], ADM_BORDER_FACTOR);
@@ -721,6 +741,16 @@ static int extract(VmafFeatureExtractor *fex,
             vif_den += vif_score_den[level];
         }
 
+        if((s->strred_levels != 0) && (level <= s->strred_levels - 1) && (index != 0)) {
+            err |= compute_srred_funque(&s->ref_dwt2out[level], &s->dist_dwt2out[level],s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
+                                        spat_scales_ref[level], spat_scales_dist[level], &s->strred_scores, BLOCK_SIZE, level);
+        }
+
+        if (err) return err;
+    }
+
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
+
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
             if(index == 0) {
                 err |= copy_prev_frame_strred_funque(
@@ -732,7 +762,7 @@ static int extract(VmafFeatureExtractor *fex,
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
                     &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
-                    &s->strred_scores, BLOCK_SIZE, level);
+                    spat_scales_ref[level], spat_scales_dist[level], &s->strred_scores, BLOCK_SIZE, level);
 
                 err |= copy_prev_frame_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
@@ -938,6 +968,15 @@ if(s->ms_ssim_levels > 0) {
     free(var_x_cum);
     free(var_y_cum);
     free(cov_xy_cum);
+
+    if((s->strred_levels != 0) && (index != 0)) {
+        for (int level = 0; level <= s->strred_levels-1; level++) {
+            for(size_t subband = 1; subband < total_subbands; subband++) {
+                free(spat_scales_ref[level][subband]);
+                free(spat_scales_dist[level][subband]);
+            }
+        }
+    }
 
     return err;
 }
