@@ -231,6 +231,7 @@ if is_asm_enabled
                 funque_feature_dir + 'arm64/integer_funque_adm_neon.c',
                 funque_feature_dir + 'arm64/integer_funque_vif_neon.c',
                 funque_feature_dir + 'arm64/resizer_neon.c',
+                funque_feature_dir + 'arm64/integer_funque_strred_neon.c',
             ]
         endif
 
@@ -283,6 +284,7 @@ if is_asm_enabled
                 funque_feature_dir + 'x86/integer_funque_ssim_avx2.c',
                 funque_feature_dir + 'x86/integer_funque_adm_avx2.c',
                 funque_feature_dir + 'x86/integer_funque_motion_avx2.c',
+                funque_feature_dir + 'x86/integer_funque_strred_avx2.c',
                 funque_feature_dir + 'x86/resizer_avx2.c',
                 funque_feature_dir + 'x86/hbd_resizer_avx2.c',
             ]
@@ -311,6 +313,7 @@ if is_asm_enabled
                 funque_feature_dir + 'x86/integer_funque_ssim_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_adm_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_vif_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_strred_avx512.c',
             ]
         endif 
 

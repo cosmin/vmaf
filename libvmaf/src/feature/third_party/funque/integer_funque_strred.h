@@ -46,7 +46,11 @@ void integer_subract_subbands_c(const dwt2_dtype *ref_src, const dwt2_dtype *ref
                                 const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst, size_t width,
                                 size_t height);
 
+void strred_integer_reflect_pad(const dwt2_dtype *src, size_t width, size_t height, int reflect,
+                                dwt2_dtype *dest);
+
 void strred_funque_generate_log22(uint32_t *log_22);
+void strred_funque_log_generate(uint32_t* log_18);
 
 FORCE_INLINE inline uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
 {

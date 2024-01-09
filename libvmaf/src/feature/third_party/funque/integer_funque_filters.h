@@ -321,11 +321,11 @@ static const uint8_t i_mannos_weight_pending_div_factors[4][4] = {
     {3,  4,  4,  4},  // L3
 };
 
-void integer_spatial_filter(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
+void integer_spatial_filter_c(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
                             int height, int bitdepth, spat_fil_inter_dtype *tmp,
                             char *spatial_csf_filter);
 
-void integer_funque_dwt2(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
+void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
                          ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag,
                          int level);
 
@@ -334,7 +334,7 @@ void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t d
 
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
-void integer_funque_dwt2_inplace_csf(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
+void integer_funque_dwt2_inplace_csf_c(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                      int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
                                      uint8_t interim_shift_factors[4], int level);
 
