@@ -1031,264 +1031,258 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
 
 
 void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
-                                     int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
-                                     uint8_t interim_shift_factors[4], int level,i_dwt2buffers *dst)
+                                          int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
+                                          uint8_t interim_shift_factors[4], int level)
 {
-  
+
     dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
+    int px_stride = src->stride / sizeof(dwt2_dtype);
 
-    // changed by me wrt my  code
-    //int px_stride = src->crop_width / sizeof(dwt2_dtype);
-    int px_stride = src->width / sizeof(dwt2_dtype);
-
- 
     int left = 0;
     int top = 0;
 
-    //  changes made wrt to my code will be changed later 
+    // int right = src->width;
+    // int bottom = src->height;
 
-     level++;level--;
-    // int right = src->crop_width; 
-    // int bottom = src->crop_height;
-    
-    //upto here
-    
-    int right = src->width - ((src->width)%32) ; 
+    int right = src->width - ((src->width) % 32);
     int bottom = src->height;
-    
-    int i, j,src_offset, dst_offset,theta;
 
-    //intialization required for extra width processing
+    int i, j, src_offset, dst_offset, theta;
+
+    // intialization required for extra width processing
     spat_fil_accum_dtype mul_val;
     dwt2_dtype dst_val;
     dwt2_dtype *src_ptr;
-    dwt2_dtype *dst_ptr; 
+    dwt2_dtype *dst_ptr;
 
     // initializing neon variables
-    int16x8_t src_0,src_1,src_2,src_3,src_4,src_5,src_6,src_7;
-    int16x8_t src_8,src_9,src_10,src_11,src_12,src_13,src_14,src_15;
+    int16x8_t src_0, src_1, src_2, src_3, src_4, src_5, src_6, src_7;
+    int16x8_t src_8, src_9, src_10, src_11, src_12, src_13, src_14, src_15;
 
-    int16x4_t src_0_l,src_1_l,src_2_l,src_3_l,src_4_l,src_5_l,src_6_l,src_7_l;
-    int16x4_t src_8_l,src_9_l,src_10_l,src_11_l,src_12_l,src_13_l,src_14_l,src_15_l;
+    int16x4_t src_0_l, src_1_l, src_2_l, src_3_l, src_4_l, src_5_l, src_6_l, src_7_l;
+    int16x4_t src_8_l, src_9_l, src_10_l, src_11_l, src_12_l, src_13_l, src_14_l, src_15_l;
 
+    int32x4_t mul_val_0_h, mul_val_1_h, mul_val_2_h, mul_val_3_h, mul_val_0_l, mul_val_1_l, mul_val_2_l, mul_val_3_l;
+    int32x4_t mul_val_4_h, mul_val_5_h, mul_val_6_h, mul_val_7_h, mul_val_4_l, mul_val_5_l, mul_val_6_l, mul_val_7_l;
 
-    int32x4_t mul_val_0_h,mul_val_1_h,mul_val_2_h,mul_val_3_h,mul_val_0_l,mul_val_1_l,mul_val_2_l,mul_val_3_l;
-    int32x4_t mul_val_4_h,mul_val_5_h,mul_val_6_h,mul_val_7_h,mul_val_4_l,mul_val_5_l,mul_val_6_l,mul_val_7_l;
+    int32x4_t mul_val_9_h, mul_val_10_h, mul_val_11_h, mul_val_8_h, mul_val_8_l, mul_val_9_l, mul_val_10_l, mul_val_11_l;
+    int32x4_t mul_val_12_h, mul_val_13_h, mul_val_14_h, mul_val_15_h, mul_val_12_l, mul_val_13_l, mul_val_14_l, mul_val_15_l;
 
-    int32x4_t mul_val_9_h,mul_val_10_h,mul_val_11_h,mul_val_8_h,mul_val_8_l,mul_val_9_l,mul_val_10_l,mul_val_11_l;
-    int32x4_t mul_val_12_h,mul_val_13_h,mul_val_14_h,mul_val_15_h,mul_val_12_l,mul_val_13_l,mul_val_14_l,mul_val_15_l;
+    int16x4_t dst_val_0_h, dst_val_1_h, dst_val_2_h, dst_val_3_h, dst_val_0_l, dst_val_1_l, dst_val_2_l, dst_val_3_l;
+    int16x4_t dst_val_4_h, dst_val_5_h, dst_val_6_h, dst_val_7_h, dst_val_4_l, dst_val_5_l, dst_val_6_l, dst_val_7_l;
 
+    int16x4_t dst_val_8_h, dst_val_9_h, dst_val_10_h, dst_val_11_h, dst_val_8_l, dst_val_9_l, dst_val_10_l, dst_val_11_l;
+    int16x4_t dst_val_12_h, dst_val_13_h, dst_val_14_h, dst_val_15_h, dst_val_12_l, dst_val_13_l, dst_val_14_l, dst_val_15_l;
 
-    int16x4_t dst_val_0_h,dst_val_1_h,dst_val_2_h,dst_val_3_h,dst_val_0_l,dst_val_1_l,dst_val_2_l,dst_val_3_l;
-    int16x4_t dst_val_4_h,dst_val_5_h,dst_val_6_h,dst_val_7_h,dst_val_4_l,dst_val_5_l,dst_val_6_l,dst_val_7_l;
+    int32x4_t rnd_factor1, rnd_factor2, rnd_factor3, rnd_factor4, a1, a2, a3, a4;
 
-    int16x4_t dst_val_8_h,dst_val_9_h,dst_val_10_h,dst_val_11_h,dst_val_8_l,dst_val_9_l,dst_val_10_l,dst_val_11_l;
-    int16x4_t dst_val_12_h,dst_val_13_h,dst_val_14_h,dst_val_15_h,dst_val_12_l,dst_val_13_l,dst_val_14_l,dst_val_15_l;
+    rnd_factor1 = vdupq_n_s32(interim_rnd_factors[0]);
+    rnd_factor2 = vdupq_n_s32(interim_rnd_factors[1]);
+    rnd_factor3 = vdupq_n_s32(interim_rnd_factors[2]);
+    rnd_factor4 = vdupq_n_s32(interim_rnd_factors[3]);
 
-    
-        for(i = top; i < bottom; ++i) {
-            src_offset = i * px_stride;
-            dst_offset = i * px_stride;
+    a1 = vdupq_n_s32(-interim_shift_factors[0]);
+    a2 = vdupq_n_s32(-interim_shift_factors[1]);
+    a3 = vdupq_n_s32(-interim_shift_factors[2]);
+    a4 = vdupq_n_s32(-interim_shift_factors[3]);
 
-            for(j = left; j < right; j=j+32) {
-                 
-                // will be loading for all 4 values of theta 0,1,2,3  commands to be used vmull_high_n_s16, vmull_n_s16 ,vget_low_s16 ,vld1q_s16, int8x8_t vqrshrn_n_s16(int16x8_t a,const int n) ,
-                // int16x8_t vshrq_n_s16( int16x8_t a,const int n)
-                
-                //loading from all 4 bands 8 pixels
-                src_0=vld1q_s16(angles[0]+src_offset + j);
-                src_1=vld1q_s16(angles[1]+src_offset + j);
-                src_2=vld1q_s16(angles[2]+src_offset + j);
-                src_3=vld1q_s16(angles[3]+src_offset + j);
+    for (i = top; i < bottom; ++i)
+    {
+        src_offset = i * px_stride;
+        dst_offset = i * px_stride;
 
-                src_4=vld1q_s16(angles[0]+src_offset+8 + j);
-                src_5=vld1q_s16(angles[1]+src_offset+8 + j);
-                src_6=vld1q_s16(angles[2]+src_offset+8 + j);
-                src_6=vld1q_s16(angles[3]+src_offset+8 + j);
+        for (j = left; j < right; j = j + 32)
+        {
 
-                src_8=vld1q_s16(angles[0]+src_offset+ 16+ j);
-                src_9=vld1q_s16(angles[1]+src_offset+16+ j);
-                src_10=vld1q_s16(angles[2]+src_offset+16+ j);
-                src_11=vld1q_s16(angles[3]+src_offset+16 + j);
+            // loading from all 4 bands 8 pixels
+            src_0 = vld1q_s16(angles[0] + src_offset + j);
+            src_1 = vld1q_s16(angles[1] + src_offset + j);
+            src_2 = vld1q_s16(angles[2] + src_offset + j);
+            src_3 = vld1q_s16(angles[3] + src_offset + j);
 
-                src_12=vld1q_s16(angles[0]+src_offset+24+ j);
-                src_13=vld1q_s16(angles[1]+src_offset+24+ j);
-                src_14=vld1q_s16(angles[2]+src_offset+24+ j);
-                src_15=vld1q_s16(angles[3]+src_offset+24+ j);
+            src_4 = vld1q_s16(angles[0] + src_offset + 8 + j);
+            src_5 = vld1q_s16(angles[1] + src_offset + 8 + j);
+            src_6 = vld1q_s16(angles[2] + src_offset + 8 + j);
+            src_6 = vld1q_s16(angles[3] + src_offset + 8 + j);
 
+            src_8 = vld1q_s16(angles[0] + src_offset + 16 + j);
+            src_9 = vld1q_s16(angles[1] + src_offset + 16 + j);
+            src_10 = vld1q_s16(angles[2] + src_offset + 16 + j);
+            src_11 = vld1q_s16(angles[3] + src_offset + 16 + j);
 
-                // getting the lower value
-                src_0_l=vget_low_s16(src_0);
-                src_1_l=vget_low_s16(src_1);
-                src_2_l=vget_low_s16(src_2);
-                src_3_l=vget_low_s16(src_3);
+            src_12 = vld1q_s16(angles[0] + src_offset + 24 + j);
+            src_13 = vld1q_s16(angles[1] + src_offset + 24 + j);
+            src_14 = vld1q_s16(angles[2] + src_offset + 24 + j);
+            src_15 = vld1q_s16(angles[3] + src_offset + 24 + j);
 
-                src_7_l=vget_low_s16(src_7);
-                src_6_l=vget_low_s16(src_6);
-                src_5_l=vget_low_s16(src_5);
-                src_4_l=vget_low_s16(src_4);
+            // getting the lower value
+            src_0_l = vget_low_s16(src_0);
+            src_1_l = vget_low_s16(src_1);
+            src_2_l = vget_low_s16(src_2);
+            src_3_l = vget_low_s16(src_3);
 
-                src_8_l=vget_low_s16(src_8);
-                src_9_l=vget_low_s16(src_9);
-                src_10_l=vget_low_s16(src_10);
-                src_11_l=vget_low_s16(src_11);
+            src_7_l = vget_low_s16(src_7);
+            src_6_l = vget_low_s16(src_6);
+            src_5_l = vget_low_s16(src_5);
+            src_4_l = vget_low_s16(src_4);
 
-                src_12_l=vget_low_s16(src_12);
-                src_13_l=vget_low_s16(src_13);
-                src_14_l=vget_low_s16(src_14);
-                src_15_l=vget_low_s16(src_15);
+            src_8_l = vget_low_s16(src_8);
+            src_9_l = vget_low_s16(src_9);
+            src_10_l = vget_low_s16(src_10);
+            src_11_l = vget_low_s16(src_11);
 
-                //multiplying 
-                mul_val_0_h=vmull_high_n_s16(src_0,factors[0]);
-                mul_val_1_h=vmull_high_n_s16(src_1,factors[1]);
-                mul_val_2_h=vmull_high_n_s16(src_2,factors[2]);
-                mul_val_3_h=vmull_high_n_s16(src_3,factors[3]);
+            src_12_l = vget_low_s16(src_12);
+            src_13_l = vget_low_s16(src_13);
+            src_14_l = vget_low_s16(src_14);
+            src_15_l = vget_low_s16(src_15);
 
-                mul_val_0_l=vmull_n_s16(src_0_l,factors[0]);
-                mul_val_1_l=vmull_n_s16(src_1_l,factors[1]);
-                mul_val_2_l=vmull_n_s16(src_2_l,factors[2]);
-                mul_val_3_l=vmull_n_s16(src_3_l,factors[3]);
+            // multiplying
+            mul_val_0_h = vmull_high_n_s16(src_0, factors[0]);
+            mul_val_1_h = vmull_high_n_s16(src_1, factors[1]);
+            mul_val_2_h = vmull_high_n_s16(src_2, factors[2]);
+            mul_val_3_h = vmull_high_n_s16(src_3, factors[3]);
 
-                mul_val_4_h=vmull_high_n_s16(src_4,factors[0]);
-                mul_val_5_h=vmull_high_n_s16(src_5,factors[1]);
-                mul_val_6_h=vmull_high_n_s16(src_6,factors[2]);
-                mul_val_7_h=vmull_high_n_s16(src_7,factors[3]);
+            mul_val_0_l = vmull_n_s16(src_0_l, factors[0]);
+            mul_val_1_l = vmull_n_s16(src_1_l, factors[1]);
+            mul_val_2_l = vmull_n_s16(src_2_l, factors[2]);
+            mul_val_3_l = vmull_n_s16(src_3_l, factors[3]);
 
-                mul_val_4_l=vmull_n_s16(src_4_l,factors[0]);
-                mul_val_5_l=vmull_n_s16(src_5_l,factors[1]);
-                mul_val_6_l=vmull_n_s16(src_6_l,factors[2]);
-                mul_val_7_l=vmull_n_s16(src_7_l,factors[3]);
+            mul_val_4_h = vmull_high_n_s16(src_4, factors[0]);
+            mul_val_5_h = vmull_high_n_s16(src_5, factors[1]);
+            mul_val_6_h = vmull_high_n_s16(src_6, factors[2]);
+            mul_val_7_h = vmull_high_n_s16(src_7, factors[3]);
 
-                mul_val_8_h=vmull_high_n_s16(src_8,factors[0]);
-                mul_val_9_h=vmull_high_n_s16(src_9,factors[1]);
-                mul_val_10_h=vmull_high_n_s16(src_10,factors[2]);
-                mul_val_11_h=vmull_high_n_s16(src_11,factors[3]);
+            mul_val_4_l = vmull_n_s16(src_4_l, factors[0]);
+            mul_val_5_l = vmull_n_s16(src_5_l, factors[1]);
+            mul_val_6_l = vmull_n_s16(src_6_l, factors[2]);
+            mul_val_7_l = vmull_n_s16(src_7_l, factors[3]);
 
-                mul_val_8_l=vmull_n_s16(src_8_l,factors[0]);
-                mul_val_9_l=vmull_n_s16(src_9_l,factors[1]);
-                mul_val_10_l=vmull_n_s16(src_10_l,factors[2]);
-                mul_val_11_l=vmull_n_s16(src_11_l,factors[3]);
+            mul_val_8_h = vmull_high_n_s16(src_8, factors[0]);
+            mul_val_9_h = vmull_high_n_s16(src_9, factors[1]);
+            mul_val_10_h = vmull_high_n_s16(src_10, factors[2]);
+            mul_val_11_h = vmull_high_n_s16(src_11, factors[3]);
 
-                mul_val_12_h=vmull_high_n_s16(src_12,factors[0]);
-                mul_val_13_h=vmull_high_n_s16(src_13,factors[1]);
-                mul_val_14_h=vmull_high_n_s16(src_14,factors[2]);
-                mul_val_15_h=vmull_high_n_s16(src_15,factors[3]);
+            mul_val_8_l = vmull_n_s16(src_8_l, factors[0]);
+            mul_val_9_l = vmull_n_s16(src_9_l, factors[1]);
+            mul_val_10_l = vmull_n_s16(src_10_l, factors[2]);
+            mul_val_11_l = vmull_n_s16(src_11_l, factors[3]);
 
-                mul_val_12_l=vmull_n_s16(src_12_l,factors[0]);
-                mul_val_13_l=vmull_n_s16(src_13_l,factors[1]);
-                mul_val_14_l=vmull_n_s16(src_14_l,factors[2]);
-                mul_val_15_l=vmull_n_s16(src_15_l,factors[3]);
+            mul_val_12_h = vmull_high_n_s16(src_12, factors[0]);
+            mul_val_13_h = vmull_high_n_s16(src_13, factors[1]);
+            mul_val_14_h = vmull_high_n_s16(src_14, factors[2]);
+            mul_val_15_h = vmull_high_n_s16(src_15, factors[3]);
 
+            mul_val_12_l = vmull_n_s16(src_12_l, factors[0]);
+            mul_val_13_l = vmull_n_s16(src_13_l, factors[1]);
+            mul_val_14_l = vmull_n_s16(src_14_l, factors[2]);
+            mul_val_15_l = vmull_n_s16(src_15_l, factors[3]);
 
-                // half_rounding_off
-                dst_val_0_h=vqrshrn_n_s32(mul_val_0_h,15);
-                dst_val_1_h=vqrshrn_n_s32(mul_val_1_h,10);
-                dst_val_2_h=vqrshrn_n_s32(mul_val_2_h,9);
-                dst_val_3_h=vqrshrn_n_s32(mul_val_3_h,10);
+            // half_rounding_off
+            dst_val_0_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_0_h, rnd_factor1), a1));
+            dst_val_1_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_1_h, rnd_factor2), a2));
+            dst_val_2_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_2_h, rnd_factor3), a3));
+            dst_val_3_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_3_h, rnd_factor4), a4));
 
-                dst_val_0_l=vqrshrn_n_s32(mul_val_0_l,15);
-                dst_val_1_l=vqrshrn_n_s32(mul_val_1_l,10);
-                dst_val_2_l=vqrshrn_n_s32(mul_val_2_l,9);
-                dst_val_3_l=vqrshrn_n_s32(mul_val_3_l,10);
+            dst_val_0_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_0_l, rnd_factor1), a1));
+            dst_val_1_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_1_l, rnd_factor2), a2));
+            dst_val_2_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_2_l, rnd_factor3), a3));
+            dst_val_3_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_3_l, rnd_factor4), a4));
 
-                dst_val_4_h=vqrshrn_n_s32(mul_val_4_h,15);
-                dst_val_5_h=vqrshrn_n_s32(mul_val_5_h,10);
-                dst_val_6_h=vqrshrn_n_s32(mul_val_6_h,9);
-                dst_val_7_h=vqrshrn_n_s32(mul_val_7_h,10);
+            dst_val_4_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_4_h, rnd_factor1), a1));
+            dst_val_5_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_5_h, rnd_factor2), a2));
+            dst_val_6_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_6_h, rnd_factor3), a3));
+            dst_val_7_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_7_h, rnd_factor4), a4));
 
-                dst_val_4_l=vqrshrn_n_s32(mul_val_4_l,15);
-                dst_val_5_l=vqrshrn_n_s32(mul_val_5_l,10);
-                dst_val_6_l=vqrshrn_n_s32(mul_val_6_l,9);
-                dst_val_7_l=vqrshrn_n_s32(mul_val_7_l,10);
+            dst_val_4_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_4_l, rnd_factor1), a1));
+            dst_val_5_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_5_l, rnd_factor2), a2));
+            dst_val_6_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_6_l, rnd_factor3), a3));
+            dst_val_7_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_7_l, rnd_factor4), a4));
 
-                dst_val_8_h=vqrshrn_n_s32(mul_val_8_h,15);
-                dst_val_9_h=vqrshrn_n_s32(mul_val_9_h,10);
-                dst_val_10_h=vqrshrn_n_s32(mul_val_10_h,9);
-                dst_val_11_h=vqrshrn_n_s32(mul_val_11_h,10);
+            dst_val_8_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_8_l, rnd_factor1), a1));
+            dst_val_9_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_9_l, rnd_factor2), a2));
+            dst_val_10_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_10_l, rnd_factor3), a3));
+            dst_val_11_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_11_l, rnd_factor4), a4));
 
-                dst_val_8_l=vqrshrn_n_s32(mul_val_8_l,15);
-                dst_val_9_l=vqrshrn_n_s32(mul_val_9_l,10);
-                dst_val_10_l=vqrshrn_n_s32(mul_val_10_l,9);
-                dst_val_11_l=vqrshrn_n_s32(mul_val_11_l,10);
+            dst_val_8_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_8_h, rnd_factor1), a1));
+            dst_val_9_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_9_h, rnd_factor2), a2));
+            dst_val_10_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_10_h, rnd_factor3), a3));
+            dst_val_11_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_11_h, rnd_factor4), a4));
 
-                dst_val_12_h=vqrshrn_n_s32(mul_val_12_h,15);
-                dst_val_13_h=vqrshrn_n_s32(mul_val_13_h,10);
-                dst_val_14_h=vqrshrn_n_s32(mul_val_14_h,9);
-                dst_val_15_h=vqrshrn_n_s32(mul_val_15_h,10);
+            dst_val_12_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_12_h, rnd_factor1), a1));
+            dst_val_13_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_13_h, rnd_factor2), a2));
+            dst_val_14_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_14_h, rnd_factor3), a3));
+            dst_val_15_h = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_15_h, rnd_factor4), a4));
 
-                dst_val_12_l=vqrshrn_n_s32(mul_val_12_l,15);
-                dst_val_13_l=vqrshrn_n_s32(mul_val_13_l,10);
-                dst_val_14_l=vqrshrn_n_s32(mul_val_14_l,9);
-                dst_val_15_l=vqrshrn_n_s32(mul_val_15_l,10);
+            dst_val_12_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_12_l, rnd_factor1), a1));
+            dst_val_13_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_13_l, rnd_factor2), a2));
+            dst_val_14_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_14_l, rnd_factor3), a3));
+            dst_val_15_l = vmovn_s32(vshlq_s32(vaddq_s32(mul_val_15_l, rnd_factor4), a4));
 
-                //storing the data
-                vst1_s16(dst->bands[0]+dst_offset+j,dst_val_0_l);
-                vst1_s16(dst->bands[2]+dst_offset+j,dst_val_1_l);
-                vst1_s16(dst->bands[3]+dst_offset+j,dst_val_2_l);
-                vst1_s16(dst->bands[1]+dst_offset+j,dst_val_3_l);
+            // storing the data
+            vst1_s16(src->bands[0] + dst_offset + j, dst_val_0_l);
+            vst1_s16(src->bands[2] + dst_offset + j, dst_val_1_l);
+            vst1_s16(src->bands[3] + dst_offset + j, dst_val_2_l);
+            vst1_s16(src->bands[1] + dst_offset + j, dst_val_3_l);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+4,dst_val_0_h);
-                vst1_s16(dst->bands[2]+dst_offset+j+4,dst_val_1_h);
-                vst1_s16(dst->bands[3]+dst_offset+j+4,dst_val_2_h);
-                vst1_s16(dst->bands[1]+dst_offset+j+4,dst_val_3_h);
+            vst1_s16(src->bands[0] + dst_offset + j + 4, dst_val_0_h);
+            vst1_s16(src->bands[2] + dst_offset + j + 4, dst_val_1_h);
+            vst1_s16(src->bands[3] + dst_offset + j + 4, dst_val_2_h);
+            vst1_s16(src->bands[1] + dst_offset + j + 4, dst_val_3_h);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+8,dst_val_4_l);
-                vst1_s16(dst->bands[2]+dst_offset+j+8,dst_val_5_l);
-                vst1_s16(dst->bands[3]+dst_offset+j+8,dst_val_6_l);
-                vst1_s16(dst->bands[1]+dst_offset+j+8,dst_val_7_l);
+            vst1_s16(src->bands[0] + dst_offset + j + 8, dst_val_4_l);
+            vst1_s16(src->bands[2] + dst_offset + j + 8, dst_val_5_l);
+            vst1_s16(src->bands[3] + dst_offset + j + 8, dst_val_6_l);
+            vst1_s16(src->bands[1] + dst_offset + j + 8, dst_val_7_l);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+12,dst_val_4_h);
-                vst1_s16(dst->bands[2]+dst_offset+j+12,dst_val_5_h);
-                vst1_s16(dst->bands[3]+dst_offset+j+12,dst_val_6_h);
-                vst1_s16(dst->bands[1]+dst_offset+j+12,dst_val_7_h);
+            vst1_s16(src->bands[0] + dst_offset + j + 12, dst_val_4_h);
+            vst1_s16(src->bands[2] + dst_offset + j + 12, dst_val_5_h);
+            vst1_s16(src->bands[3] + dst_offset + j + 12, dst_val_6_h);
+            vst1_s16(src->bands[1] + dst_offset + j + 12, dst_val_7_h);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+16,dst_val_8_l);
-                vst1_s16(dst->bands[2]+dst_offset+j+16,dst_val_9_l);
-                vst1_s16(dst->bands[3]+dst_offset+j+16,dst_val_10_l);
-                vst1_s16(dst->bands[1]+dst_offset+j+16,dst_val_11_l);
+            vst1_s16(src->bands[0] + dst_offset + j + 16, dst_val_8_l);
+            vst1_s16(src->bands[2] + dst_offset + j + 16, dst_val_9_l);
+            vst1_s16(src->bands[3] + dst_offset + j + 16, dst_val_10_l);
+            vst1_s16(src->bands[1] + dst_offset + j + 16, dst_val_11_l);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+20,dst_val_8_h);
-                vst1_s16(dst->bands[2]+dst_offset+j+20,dst_val_9_h);
-                vst1_s16(dst->bands[3]+dst_offset+j+20,dst_val_10_h);
-                vst1_s16(dst->bands[1]+dst_offset+j+20,dst_val_11_h);
+            vst1_s16(src->bands[0] + dst_offset + j + 20, dst_val_8_h);
+            vst1_s16(src->bands[2] + dst_offset + j + 20, dst_val_9_h);
+            vst1_s16(src->bands[3] + dst_offset + j + 20, dst_val_10_h);
+            vst1_s16(src->bands[1] + dst_offset + j + 20, dst_val_11_h);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+24,dst_val_12_l);
-                vst1_s16(dst->bands[2]+dst_offset+j+24,dst_val_13_l);
-                vst1_s16(dst->bands[3]+dst_offset+j+24,dst_val_14_l);
-                vst1_s16(dst->bands[1]+dst_offset+j+24,dst_val_15_l);
+            vst1_s16(src->bands[0] + dst_offset + j + 24, dst_val_12_l);
+            vst1_s16(src->bands[2] + dst_offset + j + 24, dst_val_13_l);
+            vst1_s16(src->bands[3] + dst_offset + j + 24, dst_val_14_l);
+            vst1_s16(src->bands[1] + dst_offset + j + 24, dst_val_15_l);
 
-                vst1_s16(dst->bands[0]+dst_offset+j+28,dst_val_12_h);
-                vst1_s16(dst->bands[2]+dst_offset+j+28,dst_val_13_h);
-                vst1_s16(dst->bands[3]+dst_offset+j+28,dst_val_14_h);
-                vst1_s16(dst->bands[1]+dst_offset+j+28,dst_val_15_h);
-                
+            vst1_s16(src->bands[0] + dst_offset + j + 28, dst_val_12_h);
+            vst1_s16(src->bands[2] + dst_offset + j + 28, dst_val_13_h);
+            vst1_s16(src->bands[3] + dst_offset + j + 28, dst_val_14_h);
+            vst1_s16(src->bands[1] + dst_offset + j + 28, dst_val_15_h);
+        }
+    }
+    // processing the last few columns of each row
+    if (right != src->width)
+    {
 
+        for (theta = min_theta; theta <= max_theta; ++theta)
+        {
+            src_ptr = angles[theta];
+            dst_ptr = src->bands[theta];
+
+            for (i = top; i < bottom; ++i)
+            {
+                src_offset = i * px_stride;
+                dst_offset = i * px_stride;
+
+                for (j = right; j < src->width; ++j)
+                {
+                    mul_val = (spat_fil_accum_dtype)factors[theta] * src_ptr[src_offset + j];
+                    dst_val = (dwt2_dtype)((mul_val + interim_rnd_factors[theta]) >>
+                                           interim_shift_factors[theta]);
+                    dst_ptr[dst_offset + j] = dst_val;
+                }
             }
         }
-    // processing the last few columns of each row
-    if(right != src->width)
-    {
-  
-    for(theta = min_theta; theta <= max_theta; ++theta)
-       {
-        src_ptr = angles[theta];
-        dst_ptr = dst->bands[theta];
-
-        for(i = top; i < bottom; ++i) 
-          {
-            src_offset = i * px_stride;
-            dst_offset = i * px_stride;
-
-             for(j = right; j < src->width; ++j)
-              {
-                mul_val = (spat_fil_accum_dtype) factors[theta] * src_ptr[src_offset + j];
-                dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[theta]) >>
-                                        interim_shift_factors[theta]);
-                dst_ptr[dst_offset + j] = dst_val;
-              }
-           }
-        }  
     }
-    
 }
