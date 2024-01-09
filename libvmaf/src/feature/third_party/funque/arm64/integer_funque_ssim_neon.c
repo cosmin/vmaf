@@ -102,11 +102,13 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
 
             lDen32x4_lb0 = vshrq_n_s32(var32x4_lb0, SSIM_INTER_L_SHIFT);
             lDen32x4_hb0 = vshrq_n_s32(var32x4_hb0, SSIM_INTER_L_SHIFT);
+            cov32x4_lb0 = vaddq_s32(cov32x4_lb0, cov32x4_lb0);
+            cov32x4_hb0 = vaddq_s32(cov32x4_hb0, cov32x4_hb0);
 
-            addlNum32x4_lb0 = vaddq_s32(cov32x4_lb0, dupC1);
-            addlNum32x4_hb0 = vaddq_s32(cov32x4_hb0, dupC1);
             addlDen32x4_lb0 = vaddq_s32(lDen32x4_lb0, dupC1);
             addlDen32x4_hb0 = vaddq_s32(lDen32x4_hb0, dupC1);
+            addlNum32x4_lb0 = vaddq_s32(cov32x4_lb0, dupC1);
+            addlNum32x4_hb0 = vaddq_s32(cov32x4_hb0, dupC1);
 
             ref16x8_b1 = vld1q_s16(ref->bands[1] + index);
             dist16x8_b1 = vld1q_s16(dist->bands[1] + index);
@@ -149,6 +151,8 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             varSftY32x4_lb1 = vshrq_n_s32(varY32x4_lb1, SSIM_INTER_VAR_SHIFTS);
             varSftY32x4_hb1 = vshrq_n_s32(varY32x4_hb1, SSIM_INTER_VAR_SHIFTS);
 
+            covSft32x4_lb1 = vaddq_s32(covSft32x4_lb1, covSft32x4_lb1);
+            covSft32x4_hb1 = vaddq_s32(covSft32x4_hb1, covSft32x4_hb1);
             varSft32x4_lb1 = vaddq_s32(varSftX32x4_lb1, varSftY32x4_lb1);
             varSft32x4_hb1 = vaddq_s32(varSftX32x4_hb1, varSftY32x4_hb1);
             csDen32x4_lb1 = vshrq_n_s32(varSft32x4_lb1, SSIM_INTER_CS_SHIFT);
@@ -203,9 +207,9 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             var_y = (var_y >> SSIM_INTER_VAR_SHIFTS);
             cov_xy = (cov_xy >> SSIM_INTER_VAR_SHIFTS);
 
-            l_num = (cov_xy_band0 + C1);
+            l_num = (2 * cov_xy_band0 + C1);
             l_den = (((var_x_band0 + var_y_band0) >> SSIM_INTER_L_SHIFT) + C1);
-            cs_num = (cov_xy + C2);
+            cs_num = (2 * cov_xy + C2);
             cs_den = (((var_x + var_y) >> SSIM_INTER_CS_SHIFT) + C2);
 
             numVal[j] = (ssim_accum_dtype)l_num * cs_num;
