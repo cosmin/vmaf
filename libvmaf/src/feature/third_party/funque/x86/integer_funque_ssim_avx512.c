@@ -673,10 +673,6 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
             cs_den_lo = _mm512_add_epi32(cs_den_lo, C2_512);
             cs_den_hi = _mm512_add_epi32(cs_den_hi, C2_512);
 
-            __m512i l_num_lo0, l_num_lo1, l_num_hi0, l_num_hi1, cs_num_lo0, cs_num_lo1, cs_num_hi0,
-                cs_num_hi1, l_den_lo0, l_den_lo1, l_den_hi0, l_den_hi1, cs_den_lo0, cs_den_lo1,
-                cs_den_hi0, cs_den_hi1;
-
             _mm512_storeu_si512((__m512i *) (csNumVal + j), cs_num_lo);
             _mm512_storeu_si512((__m512i *) (csNumVal + j + 16), cs_num_hi);
 

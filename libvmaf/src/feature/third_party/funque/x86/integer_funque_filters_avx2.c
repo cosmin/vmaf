@@ -3423,7 +3423,7 @@ void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coe
     __m256i res0,res1,res2,res3,fres0,fres1,fres2,fres3;
 //    __m256i result0_lo,result0_hi,result1_lo,result1_hi;
 //	__m256i result2_lo,result2_hi,result3_lo,result3_hi;
-    __m256i mask= _mm256_set_epi16(0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF, 0, 0xFFFF);
+    __m256i mask= _mm256_set_epi16(0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1);
 
     __m256i coef_0 = _mm256_set1_epi16(factors[0]);
     __m256i coef_1 = _mm256_set1_epi16(factors[1]);

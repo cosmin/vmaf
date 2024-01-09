@@ -3567,11 +3567,6 @@ void integer_spatial_filter_avx512(void *src, spat_fil_output_dtype *dst, int wi
     return;
 }
 
-
-const spat_fil_coeff_dtype i_ngan_filter_coeffs_avx512[21] = {
-    -900,  -1054, -1239, -1452, -1669, -1798, -1547, -66,   4677,  14498, 21495,
-    14498, 4677,  -66,   -1547, -1798, -1669, -1452, -1239, -1054, -900};
-
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_avx512[5] = {1658, 15139, 31193, 15139, 1658};
 
 #define shuffle_and_store_avx512(addr, v0, v8) \
@@ -3579,7 +3574,6 @@ const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_avx512[5] = {1658, 15139, 311
     _mm512_storeu_si512((__m512i*)(addr), v0); \
     _mm512_storeu_si512((__m512i*)(addr + 32), v8); \
 }
-
 
 static inline void integer_horizontal_5tap_filter_avx512(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int filter_size, int dst_row_idx, int half_fw)
 {
@@ -3642,29 +3636,22 @@ static inline void integer_horizontal_5tap_filter_avx512(spat_fil_inter_dtype *t
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
         dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
-
     }
 }
 
 
 void integer_spatial_5tap_filter_avx512(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
-{	
+{
     int filter_size = 0;
     const spat_fil_coeff_dtype *i_filter_coeffs = 0;
 
     if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
         filter_size = 5;
         i_filter_coeffs = i_nadeanu_filter_coeffs_avx512;
-    } else if(strcmp(spatial_csf_filter, "ngan_spat") == 0) {
-        filter_size = 21;
-        i_filter_coeffs = i_ngan_filter_coeffs_avx512;
     }
   
     int src_px_stride = width;
     int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype); 
-
-    
- 
 
 	uint8_t *src_8b = NULL;
 
@@ -4044,8 +4031,8 @@ void integer_funque_dwt2_inplace_csf_avx512(const i_dwt2buffers *src, spat_fil_c
     __m512i d3,mul3_lo,mul3_hi,tmp3_lo,tmp3_hi;
     __m512i res0,res1,res2,res3;
     __m512i result0_lo,result0_hi,result1_lo,result1_hi,result2_lo,result2_hi,result3_lo,result3_hi;
-    __m512i mask= _mm512_set_epi16(0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,
-                    0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF,0,0xFFFF);
+    __m512i mask= _mm512_set_epi16(0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,
+                    -1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1);
 
     __m512i coef_0 = _mm512_set1_epi16(factors[0]);
     __m512i coef_1 = _mm512_set1_epi16(factors[1]);
