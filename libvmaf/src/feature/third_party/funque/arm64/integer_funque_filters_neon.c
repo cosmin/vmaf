@@ -13,10 +13,8 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, ptrdiff_t src_stride,
     int8_t FILTER_SHIFT_LCPAD_RND = 1 << (FILTER_SHIFT_LCPAD - 1);
     int8_t const_2_wl0 = 1;
 
-    if(spatial_csf == 0)
-    {
-        if(level != 3)
-        {
+    if(spatial_csf == 0) {
+        if(level != 3) {
             FILTER_SHIFT = 0;
             FILTER_SHIFT_RND = 0;
             const_2_wl0 = 2;
@@ -49,16 +47,14 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, ptrdiff_t src_stride,
     int16x8_t src0_16x8, src1_16x8, src2_16x8, src3_16x8;
     int16x8x2_t srcAC_16x8, srcBD_16x8;
 
-    for(i = 0; i < heightDiv2; i++)
-    {
+    for(i = 0; i < heightDiv2; i++) {
         row_idx0 = 2 * i;
         row_idx1 = 2 * i + 1;
         row_idx1 = row_idx1 < height ? row_idx1 : 2 * i;
         row0_offset = (row_idx0) *src_px_stride;
         row1_offset = (row_idx1) *src_px_stride;
 
-        for(j = 0; j <= width - 16; j += 16)
-        {
+        for(j = 0; j <= width - 16; j += 16) {
             src0_16x8 = vld1q_s16(src + row0_offset + j);      // A and C
             src1_16x8 = vld1q_s16(src + row1_offset + j);      // B and D
             src2_16x8 = vld1q_s16(src + row0_offset + j + 8);  // A and C with offset 8
@@ -114,10 +110,8 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, ptrdiff_t src_stride,
             vst1_s16(band_d + bandOffsetIdx, bandD_16x4_lo);
             vst1_s16(band_d + bandOffsetIdx + 4, bandD_16x4_hi);
         }
-        for(; j < width; j += 2)
-        {
-            if(j == width - 1)
-            {
+        for(; j < width; j += 2) {
+            if(j == width - 1) {
                 int col_idx0 = j;
                 k = (j >> 1);
 
@@ -144,9 +138,7 @@ void integer_funque_dwt2_neon(spat_fil_output_dtype *src, ptrdiff_t src_stride,
 
                 // F* F (a - b - (a -b)) - band D,  Last column D will always be 0
                 band_d[i * dst_px_stride + k] = 0;
-            }
-            else
-            {
+            } else {
                 int col_idx0 = j;
                 int col_idx1 = j + 1;
                 k = (j >> 1);
@@ -675,119 +667,110 @@ void integer_spatial_filter_neon(void *void_src, spat_fil_output_dtype *dst, int
     return;
 }
 
-static inline void integer_horizontal_5tap_filter_neon(spat_fil_inter_dtype *tmp, spat_fil_output_dtype *dst, const spat_fil_coeff_dtype *i_filter_coeffs, int width, int fwidth, int dst_row_idx, int half_fw)
+static inline void integer_horizontal_5tap_filter_neon(spat_fil_inter_dtype *tmp,
+                                                       spat_fil_output_dtype *dst,
+                                                       const spat_fil_coeff_dtype *i_filter_coeffs,
+                                                       int width, int fwidth, int dst_row_idx,
+                                                       int half_fw)
 {
-    int j, fj, jj, jj1, jj2;    
+    int j, fj, jj, jj1, jj2;
 
-    for (j = 0; j < half_fw; j++)
-    {
-        int pro_j_end  = half_fw - j - 1;
+    for(j = 0; j < half_fw; j++) {
+        int pro_j_end = half_fw - j - 1;
         int diff_j_hfw = j - half_fw;
         spat_fil_accum_dtype accum = 0;
 
-        for (fj = 0; fj <= pro_j_end; fj++){
-
+        for(fj = 0; fj <= pro_j_end; fj++) {
             jj = pro_j_end - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-  
-        for ( ; fj < fwidth; fj++)
-        {
+
+        for(; fj < fwidth; fj++) {
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+        dst[dst_row_idx + j] =
+            (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
-    
+
     // neon variables
-    int16x8_t src16x8_0,src16x8_1;
-    int32x4_t add_l,add_h;
+    int16x8_t src16x8_0, src16x8_1;
+    int32x4_t add_l, add_h;
     int16x4_t half_round16x4_lb, half_round16x4_hb;
-    
-    int wid = (width - 2 * half_fw)%8;
-    
-    //This is the core loop
-    for ( ; j<(width - half_fw - wid); j=j+8)
-    {
+
+    int wid = (width - 2 * half_fw) % 8;
+
+    // This is the core loop
+    for(; j < (width - half_fw - wid); j = j + 8) {
         int f_l_j = j - half_fw;
         int f_r_j = j + half_fw;
-        int32x4_t accum_lb=vdupq_n_s32(0);
-        int32x4_t accum_hb=vdupq_n_s32(0); 
-   
-        for (fj = 0; fj < half_fw; fj++){
+        int32x4_t accum_lb = vdupq_n_s32(0);
+        int32x4_t accum_hb = vdupq_n_s32(0);
 
+        for(fj = 0; fj < half_fw; fj++) {
             jj1 = f_l_j + fj;
             jj2 = f_r_j - fj;
 
             src16x8_0 = vld1q_s16(tmp + jj1);
             src16x8_1 = vld1q_s16(tmp + jj2);
-            
+
             add_l = vaddl_s16(vget_low_s16(src16x8_0), vget_low_s16(src16x8_1));
-	        add_h = vaddl_high_s16(src16x8_0, src16x8_1);
-            
-         
+            add_h = vaddl_high_s16(src16x8_0, src16x8_1);
+
             accum_lb = vmlaq_n_s32(accum_lb, add_l, i_filter_coeffs[fj]);
             accum_hb = vmlaq_n_s32(accum_hb, add_h, i_filter_coeffs[fj]);
-
         }
         src16x8_0 = vld1q_s16(tmp + j);
         accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[half_fw]);
         accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[half_fw]);
-      
-       
+
         half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_OUT_SHIFT);
         half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_OUT_SHIFT);
         vst1_s16(dst + dst_row_idx + j, half_round16x4_lb);
-		vst1_s16(dst + dst_row_idx + j + 4, half_round16x4_hb);
-
+        vst1_s16(dst + dst_row_idx + j + 4, half_round16x4_hb);
     }
-    
-     for (j = width - half_fw - wid ; j < (width - half_fw); j++)
-    {
+
+    for(j = width - half_fw - wid; j < (width - half_fw); j++) {
         int f_l_j = j - half_fw;
         int f_r_j = j + half_fw;
         spat_fil_accum_dtype accum = 0;
-         for (fj = 0; fj < half_fw; fj++){
-
+        for(fj = 0; fj < half_fw; fj++) {
             jj1 = f_l_j + fj;
             jj2 = f_r_j - fj;
-            accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype)tmp[jj1] + tmp[jj2]); 
+            accum += i_filter_coeffs[fj] * ((spat_fil_accum_dtype) tmp[jj1] + tmp[jj2]);
         }
         accum += (spat_fil_inter_dtype) i_filter_coeffs[half_fw] * tmp[j];
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
+        dst[dst_row_idx + j] =
+            (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
- 
-    for ( ; j < width; j++)
-    {
+
+    for(; j < width; j++) {
         int diff_j_hfw = j - half_fw;
         int epi_last_j = width - diff_j_hfw;
-        int epi_mirr_j = (width<<1) - diff_j_hfw - 1;
+        int epi_mirr_j = (width << 1) - diff_j_hfw - 1;
         spat_fil_accum_dtype accum = 0;
 
-        for (fj = 0; fj < epi_last_j; fj++){
-
+        for(fj = 0; fj < epi_last_j; fj++) {
             jj = diff_j_hfw + fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        
-        for ( ; fj < fwidth; fj++)
-        {
+
+        for(; fj < fwidth; fj++) {
             jj = epi_mirr_j - fj;
             accum += (spat_fil_accum_dtype) i_filter_coeffs[fj] * tmp[jj];
         }
-        dst[dst_row_idx + j] = (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
-
+        dst[dst_row_idx + j] =
+            (spat_fil_output_dtype) ((accum + SPAT_FILTER_OUT_RND) >> SPAT_FILTER_OUT_SHIFT);
     }
-
 }
 
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs_neon[5] = {1658, 15139, 31193, 15139, 1658};
 
-void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int dst_stride, int width, int height, int bitdepth, 
-                                            spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
+void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int dst_stride,
+                                      int width, int height, int bitdepth,
+                                      spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
 {
-    if(bitdepth==8)
-    {
+    if(bitdepth == 8) {
         int filter_size;
         const spat_fil_coeff_dtype *i_filter_coeffs;
         if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
@@ -796,110 +779,102 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
         }
 
         int src_px_stride = width;
-        int dst_px_stride = dst_stride/sizeof(spat_fil_output_dtype);  // changes made by me here
+        int dst_px_stride = dst_stride / sizeof(spat_fil_output_dtype);  // changes made by me here
         uint8_t *src_8b = NULL;
-        int i, j, fi, ii,index,index1,index2,index3,index4;
+        int i, j, fi, ii, index, index1, index2, index3, index4;
         int half_fw = filter_size / 2;
-        src_8b = (uint8_t*)src;
-        int eff_width=width-(width%8);
+        src_8b = (uint8_t *) src;
+        int eff_width = width - (width % 8);
 
-        int interim_rnd = SPAT_FILTER_INTER_RND,interim_shift = SPAT_FILTER_INTER_SHIFT;
+        int interim_rnd = SPAT_FILTER_INTER_RND, interim_shift = SPAT_FILTER_INTER_SHIFT;
 
         // declare all the neon variables
-        uint8x8_t src8x8_0,src8x8_1,src8x8_2,src8x8_3,src8x8_4;
-        int16x8_t src16x8_0,src16x8_1,src16x8_2,src16x8_3;
+        uint8x8_t src8x8_0, src8x8_1, src8x8_2, src8x8_3, src8x8_4;
+        int16x8_t src16x8_0, src16x8_1, src16x8_2, src16x8_3;
         int16x4_t half_round16x4_lb, half_round16x4_hb;
 
-        for (i = 0; i < half_fw; i++){
-
+        for(i = 0; i < half_fw; i++) {
             int diff_i_halffw = i - half_fw;
             int pro_mir_end = -diff_i_halffw - 1;
 
-            for (j = 0; j < eff_width; j=j+8)
-               {
-                    int32x4_t accum_lb=vdupq_n_s32(0);
-                    int32x4_t accum_hb=vdupq_n_s32(0); 
+            for(j = 0; j < eff_width; j = j + 8) {
+                int32x4_t accum_lb = vdupq_n_s32(0);
+                int32x4_t accum_hb = vdupq_n_s32(0);
 
-                    for (fi = 0; fi <= pro_mir_end; fi++)
-                    {
-
-                        ii = pro_mir_end - fi;
-                        index=ii * src_px_stride + j;
-                        src8x8_0=vld1_u8(src_8b + index);
-                        src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
-                        accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
-                        accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-
-                    }
-                    for ( ; fi < filter_size; fi++)
-                    {
-                        ii = diff_i_halffw + fi;
-                        
-                        index=ii * src_px_stride + j;
-                        src8x8_0=vld1_u8(src_8b + index);
-                        src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
-                        accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
-                        accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
-                    }
-                    half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
-                    half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
-                    vst1_s16(tmp + j,half_round16x4_lb);
-                    vst1_s16(tmp + j+4,half_round16x4_hb);
+                for(fi = 0; fi <= pro_mir_end; fi++) {
+                    ii = pro_mir_end - fi;
+                    index = ii * src_px_stride + j;
+                    src8x8_0 = vld1_u8(src_8b + index);
+                    src16x8_0 = vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                    accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
+                    accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
                 }
+                for(; fi < filter_size; fi++) {
+                    ii = diff_i_halffw + fi;
 
-               // for the last columns  of each row
-                for (j = eff_width; j < width; j++){
-
-                    spat_fil_accum_dtype accum = 0;
-
-                    /**
-                     * The full loop is from fi = 0 to filter_size
-                     * During the loop when the centre pixel is at i, 
-                     * the top part is available only till i-(filter_size/2) >= 0, 
-                     * hence padding (border mirroring) is required when i-filter_size/2 < 0
-                     */
-                    //This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
-                    for (fi = 0; fi <= pro_mir_end; fi++){
-
-                        ii = pro_mir_end - fi;
-                        accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-                    }
-                    //Here the normal loop is executed where ii = i - filter_size / 2 + fi
-                    for ( ; fi < filter_size; fi++)
-                    {
-                        ii = diff_i_halffw + fi;
-                        accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
-                    }
-                    tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+                    index = ii * src_px_stride + j;
+                    src8x8_0 = vld1_u8(src_8b + index);
+                    src16x8_0 = vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                    accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
+                    accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
                 }
-            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+                half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
+                half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
+                vst1_s16(tmp + j, half_round16x4_lb);
+                vst1_s16(tmp + j + 4, half_round16x4_hb);
+            }
+
+            // for the last columns  of each row
+            for(j = eff_width; j < width; j++) {
+                spat_fil_accum_dtype accum = 0;
+
+                /**
+                 * The full loop is from fi = 0 to filter_size
+                 * During the loop when the centre pixel is at i,
+                 * the top part is available only till i-(filter_size/2) >= 0,
+                 * hence padding (border mirroring) is required when i-filter_size/2 < 0
+                 */
+                // This loop does border mirroring (ii = -(i - filter_size/2 + fi + 1))
+                for(fi = 0; fi <= pro_mir_end; fi++) {
+                    ii = pro_mir_end - fi;
+                    accum +=
+                        (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                }
+                // Here the normal loop is executed where ii = i - filter_size / 2 + fi
+                for(; fi < filter_size; fi++) {
+                    ii = diff_i_halffw + fi;
+                    accum +=
+                        (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                }
+                tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
+            }
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size,
+                                                i * dst_px_stride, half_fw);
         }
 
-        for ( ; i < (height - half_fw); i++){
+        for(; i < (height - half_fw); i++) {
             int f_l_i = i - half_fw;
             int f_r_i = i + half_fw;
 
-            for (j = 0; j < eff_width; j=j+8)
-            {
-                int32x4_t accum_lb=vdupq_n_s32(0);
-                int32x4_t accum_hb=vdupq_n_s32(0);
+            for(j = 0; j < eff_width; j = j + 8) {
+                int32x4_t accum_lb = vdupq_n_s32(0);
+                int32x4_t accum_hb = vdupq_n_s32(0);
 
+                index = (i - 2) * src_px_stride + j;
+                index1 = (i - 1) * src_px_stride + j;
+                index2 = (i) *src_px_stride + j;
+                index3 = (i + 1) * src_px_stride + j;
+                index4 = (i + 2) * src_px_stride + j;
 
-                index=(i-2)*src_px_stride +j;
-                index1=(i-1)*src_px_stride +j;
-                index2=(i)*src_px_stride +j;
-                index3=(i+1)*src_px_stride +j;
-                index4=(i+2)*src_px_stride +j;
+                src8x8_0 = vld1_u8(src_8b + index);
+                src8x8_4 = vld1_u8(src_8b + index4);
+                src8x8_1 = vld1_u8(src_8b + index1);
+                src8x8_3 = vld1_u8(src_8b + index3);
+                src8x8_2 = vld1_u8(src_8b + index2);
 
-                src8x8_0=vld1_u8(src_8b + index);
-                src8x8_4=vld1_u8(src_8b + index4);
-                src8x8_1=vld1_u8(src_8b + index1);
-                src8x8_3=vld1_u8(src_8b + index3);
-                src8x8_2=vld1_u8(src_8b + index2);
-
-               src16x8_2 = vreinterpretq_s16_u16(vmovl_u8(src8x8_2));
-               src16x8_1 = vreinterpretq_s16_u16(vaddl_u8(src8x8_0, src8x8_4));
-               src16x8_3 = vreinterpretq_s16_u16(vaddl_u8(src8x8_1, src8x8_3));
+                src16x8_2 = vreinterpretq_s16_u16(vmovl_u8(src8x8_2));
+                src16x8_1 = vreinterpretq_s16_u16(vaddl_u8(src8x8_0, src8x8_4));
+                src16x8_3 = vreinterpretq_s16_u16(vaddl_u8(src8x8_1, src8x8_3));
 
                 accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_1), i_filter_coeffs[0]);
                 accum_hb = vmlal_high_n_s16(accum_hb, src16x8_1, i_filter_coeffs[0]);
@@ -911,58 +886,57 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
                 half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
                 half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
 
-                vst1_s16(tmp + j,half_round16x4_lb);
-                vst1_s16(tmp + j+4,half_round16x4_hb);
+                vst1_s16(tmp + j, half_round16x4_lb);
+                vst1_s16(tmp + j + 4, half_round16x4_hb);
             }
 
-            for (j = eff_width; j < width; j++){
-
+            for(j = eff_width; j < width; j++) {
                 spat_fil_accum_dtype accum = 0;
 
                 /**
-                 * The filter coefficients are symmetric, 
-                 * hence the corresponding pixels for whom coefficient values would be same are added first & then multiplied by coeff
-                 * The centre pixel is multiplied and accumulated outside the loop
-                */
-                for (fi = 0; fi < (half_fw); fi++){
+                 * The filter coefficients are symmetric,
+                 * hence the corresponding pixels for whom coefficient values would be same are
+                 * added first & then multiplied by coeff The centre pixel is multiplied and
+                 * accumulated outside the loop
+                 */
+                for(fi = 0; fi < (half_fw); fi++) {
                     int ii1 = f_l_i + fi;
                     int ii2 = f_r_i - fi;
-                    accum += i_filter_coeffs[fi] * ((spat_fil_inter_dtype)src_8b[ii1 * src_px_stride + j] + src_8b[ii2 * src_px_stride + j]);
+                    accum += i_filter_coeffs[fi] *
+                             ((spat_fil_inter_dtype) src_8b[ii1 * src_px_stride + j] +
+                              src_8b[ii2 * src_px_stride + j]);
                 }
                 accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[i * src_px_stride + j];
                 tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
             }
-            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size,
+                                                i * dst_px_stride, half_fw);
         }
 
-        for (; i < height; i++){
-
+        for(; i < height; i++) {
             int diff_i_halffw = i - half_fw;
             int epi_mir_i = 2 * height - diff_i_halffw - 1;
-            int epi_last_i  = height - diff_i_halffw;
+            int epi_last_i = height - diff_i_halffw;
 
-            for (j = 0; j < eff_width; j=j+8)
-            {
-                int32x4_t accum_lb=vdupq_n_s32(0);
-                int32x4_t accum_hb=vdupq_n_s32(0);
+            for(j = 0; j < eff_width; j = j + 8) {
+                int32x4_t accum_lb = vdupq_n_s32(0);
+                int32x4_t accum_hb = vdupq_n_s32(0);
 
-                for (fi = 0; fi < epi_last_i; fi++){
-
+                for(fi = 0; fi < epi_last_i; fi++) {
                     ii = diff_i_halffw + fi;
-                    index=ii * src_px_stride + j;
-                    src8x8_0=vld1_u8(src_8b + index);
-                    src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                    index = ii * src_px_stride + j;
+                    src8x8_0 = vld1_u8(src_8b + index);
+                    src16x8_0 = vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
 
                     accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
                     accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
                 }
-                for ( ; fi < filter_size; fi++)
-                {
+                for(; fi < filter_size; fi++) {
                     ii = epi_mir_i - fi;
 
-                    index=ii * src_px_stride + j;
-                    src8x8_0=vld1_u8(src_8b + index);
-                    src16x8_0=vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
+                    index = ii * src_px_stride + j;
+                    src8x8_0 = vld1_u8(src_8b + index);
+                    src16x8_0 = vreinterpretq_s16_u16(vmovl_u8(src8x8_0));
 
                     accum_lb = vmlal_n_s16(accum_lb, vget_low_s16(src16x8_0), i_filter_coeffs[fi]);
                     accum_hb = vmlal_high_n_s16(accum_hb, src16x8_0, i_filter_coeffs[fi]);
@@ -970,45 +944,45 @@ void integer_spatial_5tap_filter_neon(void *src, spat_fil_output_dtype *dst, int
 
                 half_round16x4_lb = vqrshrn_n_s32(accum_lb, SPAT_FILTER_INTER_SHIFT);
                 half_round16x4_hb = vqrshrn_n_s32(accum_hb, SPAT_FILTER_INTER_SHIFT);
-                vst1_s16(tmp + j,half_round16x4_lb);
-                vst1_s16(tmp + j+4,half_round16x4_hb); 
+                vst1_s16(tmp + j, half_round16x4_lb);
+                vst1_s16(tmp + j + 4, half_round16x4_hb);
             }
-            for (j = eff_width; j < width; j++){
+            for(j = eff_width; j < width; j++) {
                 spat_fil_accum_dtype accum = 0;
 
                 /**
                  * The full loop is from fi = 0 to filter_size
-                 * During the loop when the centre pixel is at i, 
-                 * the bottom pixels are available only till i+(filter_size/2) < height, 
+                 * During the loop when the centre pixel is at i,
+                 * the bottom pixels are available only till i+(filter_size/2) < height,
                  * hence padding (border mirroring) is required when i+(filter_size/2) >= height
                  */
-                //Here the normal loop is executed where ii = i - filter_size/2 + fi
-                for (fi = 0; fi < epi_last_i; fi++){
-
+                // Here the normal loop is executed where ii = i - filter_size/2 + fi
+                for(fi = 0; fi < epi_last_i; fi++) {
                     ii = diff_i_halffw + fi;
-                    accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                    accum +=
+                        (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
                 }
-                //This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
-                for ( ; fi < filter_size; fi++)
-                {
+                // This loop does border mirroring (ii = 2*height - (i - filter_size/2 + fi) - 1)
+                for(; fi < filter_size; fi++) {
                     ii = epi_mir_i - fi;
-                    accum += (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
+                    accum +=
+                        (spat_fil_inter_dtype) i_filter_coeffs[fi] * src_8b[ii * src_px_stride + j];
                 }
                 tmp[j] = (spat_fil_inter_dtype) ((accum + interim_rnd) >> interim_shift);
             }
-            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size, i*dst_px_stride, half_fw);
+            integer_horizontal_5tap_filter_neon(tmp, dst, i_filter_coeffs, width, filter_size,
+                                                i * dst_px_stride, half_fw);
         }
     }
 
     return;
 }
 
-
 void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
-                                          int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
+                                          int min_theta, int max_theta,
+                                          uint16_t interim_rnd_factors[4],
                                           uint8_t interim_shift_factors[4], int level)
 {
-
     dwt2_dtype *angles[4] = {src->bands[0], src->bands[2], src->bands[3], src->bands[1]};
 
     int px_stride = src->stride / sizeof(dwt2_dtype);
@@ -1034,17 +1008,25 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
     int16x4_t src_0_l, src_1_l, src_2_l, src_3_l, src_4_l, src_5_l, src_6_l, src_7_l;
     int16x4_t src_8_l, src_9_l, src_10_l, src_11_l, src_12_l, src_13_l, src_14_l, src_15_l;
 
-    int32x4_t mul_val_0_h, mul_val_1_h, mul_val_2_h, mul_val_3_h, mul_val_0_l, mul_val_1_l, mul_val_2_l, mul_val_3_l;
-    int32x4_t mul_val_4_h, mul_val_5_h, mul_val_6_h, mul_val_7_h, mul_val_4_l, mul_val_5_l, mul_val_6_l, mul_val_7_l;
+    int32x4_t mul_val_0_h, mul_val_1_h, mul_val_2_h, mul_val_3_h, mul_val_0_l, mul_val_1_l,
+        mul_val_2_l, mul_val_3_l;
+    int32x4_t mul_val_4_h, mul_val_5_h, mul_val_6_h, mul_val_7_h, mul_val_4_l, mul_val_5_l,
+        mul_val_6_l, mul_val_7_l;
 
-    int32x4_t mul_val_9_h, mul_val_10_h, mul_val_11_h, mul_val_8_h, mul_val_8_l, mul_val_9_l, mul_val_10_l, mul_val_11_l;
-    int32x4_t mul_val_12_h, mul_val_13_h, mul_val_14_h, mul_val_15_h, mul_val_12_l, mul_val_13_l, mul_val_14_l, mul_val_15_l;
+    int32x4_t mul_val_9_h, mul_val_10_h, mul_val_11_h, mul_val_8_h, mul_val_8_l, mul_val_9_l,
+        mul_val_10_l, mul_val_11_l;
+    int32x4_t mul_val_12_h, mul_val_13_h, mul_val_14_h, mul_val_15_h, mul_val_12_l, mul_val_13_l,
+        mul_val_14_l, mul_val_15_l;
 
-    int16x4_t dst_val_0_h, dst_val_1_h, dst_val_2_h, dst_val_3_h, dst_val_0_l, dst_val_1_l, dst_val_2_l, dst_val_3_l;
-    int16x4_t dst_val_4_h, dst_val_5_h, dst_val_6_h, dst_val_7_h, dst_val_4_l, dst_val_5_l, dst_val_6_l, dst_val_7_l;
+    int16x4_t dst_val_0_h, dst_val_1_h, dst_val_2_h, dst_val_3_h, dst_val_0_l, dst_val_1_l,
+        dst_val_2_l, dst_val_3_l;
+    int16x4_t dst_val_4_h, dst_val_5_h, dst_val_6_h, dst_val_7_h, dst_val_4_l, dst_val_5_l,
+        dst_val_6_l, dst_val_7_l;
 
-    int16x4_t dst_val_8_h, dst_val_9_h, dst_val_10_h, dst_val_11_h, dst_val_8_l, dst_val_9_l, dst_val_10_l, dst_val_11_l;
-    int16x4_t dst_val_12_h, dst_val_13_h, dst_val_14_h, dst_val_15_h, dst_val_12_l, dst_val_13_l, dst_val_14_l, dst_val_15_l;
+    int16x4_t dst_val_8_h, dst_val_9_h, dst_val_10_h, dst_val_11_h, dst_val_8_l, dst_val_9_l,
+        dst_val_10_l, dst_val_11_l;
+    int16x4_t dst_val_12_h, dst_val_13_h, dst_val_14_h, dst_val_15_h, dst_val_12_l, dst_val_13_l,
+        dst_val_14_l, dst_val_15_l;
 
     int32x4_t rnd_factor1, rnd_factor2, rnd_factor3, rnd_factor4, a1, a2, a3, a4;
 
@@ -1058,14 +1040,11 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
     a3 = vdupq_n_s32(-interim_shift_factors[2]);
     a4 = vdupq_n_s32(-interim_shift_factors[3]);
 
-    for (i = top; i < bottom; ++i)
-    {
+    for(i = top; i < bottom; ++i) {
         src_offset = i * px_stride;
         dst_offset = i * px_stride;
 
-        for (j = left; j < right; j = j + 32)
-        {
-
+        for(j = left; j < right; j = j + 32) {
             // loading from all 4 bands 8 pixels
             src_0 = vld1q_s16(angles[0] + src_offset + j);
             src_1 = vld1q_s16(angles[1] + src_offset + j);
@@ -1233,24 +1212,19 @@ void integer_funque_dwt2_inplace_csf_neon(const i_dwt2buffers *src, spat_fil_coe
         }
     }
     // processing the last few columns of each row
-    if (right != src->width)
-    {
-
-        for (theta = min_theta; theta <= max_theta; ++theta)
-        {
+    if(right != src->width) {
+        for(theta = min_theta; theta <= max_theta; ++theta) {
             src_ptr = angles[theta];
             dst_ptr = angles[theta];
 
-            for (i = top; i < bottom; ++i)
-            {
+            for(i = top; i < bottom; ++i) {
                 src_offset = i * px_stride;
                 dst_offset = i * px_stride;
 
-                for (j = right; j < src->width; ++j)
-                {
-                    mul_val = (spat_fil_accum_dtype)factors[theta] * src_ptr[src_offset + j];
-                    dst_val = (dwt2_dtype)((mul_val + interim_rnd_factors[theta]) >>
-                                           interim_shift_factors[theta]);
+                for(j = right; j < src->width; ++j) {
+                    mul_val = (spat_fil_accum_dtype) factors[theta] * src_ptr[src_offset + j];
+                    dst_val = (dwt2_dtype) ((mul_val + interim_rnd_factors[theta]) >>
+                                            interim_shift_factors[theta]);
                     dst_ptr[dst_offset + j] = dst_val;
                 }
             }

@@ -27,16 +27,14 @@
 #include "../integer_funque_strred.h"
 
 void integer_subract_subbands_avx512(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                                    const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
-                                    int width, int height)
+                                     dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                     const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
+                                     int width, int height)
 {
     int i, j;
 
-    for(i = 0; i < height; i++)
-    {
-        for(j = 0; j <= width - 32; j += 16)
-        {
+    for(i = 0; i < height; i++) {
+        for(j = 0; j <= width - 32; j += 16) {
             __m512i ref_src_v = _mm512_loadu_si512((__m512i *) (ref_src + j + i * width));
             __m512i ref_prev_src_v = _mm512_loadu_si512((__m512i *) (ref_prev_src + j + i * width));
             __m512i dist_src_v = _mm512_loadu_si512((__m512i *) (dist_src + j + i * width));
@@ -49,19 +47,19 @@ void integer_subract_subbands_avx512(const dwt2_dtype *ref_src, const dwt2_dtype
             _mm512_storeu_si512((__m512i *) (ref_dst + j + i * width), ref_dst_final);
             _mm512_storeu_si512((__m512i *) (dist_dst + j + i * width), dist_dst_final);
         }
-        for(; j < width; j++)
-        {
+        for(; j < width; j++) {
             ref_dst[i * width + j] = ref_src[i * width + j] - ref_prev_src[i * width + j];
             dist_dst[i * width + j] = dist_src[i * width + j] - dist_prev_src[i * width + j];
         }
     }
 }
 
-float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2_dtype *y_t, size_t width,
-                                        size_t height, uint32_t *log_18, uint32_t *log_22,
-                                        double sigma_nsq_arg, int32_t shift_val,
-                                        uint8_t enable_temporal, float *spat_scales_x,
-                                        float *spat_scales_y, uint8_t check_enable_spatial_csf)
+float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2_dtype *y_t,
+                                               size_t width, size_t height, uint32_t *log_18,
+                                               uint32_t *log_22, double sigma_nsq_arg,
+                                               int32_t shift_val, uint8_t enable_temporal,
+                                               float *spat_scales_x, float *spat_scales_y,
+                                               uint8_t check_enable_spatial_csf)
 {
     int kh = STRRED_WINDOW_SIZE;
     int kw = STRRED_WINDOW_SIZE;
@@ -102,7 +100,8 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
     int16_t knorm_fact =
         25891;  // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21;
-    uint32_t entr_const = (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
+    uint32_t entr_const =
+        (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
 
     {
         int width_p1 = r_width + 1;
@@ -118,114 +117,127 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
 
         // The height loop is broken into 2 parts,
         // 1st loop, prev kh row is not available to subtract during vertical summation
-    for(i = 1; i < kh + 1; i++)
-    {
-        int src_offset = (i - 1) * r_width;
-        for(j = 1; j <= width_p1 - 32; j += 32)
-        {
-            int j_minus1 = j - 1;
+        for(i = 1; i < kh + 1; i++) {
+            int src_offset = (i - 1) * r_width;
+            for(j = 1; j <= width_p1 - 32; j += 32) {
+                int j_minus1 = j - 1;
 
-            __m512i src_x_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (x_pad_t + src_offset + j_minus1));
-            __m512i src_x_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 0));
-            __m512i src_x_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 1));
+                __m512i src_x_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (x_pad_t + src_offset + j_minus1));
+                __m512i src_x_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 0));
+                __m512i src_x_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 1));
 
-            __m512i src_y_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (y_pad_t + src_offset + j_minus1));
-            __m512i src_y_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 0));
-            __m512i src_y_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 1));
+                __m512i src_y_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (y_pad_t + src_offset + j_minus1));
+                __m512i src_y_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 0));
+                __m512i src_y_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 1));
 
-            __m512i src_xx_val_lo = _mm512_mullo_epi32(src_x_val_32x16_lo, src_x_val_32x16_lo);
-            __m512i src_xx_val_hi = _mm512_mullo_epi32(src_x_val_32x16_hi, src_x_val_32x16_hi);
-            __m512i src_yy_val_lo = _mm512_mullo_epi32(src_y_val_32x16_lo, src_y_val_32x16_lo);
-            __m512i src_yy_val_hi = _mm512_mullo_epi32(src_y_val_32x16_hi, src_y_val_32x16_hi);
+                __m512i src_xx_val_lo = _mm512_mullo_epi32(src_x_val_32x16_lo, src_x_val_32x16_lo);
+                __m512i src_xx_val_hi = _mm512_mullo_epi32(src_x_val_32x16_hi, src_x_val_32x16_hi);
+                __m512i src_yy_val_lo = _mm512_mullo_epi32(src_y_val_32x16_lo, src_y_val_32x16_lo);
+                __m512i src_yy_val_hi = _mm512_mullo_epi32(src_y_val_32x16_hi, src_y_val_32x16_hi);
 
-            __m512i interim_1_x_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_x + j));
-            __m512i to_be_stored_interim_1_x_lo =
-                _mm512_add_epi32(interim_1_x_8val_lo, src_x_val_32x16_lo);
-            _mm512_storeu_si512((__m512i *) (interim_1_x + j), to_be_stored_interim_1_x_lo);
+                __m512i interim_1_x_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_x + j));
+                __m512i to_be_stored_interim_1_x_lo =
+                    _mm512_add_epi32(interim_1_x_8val_lo, src_x_val_32x16_lo);
+                _mm512_storeu_si512((__m512i *) (interim_1_x + j), to_be_stored_interim_1_x_lo);
 
-            __m512i interim_1_x_8val_hi = _mm512_loadu_si512((__m512i *) (interim_1_x + j + 16));
-            __m512i to_be_stored_interim_1_x_hi =
-                _mm512_add_epi32(interim_1_x_8val_hi, src_x_val_32x16_hi);
-            _mm512_storeu_si512((__m512i *) (interim_1_x + j + 16), to_be_stored_interim_1_x_hi);
+                __m512i interim_1_x_8val_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_1_x + j + 16));
+                __m512i to_be_stored_interim_1_x_hi =
+                    _mm512_add_epi32(interim_1_x_8val_hi, src_x_val_32x16_hi);
+                _mm512_storeu_si512((__m512i *) (interim_1_x + j + 16),
+                                    to_be_stored_interim_1_x_hi);
 
-            __m512i interim_1_y_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_y + j));
-            __m512i to_be_stored_interim_1_y_lo =
-                _mm512_add_epi32(interim_1_y_8val_lo, src_y_val_32x16_lo);
-            _mm512_storeu_si512((__m512i *) (interim_1_y + j), to_be_stored_interim_1_y_lo);
+                __m512i interim_1_y_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_y + j));
+                __m512i to_be_stored_interim_1_y_lo =
+                    _mm512_add_epi32(interim_1_y_8val_lo, src_y_val_32x16_lo);
+                _mm512_storeu_si512((__m512i *) (interim_1_y + j), to_be_stored_interim_1_y_lo);
 
-            __m512i interim_1_y_8val_hi = _mm512_loadu_si512((__m512i *) (interim_1_y + j + 16));
-            __m512i to_be_stored_interim_1_y_hi =
-                _mm512_add_epi32(interim_1_y_8val_hi, src_y_val_32x16_hi);
-            _mm512_storeu_si512((__m512i *) (interim_1_y + j + 16), to_be_stored_interim_1_y_hi);
+                __m512i interim_1_y_8val_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_1_y + j + 16));
+                __m512i to_be_stored_interim_1_y_hi =
+                    _mm512_add_epi32(interim_1_y_8val_hi, src_y_val_32x16_hi);
+                _mm512_storeu_si512((__m512i *) (interim_1_y + j + 16),
+                                    to_be_stored_interim_1_y_hi);
 
-            __m512i interim_2_x_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j));
-            __m512i to_be_stored_interim_2_x_lo_lo = _mm512_add_epi64(
-                interim_2_x_4val_lo_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j), to_be_stored_interim_2_x_lo_lo);
+                __m512i interim_2_x_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j));
+                __m512i to_be_stored_interim_2_x_lo_lo = _mm512_add_epi64(
+                    interim_2_x_4val_lo_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j), to_be_stored_interim_2_x_lo_lo);
 
-            __m512i interim_2_x_4val_lo_hi = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 8));
-            __m512i to_be_stored_interim_2_x_lo_hi = _mm512_add_epi64(
-                interim_2_x_4val_lo_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 8), to_be_stored_interim_2_x_lo_hi);
+                __m512i interim_2_x_4val_lo_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 8));
+                __m512i to_be_stored_interim_2_x_lo_hi = _mm512_add_epi64(
+                    interim_2_x_4val_lo_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 8),
+                                    to_be_stored_interim_2_x_lo_hi);
 
-            __m512i interim_2_x_4val_hi_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 16));
-            __m512i to_be_stored_interim_2_x_hi_lo = _mm512_add_epi64(
-                interim_2_x_4val_hi_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 16), to_be_stored_interim_2_x_hi_lo);
+                __m512i interim_2_x_4val_hi_lo =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 16));
+                __m512i to_be_stored_interim_2_x_hi_lo = _mm512_add_epi64(
+                    interim_2_x_4val_hi_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 16),
+                                    to_be_stored_interim_2_x_hi_lo);
 
-            __m512i interim_2_x_4val_hi_hi = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 24));
-            __m512i to_be_stored_interim_2_x_hi_hi = _mm512_add_epi64(
-                interim_2_x_4val_hi_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 24), to_be_stored_interim_2_x_hi_hi);
+                __m512i interim_2_x_4val_hi_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 24));
+                __m512i to_be_stored_interim_2_x_hi_hi = _mm512_add_epi64(
+                    interim_2_x_4val_hi_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 24),
+                                    to_be_stored_interim_2_x_hi_hi);
 
-            __m512i interim_2_y_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j));
-            __m512i to_be_stored_interim_2_y_lo_lo = _mm512_add_epi64(
-                interim_2_y_4val_lo_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j), to_be_stored_interim_2_y_lo_lo);
+                __m512i interim_2_y_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j));
+                __m512i to_be_stored_interim_2_y_lo_lo = _mm512_add_epi64(
+                    interim_2_y_4val_lo_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j), to_be_stored_interim_2_y_lo_lo);
 
-            __m512i interim_2_y_4val_lo_hi = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 8));
-            __m512i to_be_stored_interim_2_y_lo_hi = _mm512_add_epi64(
-                interim_2_y_4val_lo_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 8), to_be_stored_interim_2_y_lo_hi);
+                __m512i interim_2_y_4val_lo_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 8));
+                __m512i to_be_stored_interim_2_y_lo_hi = _mm512_add_epi64(
+                    interim_2_y_4val_lo_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 8),
+                                    to_be_stored_interim_2_y_lo_hi);
 
-            __m512i interim_2_y_4val_hi_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 16));
-            __m512i to_be_stored_interim_2_y_hi_lo = _mm512_add_epi64(
-                interim_2_y_4val_hi_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 16), to_be_stored_interim_2_y_hi_lo);
+                __m512i interim_2_y_4val_hi_lo =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 16));
+                __m512i to_be_stored_interim_2_y_hi_lo = _mm512_add_epi64(
+                    interim_2_y_4val_hi_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 16),
+                                    to_be_stored_interim_2_y_hi_lo);
 
-            __m512i interim_2_y_4val_hi_hi = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 24));
-            __m512i to_be_stored_interim_2_y_hi_hi = _mm512_add_epi64(
-                interim_2_y_4val_hi_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 24), to_be_stored_interim_2_y_hi_hi);
+                __m512i interim_2_y_4val_hi_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 24));
+                __m512i to_be_stored_interim_2_y_hi_hi = _mm512_add_epi64(
+                    interim_2_y_4val_hi_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 24),
+                                    to_be_stored_interim_2_y_hi_hi);
+            }
+            for(; j < width_p1; j++) {
+                int j_minus1 = j - 1;
+                int16_t src_x_val = x_pad_t[src_offset + j_minus1];
+                int16_t src_y_val = y_pad_t[src_offset + j_minus1];
+                int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+                int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+
+                interim_1_x[j] = interim_1_x[j] + src_x_val;
+                interim_1_y[j] = interim_1_y[j] + src_y_val;
+                interim_2_x[j] = interim_2_x[j] + src_xx_val;
+                interim_2_y[j] = interim_2_y[j] + src_yy_val;
+            }
         }
-        for(; j < width_p1; j++)
-        {
-            int j_minus1 = j - 1;
-            int16_t src_x_val = x_pad_t[src_offset + j_minus1];
-            int16_t src_y_val = y_pad_t[src_offset + j_minus1];
-            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
-            int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
-
-            interim_1_x[j] = interim_1_x[j] + src_x_val;
-            interim_1_y[j] = interim_1_y[j] + src_y_val;
-            interim_2_x[j] = interim_2_x[j] + src_xx_val;
-            interim_2_y[j] = interim_2_y[j] + src_yy_val;
-        }
-    }
         /**
          * The strred score calculations would start from the kh,kw index of var & covar
          * Hence horizontal sum of first kh rows are not used, hence that computation is avoided
@@ -244,156 +256,169 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
                 spat_scales_y, i - kh, shift_val);
 
         // 2nd loop, core loop
-    for(; i < height_p1; i++)
-    {
-        int src_offset = (i - 1) * r_width;
-        int pre_kh_src_offset = (i - 1 - kh) * r_width;
-        for(j = 1; j <= width_p1 - 32; j += 32)
-        {
-            int j_minus1 = j - 1;
+        for(; i < height_p1; i++) {
+            int src_offset = (i - 1) * r_width;
+            int pre_kh_src_offset = (i - 1 - kh) * r_width;
+            for(j = 1; j <= width_p1 - 32; j += 32) {
+                int j_minus1 = j - 1;
 
-            __m512i src_x_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (x_pad_t + src_offset + j_minus1));
-            __m512i src_x_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 0));
-            __m512i src_x_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 1));
+                __m512i src_x_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (x_pad_t + src_offset + j_minus1));
+                __m512i src_x_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 0));
+                __m512i src_x_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_val_16x32, 1));
 
-            __m512i src_y_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (y_pad_t + src_offset + j_minus1));
-            __m512i src_y_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 0));
-            __m512i src_y_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 1));
+                __m512i src_y_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (y_pad_t + src_offset + j_minus1));
+                __m512i src_y_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 0));
+                __m512i src_y_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_val_16x32, 1));
 
-            __m512i src_x_prekh_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (x_pad_t + pre_kh_src_offset + j_minus1));
-            __m512i src_x_prekh_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_prekh_val_16x32, 0));
-            __m512i src_x_prekh_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_prekh_val_16x32, 1));
+                __m512i src_x_prekh_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (x_pad_t + pre_kh_src_offset + j_minus1));
+                __m512i src_x_prekh_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_prekh_val_16x32, 0));
+                __m512i src_x_prekh_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_x_prekh_val_16x32, 1));
 
-            __m512i src_y_prekh_val_16x32 =
-                _mm512_loadu_si512((__m512i *) (y_pad_t + pre_kh_src_offset + j_minus1));
-            __m512i src_y_prekh_val_32x16_lo =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_prekh_val_16x32, 0));
-            __m512i src_y_prekh_val_32x16_hi =
-                _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_prekh_val_16x32, 1));
+                __m512i src_y_prekh_val_16x32 =
+                    _mm512_loadu_si512((__m512i *) (y_pad_t + pre_kh_src_offset + j_minus1));
+                __m512i src_y_prekh_val_32x16_lo =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_prekh_val_16x32, 0));
+                __m512i src_y_prekh_val_32x16_hi =
+                    _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(src_y_prekh_val_16x32, 1));
 
-            __m512i src_xx_val_lo = _mm512_mullo_epi32(src_x_val_32x16_lo, src_x_val_32x16_lo);
-            __m512i src_xx_val_hi = _mm512_mullo_epi32(src_x_val_32x16_hi, src_x_val_32x16_hi);
-            __m512i src_yy_val_lo = _mm512_mullo_epi32(src_y_val_32x16_lo, src_y_val_32x16_lo);
-            __m512i src_yy_val_hi = _mm512_mullo_epi32(src_y_val_32x16_hi, src_y_val_32x16_hi);
+                __m512i src_xx_val_lo = _mm512_mullo_epi32(src_x_val_32x16_lo, src_x_val_32x16_lo);
+                __m512i src_xx_val_hi = _mm512_mullo_epi32(src_x_val_32x16_hi, src_x_val_32x16_hi);
+                __m512i src_yy_val_lo = _mm512_mullo_epi32(src_y_val_32x16_lo, src_y_val_32x16_lo);
+                __m512i src_yy_val_hi = _mm512_mullo_epi32(src_y_val_32x16_hi, src_y_val_32x16_hi);
 
-            __m512i src_xx_prekh_val_lo =
-                _mm512_mullo_epi32(src_x_prekh_val_32x16_lo, src_x_prekh_val_32x16_lo);
-            __m512i src_xx_prekh_val_hi =
-                _mm512_mullo_epi32(src_x_prekh_val_32x16_hi, src_x_prekh_val_32x16_hi);
-            __m512i src_yy_prekh_val_lo =
-                _mm512_mullo_epi32(src_y_prekh_val_32x16_lo, src_y_prekh_val_32x16_lo);
-            __m512i src_yy_prekh_val_hi =
-                _mm512_mullo_epi32(src_y_prekh_val_32x16_hi, src_y_prekh_val_32x16_hi);
+                __m512i src_xx_prekh_val_lo =
+                    _mm512_mullo_epi32(src_x_prekh_val_32x16_lo, src_x_prekh_val_32x16_lo);
+                __m512i src_xx_prekh_val_hi =
+                    _mm512_mullo_epi32(src_x_prekh_val_32x16_hi, src_x_prekh_val_32x16_hi);
+                __m512i src_yy_prekh_val_lo =
+                    _mm512_mullo_epi32(src_y_prekh_val_32x16_lo, src_y_prekh_val_32x16_lo);
+                __m512i src_yy_prekh_val_hi =
+                    _mm512_mullo_epi32(src_y_prekh_val_32x16_hi, src_y_prekh_val_32x16_hi);
 
-            __m512i src_x_val_32x16_lo_minus =
-                _mm512_sub_epi32(src_x_val_32x16_lo, src_x_prekh_val_32x16_lo);
-            __m512i src_x_val_32x16_hi_minus =
-                _mm512_sub_epi32(src_x_val_32x16_hi, src_x_prekh_val_32x16_hi);
-            __m512i src_y_val_32x16_lo_minus =
-                _mm512_sub_epi32(src_y_val_32x16_lo, src_y_prekh_val_32x16_lo);
-            __m512i src_y_val_32x16_hi_minus =
-                _mm512_sub_epi32(src_y_val_32x16_hi, src_y_prekh_val_32x16_hi);
+                __m512i src_x_val_32x16_lo_minus =
+                    _mm512_sub_epi32(src_x_val_32x16_lo, src_x_prekh_val_32x16_lo);
+                __m512i src_x_val_32x16_hi_minus =
+                    _mm512_sub_epi32(src_x_val_32x16_hi, src_x_prekh_val_32x16_hi);
+                __m512i src_y_val_32x16_lo_minus =
+                    _mm512_sub_epi32(src_y_val_32x16_lo, src_y_prekh_val_32x16_lo);
+                __m512i src_y_val_32x16_hi_minus =
+                    _mm512_sub_epi32(src_y_val_32x16_hi, src_y_prekh_val_32x16_hi);
 
-            __m512i src_xx_val_lo_minus = _mm512_sub_epi32(src_xx_val_lo, src_xx_prekh_val_lo);
-            __m512i src_xx_val_hi_minus = _mm512_sub_epi32(src_xx_val_hi, src_xx_prekh_val_hi);
-            __m512i src_yy_val_lo_minus = _mm512_sub_epi32(src_yy_val_lo, src_yy_prekh_val_lo);
-            __m512i src_yy_val_hi_minus = _mm512_sub_epi32(src_yy_val_hi, src_yy_prekh_val_hi);
+                __m512i src_xx_val_lo_minus = _mm512_sub_epi32(src_xx_val_lo, src_xx_prekh_val_lo);
+                __m512i src_xx_val_hi_minus = _mm512_sub_epi32(src_xx_val_hi, src_xx_prekh_val_hi);
+                __m512i src_yy_val_lo_minus = _mm512_sub_epi32(src_yy_val_lo, src_yy_prekh_val_lo);
+                __m512i src_yy_val_hi_minus = _mm512_sub_epi32(src_yy_val_hi, src_yy_prekh_val_hi);
 
-            __m512i interim_1_x_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_x + j));
-            __m512i to_be_stored_interim_1_x_lo =
-                _mm512_add_epi32(interim_1_x_8val_lo, src_x_val_32x16_lo_minus);
-            _mm512_storeu_si512((__m512i *) (interim_1_x + j), to_be_stored_interim_1_x_lo);
+                __m512i interim_1_x_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_x + j));
+                __m512i to_be_stored_interim_1_x_lo =
+                    _mm512_add_epi32(interim_1_x_8val_lo, src_x_val_32x16_lo_minus);
+                _mm512_storeu_si512((__m512i *) (interim_1_x + j), to_be_stored_interim_1_x_lo);
 
-            __m512i interim_1_x_8val_hi = _mm512_loadu_si512((__m512i *) (interim_1_x + j + 16));
-            __m512i to_be_stored_interim_1_x_hi =
-                _mm512_add_epi32(interim_1_x_8val_hi, src_x_val_32x16_hi_minus);
-            _mm512_storeu_si512((__m512i *) (interim_1_x + j + 16), to_be_stored_interim_1_x_hi);
+                __m512i interim_1_x_8val_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_1_x + j + 16));
+                __m512i to_be_stored_interim_1_x_hi =
+                    _mm512_add_epi32(interim_1_x_8val_hi, src_x_val_32x16_hi_minus);
+                _mm512_storeu_si512((__m512i *) (interim_1_x + j + 16),
+                                    to_be_stored_interim_1_x_hi);
 
-            __m512i interim_1_y_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_y + j));
-            __m512i to_be_stored_interim_1_y_lo =
-                _mm512_add_epi32(interim_1_y_8val_lo, src_y_val_32x16_lo_minus);
-            _mm512_storeu_si512((__m512i *) (interim_1_y + j), to_be_stored_interim_1_y_lo);
+                __m512i interim_1_y_8val_lo = _mm512_loadu_si512((__m512i *) (interim_1_y + j));
+                __m512i to_be_stored_interim_1_y_lo =
+                    _mm512_add_epi32(interim_1_y_8val_lo, src_y_val_32x16_lo_minus);
+                _mm512_storeu_si512((__m512i *) (interim_1_y + j), to_be_stored_interim_1_y_lo);
 
-            __m512i interim_1_y_8val_hi = _mm512_loadu_si512((__m512i *) (interim_1_y + j + 16));
-            __m512i to_be_stored_interim_1_y_hi =
-                _mm512_add_epi32(interim_1_y_8val_hi, src_y_val_32x16_hi_minus);
-            _mm512_storeu_si512((__m512i *) (interim_1_y + j + 16), to_be_stored_interim_1_y_hi);
+                __m512i interim_1_y_8val_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_1_y + j + 16));
+                __m512i to_be_stored_interim_1_y_hi =
+                    _mm512_add_epi32(interim_1_y_8val_hi, src_y_val_32x16_hi_minus);
+                _mm512_storeu_si512((__m512i *) (interim_1_y + j + 16),
+                                    to_be_stored_interim_1_y_hi);
 
-            __m512i interim_2_x_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j));
-            __m512i to_be_stored_interim_2_x_lo_lo = _mm512_add_epi64(
-                interim_2_x_4val_lo_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo_minus, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j), to_be_stored_interim_2_x_lo_lo);
+                __m512i interim_2_x_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j));
+                __m512i to_be_stored_interim_2_x_lo_lo = _mm512_add_epi64(
+                    interim_2_x_4val_lo_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo_minus, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j), to_be_stored_interim_2_x_lo_lo);
 
-            __m512i interim_2_x_4val_lo_hi = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 8));
-            __m512i to_be_stored_interim_2_x_lo_hi = _mm512_add_epi64(
-                interim_2_x_4val_lo_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo_minus, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 8), to_be_stored_interim_2_x_lo_hi);
+                __m512i interim_2_x_4val_lo_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 8));
+                __m512i to_be_stored_interim_2_x_lo_hi = _mm512_add_epi64(
+                    interim_2_x_4val_lo_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_lo_minus, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 8),
+                                    to_be_stored_interim_2_x_lo_hi);
 
-            __m512i interim_2_x_4val_hi_lo = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 16));
-            __m512i to_be_stored_interim_2_x_hi_lo = _mm512_add_epi64(
-                interim_2_x_4val_hi_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi_minus, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 16), to_be_stored_interim_2_x_hi_lo);
+                __m512i interim_2_x_4val_hi_lo =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 16));
+                __m512i to_be_stored_interim_2_x_hi_lo = _mm512_add_epi64(
+                    interim_2_x_4val_hi_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi_minus, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 16),
+                                    to_be_stored_interim_2_x_hi_lo);
 
-            __m512i interim_2_x_4val_hi_hi = _mm512_loadu_si512((__m512i *) (interim_2_x + j + 24));
-            __m512i to_be_stored_interim_2_x_hi_hi = _mm512_add_epi64(
-                interim_2_x_4val_hi_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi_minus, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_x + j + 24), to_be_stored_interim_2_x_hi_hi);
+                __m512i interim_2_x_4val_hi_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_x + j + 24));
+                __m512i to_be_stored_interim_2_x_hi_hi = _mm512_add_epi64(
+                    interim_2_x_4val_hi_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_xx_val_hi_minus, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_x + j + 24),
+                                    to_be_stored_interim_2_x_hi_hi);
 
-            __m512i interim_2_y_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j));
-            __m512i to_be_stored_interim_2_y_lo_lo = _mm512_add_epi64(
-                interim_2_y_4val_lo_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo_minus, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j), to_be_stored_interim_2_y_lo_lo);
+                __m512i interim_2_y_4val_lo_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j));
+                __m512i to_be_stored_interim_2_y_lo_lo = _mm512_add_epi64(
+                    interim_2_y_4val_lo_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo_minus, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j), to_be_stored_interim_2_y_lo_lo);
 
-            __m512i interim_2_y_4val_lo_hi = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 8));
-            __m512i to_be_stored_interim_2_y_lo_hi = _mm512_add_epi64(
-                interim_2_y_4val_lo_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo_minus, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 8), to_be_stored_interim_2_y_lo_hi);
+                __m512i interim_2_y_4val_lo_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 8));
+                __m512i to_be_stored_interim_2_y_lo_hi = _mm512_add_epi64(
+                    interim_2_y_4val_lo_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_lo_minus, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 8),
+                                    to_be_stored_interim_2_y_lo_hi);
 
-            __m512i interim_2_y_4val_hi_lo = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 16));
-            __m512i to_be_stored_interim_2_y_hi_lo = _mm512_add_epi64(
-                interim_2_y_4val_hi_lo,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi_minus, 0)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 16), to_be_stored_interim_2_y_hi_lo);
+                __m512i interim_2_y_4val_hi_lo =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 16));
+                __m512i to_be_stored_interim_2_y_hi_lo = _mm512_add_epi64(
+                    interim_2_y_4val_hi_lo,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi_minus, 0)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 16),
+                                    to_be_stored_interim_2_y_hi_lo);
 
-            __m512i interim_2_y_4val_hi_hi = _mm512_loadu_si512((__m512i *) (interim_2_y + j + 24));
-            __m512i to_be_stored_interim_2_y_hi_hi = _mm512_add_epi64(
-                interim_2_y_4val_hi_hi,
-                _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi_minus, 1)));
-            _mm512_storeu_si512((__m512i *) (interim_2_y + j + 24), to_be_stored_interim_2_y_hi_hi);
-        }
-        for(; j < width_p1; j++)
-        {
-            int j_minus1 = j - 1;
-            int16_t src_x_val = x_pad_t[src_offset + j_minus1];
-            int16_t src_y_val = y_pad_t[src_offset + j_minus1];
+                __m512i interim_2_y_4val_hi_hi =
+                    _mm512_loadu_si512((__m512i *) (interim_2_y + j + 24));
+                __m512i to_be_stored_interim_2_y_hi_hi = _mm512_add_epi64(
+                    interim_2_y_4val_hi_hi,
+                    _mm512_cvtepi32_epi64(_mm512_extracti64x4_epi64(src_yy_val_hi_minus, 1)));
+                _mm512_storeu_si512((__m512i *) (interim_2_y + j + 24),
+                                    to_be_stored_interim_2_y_hi_hi);
+            }
+            for(; j < width_p1; j++) {
+                int j_minus1 = j - 1;
+                int16_t src_x_val = x_pad_t[src_offset + j_minus1];
+                int16_t src_y_val = y_pad_t[src_offset + j_minus1];
 
-            int16_t src_x_prekh_val = x_pad_t[pre_kh_src_offset + j_minus1];
-            int16_t src_y_prekh_val = y_pad_t[pre_kh_src_offset + j_minus1];
-            int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
-            int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
-            int32_t src_xx_prekh_val = (int32_t) src_x_prekh_val * src_x_prekh_val;
-            int32_t src_yy_prekh_val = (int32_t) src_y_prekh_val * src_y_prekh_val;
+                int16_t src_x_prekh_val = x_pad_t[pre_kh_src_offset + j_minus1];
+                int16_t src_y_prekh_val = y_pad_t[pre_kh_src_offset + j_minus1];
+                int32_t src_xx_val = (int32_t) src_x_val * src_x_val;
+                int32_t src_yy_val = (int32_t) src_y_val * src_y_val;
+                int32_t src_xx_prekh_val = (int32_t) src_x_prekh_val * src_x_prekh_val;
+                int32_t src_yy_prekh_val = (int32_t) src_y_prekh_val * src_y_prekh_val;
 
-            interim_1_x[j] = interim_1_x[j] + src_x_val - src_x_prekh_val;
-            interim_1_y[j] = interim_1_y[j] + src_y_val - src_y_prekh_val;
-            interim_2_x[j] = interim_2_x[j] + src_xx_val - src_xx_prekh_val;
-            interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
-        }
+                interim_1_x[j] = interim_1_x[j] + src_x_val - src_x_prekh_val;
+                interim_1_y[j] = interim_1_y[j] + src_y_val - src_y_prekh_val;
+                interim_2_x[j] = interim_2_x[j] + src_xx_val - src_xx_prekh_val;
+                interim_2_y[j] = interim_2_y[j] + src_yy_val - src_yy_prekh_val;
+            }
 
             // horizontal summation and score compuations
             if(check_enable_spatial_csf == 1)
@@ -421,13 +446,11 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
     return agg_abs_accum;
 }
 
-int integer_compute_strred_funque_avx512(const struct i_dwt2buffers *ref,
-                                    const struct i_dwt2buffers *dist,
-                                    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
-                                    size_t width, size_t height,
-                                    struct strred_results *strred_scores, int block_size, int level,
-                                    uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
-                                    double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+int integer_compute_strred_funque_avx512(
+    const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
+    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
+    struct strred_results *strred_scores, int block_size, int level, uint32_t *log_18,
+    uint32_t *log_22, int32_t shift_val_arg, double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
@@ -466,9 +489,9 @@ int integer_compute_strred_funque_avx512(const struct i_dwt2buffers *ref,
             dwt2_dtype *dist_temporal = (dwt2_dtype *) calloc(width * height, sizeof(dwt2_dtype));
             temp_values[subband] = 0;
 
-            integer_subract_subbands_avx512(ref->bands[subband], prev_ref->bands[subband], ref_temporal,
-                                     dist->bands[subband], prev_dist->bands[subband], dist_temporal,
-                                     width, height);
+            integer_subract_subbands_avx512(
+                ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband],
+                prev_dist->bands[subband], dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales_avx512(
                 ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val,
                 enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
@@ -485,8 +508,7 @@ int integer_compute_strred_funque_avx512(const struct i_dwt2buffers *ref,
 
     // Add equations to compute ST-RRED using norm factors
     int norm_factor, num_level;
-    for(num_level = 0; num_level <= level; num_level++)
-        norm_factor = num_level + 1;
+    for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
 
     strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
     strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];

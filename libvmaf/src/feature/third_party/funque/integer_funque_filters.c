@@ -27,8 +27,9 @@
 #include "integer_funque_filters.h"
 #include <time.h>
 
-void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
-                         ptrdiff_t dst_stride, int width, int height, int spatial_csf, int level)
+void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride,
+                           i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height,
+                           int spatial_csf, int level)
 {
     int src_px_stride = src_stride / sizeof(dwt2_dtype);
     int dst_px_stride = dst_stride / sizeof(dwt2_dtype);
@@ -326,8 +327,8 @@ const spat_fil_coeff_dtype i_ngan_filter_coeffs[21] = {
 const spat_fil_coeff_dtype i_nadeanu_filter_coeffs[5] = {1658, 15139, 31193, 15139, 1658};
 
 void integer_spatial_filter_c(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
-                            int height, int bitdepth, spat_fil_inter_dtype *tmp,
-                            char *spatial_csf_filter)
+                              int height, int bitdepth, spat_fil_inter_dtype *tmp,
+                              char *spatial_csf_filter)
 {
     int filter_size = 0;
     const spat_fil_coeff_dtype *i_filter_coeffs = 0;
@@ -633,8 +634,9 @@ void integer_reflect_pad_for_input(void *src, void *dst, int width, int height, 
 }
 
 void integer_funque_dwt2_inplace_csf_c(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
-                                     int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
-                                     uint8_t interim_shift_factors[4], int level)
+                                       int min_theta, int max_theta,
+                                       uint16_t interim_rnd_factors[4],
+                                       uint8_t interim_shift_factors[4], int level)
 {
     UNUSED(level);
     dwt2_dtype *src_ptr;

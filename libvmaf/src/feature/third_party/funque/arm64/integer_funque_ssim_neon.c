@@ -23,7 +23,7 @@ static inline int16_t ms_ssim_get_best_i16_from_u32_neon(uint32_t temp, int *x)
 
     if(k > 17) {
         k -= 17;
-        //temp = temp << k;
+        // temp = temp << k;
         *x = 0;
 
     } else if(k < 16) {
@@ -226,7 +226,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
             rowcube_1minus_map += const1_minus_map * const1_minus_map * const1_minus_map;
 #else
             accum_map += map;
-            //map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype)map * map));
+            // map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype)map * map));
 #endif
         }
 #if ENABLE_MINK3POOL
@@ -255,15 +255,18 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     return ret;
 }
 
-int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, MsSsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup, int n_levels, int is_pyr)
+int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
+                                        MsSsimScore_int *score, int max_val, float K1, float K2,
+                                        int pending_div, int32_t *div_lookup, int n_levels,
+                                        int is_pyr)
 {
     int ret = 1;
 
     int cum_array_width = (ref->width) * (1 << n_levels);
 
-    int win_size = (n_levels << 1); 
+    int win_size = (n_levels << 1);
     int win_size_c2 = win_size;
-    pending_div = pending_div >> (n_levels -1);
+    pending_div = pending_div >> (n_levels - 1);
     int pending_div_c1 = pending_div;
     int pending_div_c2 = pending_div;
     int pending_div_offset = 0;
@@ -271,29 +274,30 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int width = ref->width;
     int height = ref->height;
 
-    int32_t* var_x_cum = *(score->var_x_cum);
-    int32_t* var_y_cum = *(score->var_y_cum);
-    int32_t* cov_xy_cum = *(score->cov_xy_cum);
+    int32_t *var_x_cum = *(score->var_x_cum);
+    int32_t *var_y_cum = *(score->var_y_cum);
+    int32_t *cov_xy_cum = *(score->cov_xy_cum);
 
-    if (is_pyr)
-    {
+    if(is_pyr) {
         win_size_c2 = 2;
-        pending_div_c1 = (1<<i_nadenau_pending_div_factors[n_levels-1][0]) * 255;
-        pending_div_c2 = (1<<(i_nadenau_pending_div_factors[n_levels-1][1] + (n_levels - 1))) * 255;
-        pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels-1][3] - i_nadenau_pending_div_factors[n_levels-1][1]);
-        pending_div_halfround = (pending_div_offset == 0) ? 0 : (1 << (pending_div_offset-1));
-        if ((n_levels > 1))
-        {
+        pending_div_c1 = (1 << i_nadenau_pending_div_factors[n_levels - 1][0]) * 255;
+        pending_div_c2 =
+            (1 << (i_nadenau_pending_div_factors[n_levels - 1][1] + (n_levels - 1))) * 255;
+        pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels - 1][3] -
+                                  i_nadenau_pending_div_factors[n_levels - 1][1]);
+        pending_div_halfround = (pending_div_offset == 0) ? 0 : (1 << (pending_div_offset - 1));
+        if((n_levels > 1)) {
             int index_cum = 0;
-            int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels-2][1] - i_nadenau_pending_div_factors[n_levels-1][1] - 1);
-            for (int i = 0; i < height; i++)
-            {   
-                for (int j = 0; j < width; j++)
-                {
-                    
-                    var_x_cum[index_cum] = (var_x_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
-                    var_y_cum[index_cum] = (var_y_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
-                    cov_xy_cum[index_cum] = (cov_xy_cum[index_cum] + (1<<(shift_cums-1))) >> shift_cums;
+            int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels - 2][1] -
+                                  i_nadenau_pending_div_factors[n_levels - 1][1] - 1);
+            for(int i = 0; i < height; i++) {
+                for(int j = 0; j < width; j++) {
+                    var_x_cum[index_cum] =
+                        (var_x_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+                    var_y_cum[index_cum] =
+                        (var_y_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+                    cov_xy_cum[index_cum] =
+                        (cov_xy_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
                     index_cum++;
                 }
                 index_cum += (cum_array_width - width);
@@ -301,8 +305,9 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
         }
     }
 
-    int64_t c1_mul = (((int64_t) pending_div_c1*pending_div_c1) >> (SSIM_INTER_L_SHIFT));
-    int64_t c2_mul = (((int64_t) pending_div_c2*pending_div_c2) >> (SSIM_INTER_VAR_SHIFTS+SSIM_INTER_CS_SHIFT));
+    int64_t c1_mul = (((int64_t) pending_div_c1 * pending_div_c1) >> (SSIM_INTER_L_SHIFT));
+    int64_t c2_mul = (((int64_t) pending_div_c2 * pending_div_c2) >>
+                      (SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT));
 
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * c1_mul);
     ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * c2_mul);
@@ -322,7 +327,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     ssim_accum_dtype accum_sq_cs = 0;
     ssim_accum_dtype map_sq = 0;
 
-    ssim_inter_dtype mink3_const = 32768; // 2^15
+    ssim_inter_dtype mink3_const = 32768;  // 2^15
     ssim_inter_dtype mink3_const_map = (mink3_const * mink3_const) >> SSIM_R_SHIFT;
     ssim_inter_dtype mink3_const_l = mink3_const >> L_R_SHIFT;
     ssim_inter_dtype mink3_const_cs = mink3_const >> CS_R_SHIFT;
@@ -347,15 +352,16 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     int32x4_t varSft32x4_lb1, varSft32x4_hb1, covSft32x4_lb1, covSft32x4_hb1;
     int32x4_t addcsNum32x4_lb1, addcsNum32x4_hb1, addcsDen32x4_lb1, addcsDen32x4_hb1;
     int32x4_t varX32x4_lb1, varX32x4_hb1, varY32x4_lb1, varY32x4_hb1, cov32x4_lb1, cov32x4_hb1;
-    int32x4_t varXcum32x4_lb, varXcum32x4_hb, varYcum32x4_lb, varYcum32x4_hb, covXYcum32x4_lb, covXYcum32x4_hb;
+    int32x4_t varXcum32x4_lb, varXcum32x4_hb, varYcum32x4_lb, varYcum32x4_hb, covXYcum32x4_lb,
+        covXYcum32x4_hb;
 
     int32x4_t dupC1 = vdupq_n_s32(C1);
     int32x4_t dupC2 = vdupq_n_s32(C2);
 
-    int32_t *lNumVal = (int32_t *)malloc(width * sizeof(int32_t));
-    int32_t *csNumVal = (int32_t *)malloc(width * sizeof(int32_t));
-    int32_t *lDenVal = (int32_t *)malloc(width * sizeof(int32_t));
-    int32_t *csDenVal = (int32_t *)malloc(width * sizeof(int32_t));
+    int32_t *lNumVal = (int32_t *) malloc(width * sizeof(int32_t));
+    int32_t *csNumVal = (int32_t *) malloc(width * sizeof(int32_t));
+    int32_t *lDenVal = (int32_t *) malloc(width * sizeof(int32_t));
+    int32_t *csDenVal = (int32_t *) malloc(width * sizeof(int32_t));
 
     int neg_win_size = -win_size;
     int neg_win_size_c2 = -win_size_c2;
@@ -368,8 +374,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
         ssim_mink3_accum_dtype row_accum_mink3_map = 0;
         ssim_mink3_accum_dtype row_accum_mink3_l = 0;
         ssim_mink3_accum_dtype row_accum_mink3_cs = 0;
-        for (j = 0; j <= width - 8; j += 8)
-        {
+        for(j = 0; j <= width - 8; j += 8) {
             index = i * width + j;
             ref16x8_b0 = vld1q_s16(ref->bands[0] + index);
             dist16x8_b0 = vld1q_s16(dist->bands[0] + index);
@@ -470,12 +475,12 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             covSft32x4_lb1 = vaddq_s32(covXYcum32x4_lb, covSft32x4_lb1);
             covSft32x4_hb1 = vaddq_s32(covXYcum32x4_hb, covSft32x4_hb1);
 
-            vst1q_s32(var_x_cum + index_cum,      varSftX32x4_lb1);
-            vst1q_s32(var_x_cum + index_cum + 4,  varSftX32x4_hb1);
-            vst1q_s32(var_y_cum + index_cum,      varSftY32x4_lb1);
-            vst1q_s32(var_y_cum + index_cum + 4,  varSftY32x4_hb1);
-            vst1q_s32(cov_xy_cum + index_cum,     covSft32x4_lb1 );
-            vst1q_s32(cov_xy_cum + index_cum + 4, covSft32x4_hb1 );
+            vst1q_s32(var_x_cum + index_cum, varSftX32x4_lb1);
+            vst1q_s32(var_x_cum + index_cum + 4, varSftX32x4_hb1);
+            vst1q_s32(var_y_cum + index_cum, varSftY32x4_lb1);
+            vst1q_s32(var_y_cum + index_cum + 4, varSftY32x4_hb1);
+            vst1q_s32(cov_xy_cum + index_cum, covSft32x4_lb1);
+            vst1q_s32(cov_xy_cum + index_cum + 4, covSft32x4_hb1);
 
             varSft32x4_lb1 = vaddq_s32(varSftX32x4_lb1, varSftY32x4_lb1);
             varSft32x4_hb1 = vaddq_s32(varSftX32x4_hb1, varSftY32x4_hb1);
@@ -493,8 +498,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             vst1q_s32(csDenVal + j + 4, addcsDen32x4_hb1);
             index_cum += 8;
         }
-        for(; j < width; j++)
-        {
+        for(; j < width; j++) {
             index = i * width + j;
 
             mx = ref->bands[0][index];
@@ -505,24 +509,31 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             cov_xy = 0;
             int k;
 #if BAND_HVD_SAME_PENDING_DIV
-            for (k = 1; k < 4; k++)
+            for(k = 1; k < 4; k++)
 #else
-            for (k = 1; k < 3; k++)
+            for(k = 1; k < 3; k++)
 #endif
             {
-                var_x  += ((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]);
-                var_y  += ((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]);
-                cov_xy += ((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]);
+                var_x += ((ssim_inter_dtype) ref->bands[k][index] * ref->bands[k][index]);
+                var_y += ((ssim_inter_dtype) dist->bands[k][index] * dist->bands[k][index]);
+                cov_xy += ((ssim_inter_dtype) ref->bands[k][index] * dist->bands[k][index]);
             }
 #if !(BAND_HVD_SAME_PENDING_DIV)
-            //The extra right shift will be done for pyr since the upscale factors are different for subbands
-            var_x  += (((ssim_inter_dtype)ref->bands[k][index]  * ref->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
-            var_y  += (((ssim_inter_dtype)dist->bands[k][index] * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
-            cov_xy += (((ssim_inter_dtype)ref->bands[k][index]  * dist->bands[k][index]) + pending_div_halfround) >> pending_div_offset;
+            // The extra right shift will be done for pyr since the upscale factors are different
+            // for subbands
+            var_x += (((ssim_inter_dtype) ref->bands[k][index] * ref->bands[k][index]) +
+                      pending_div_halfround) >>
+                     pending_div_offset;
+            var_y += (((ssim_inter_dtype) dist->bands[k][index] * dist->bands[k][index]) +
+                      pending_div_halfround) >>
+                     pending_div_offset;
+            cov_xy += (((ssim_inter_dtype) ref->bands[k][index] * dist->bands[k][index]) +
+                       pending_div_halfround) >>
+                      pending_div_offset;
 #endif
-            var_x_band0  = ((ssim_inter_dtype)mx * mx) >> win_size;
-            var_y_band0  = ((ssim_inter_dtype)my * my) >> win_size;
-            cov_xy_band0 = ((ssim_inter_dtype)mx * my) >> win_size;
+            var_x_band0 = ((ssim_inter_dtype) mx * mx) >> win_size;
+            var_y_band0 = ((ssim_inter_dtype) my * my) >> win_size;
+            cov_xy_band0 = ((ssim_inter_dtype) mx * my) >> win_size;
 
             var_x_cum[index_cum] = var_x_cum[index_cum] << sft_if_pyr;
             var_y_cum[index_cum] = var_y_cum[index_cum] << sft_if_pyr;
@@ -544,8 +555,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             index_cum++;
         }
 
-        for (k = 0; k < width; k++)
-        {
+        for(k = 0; k < width; k++) {
             int power_val_l;
             i16_l_den = ms_ssim_get_best_i16_from_u32_neon((uint32_t) lDenVal[k], &power_val_l);
 
@@ -626,8 +636,8 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     return ret;
 }
 
-int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
-                                         int32_t* cov_xy_cum, int width, int height, int level)
+int integer_mean_2x2_ms_ssim_funque_neon(int32_t *var_x_cum, int32_t *var_y_cum,
+                                         int32_t *cov_xy_cum, int width, int height, int level)
 {
     int ret = 1;
     int cum_array_width = (width) * (1 << (level + 1));
@@ -636,10 +646,8 @@ int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
     int i = 0;
     int j = 0;
 
-    for(i = 0; i < (height / 2); i++)
-    {
-        for(j = 0; j <= width - 8; j = j + 8)
-        {
+    for(i = 0; i < (height / 2); i++) {
+        for(j = 0; j <= width - 8; j = j + 8) {
             index = i * cum_array_width + j / 2;
 
             int32x4_t var_x_1_1 = vld1q_s32(&var_x_cum[index_cum]);
@@ -671,27 +679,26 @@ int integer_mean_2x2_ms_ssim_funque_neon(int32_t* var_x_cum, int32_t* var_y_cum,
 
             index_cum += 8;
         }
-        for(; j < width; j=j+2)
-        {
-            index = i * cum_array_width + j/2;
+        for(; j < width; j = j + 2) {
+            index = i * cum_array_width + j / 2;
             var_x_cum[index] = var_x_cum[index_cum] + var_x_cum[index_cum + 1] +
-                          var_x_cum[index_cum + (cum_array_width)] +
-                          var_x_cum[index_cum + (cum_array_width) + 1];
+                               var_x_cum[index_cum + (cum_array_width)] +
+                               var_x_cum[index_cum + (cum_array_width) + 1];
             var_x_cum[index] = (var_x_cum[index] + 2) >> 2;
 
             var_y_cum[index] = var_y_cum[index_cum] + var_y_cum[index_cum + 1] +
-                          var_y_cum[index_cum + (cum_array_width)] +
-                          var_y_cum[index_cum + (cum_array_width) + 1];
+                               var_y_cum[index_cum + (cum_array_width)] +
+                               var_y_cum[index_cum + (cum_array_width) + 1];
             var_y_cum[index] = (var_y_cum[index] + 2) >> 2;
 
             cov_xy_cum[index] = cov_xy_cum[index_cum] + cov_xy_cum[index_cum + 1] +
-                          cov_xy_cum[index_cum + (cum_array_width)] +
-                          cov_xy_cum[index_cum + (cum_array_width) + 1];
+                                cov_xy_cum[index_cum + (cum_array_width)] +
+                                cov_xy_cum[index_cum + (cum_array_width) + 1];
             cov_xy_cum[index] = (cov_xy_cum[index] + 2) >> 2;
 
             index_cum += 2;
         }
-        index_cum += ((cum_array_width * 2) - width );
+        index_cum += ((cum_array_width * 2) - width);
     }
     ret = 0;
     return ret;

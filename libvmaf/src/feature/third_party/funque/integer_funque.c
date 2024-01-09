@@ -490,7 +490,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
-        }   else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_li_coeffs[level][0];
                 s->csf_factors[level][1] = i_li_coeffs[level][1];
@@ -507,7 +507,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
-        }   else if(strcmp(s->wavelet_csf_filter_type, "hill") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "hill") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_hill_coeffs[level][0];
                 s->csf_factors[level][1] = i_hill_coeffs[level][1];
@@ -524,7 +524,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
-        }   else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_watson_coeffs[level][0];
                 s->csf_factors[level][1] = i_watson_coeffs[level][1];
@@ -541,7 +541,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
                 s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
-        }   else if(strcmp(s->wavelet_csf_filter_type, "mannos_weight") == 0) {
+        } else if(strcmp(s->wavelet_csf_filter_type, "mannos_weight") == 0) {
             for(int level = 0; level < 4; level++) {
                 s->csf_factors[level][0] = i_mannos_weight_coeffs[level][0];
                 s->csf_factors[level][1] = i_mannos_weight_coeffs[level][1];
@@ -640,8 +640,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #else
-        if (bpc == 8)
-        {
+        if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_c;
             else
@@ -675,8 +674,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
 #if ENABLE_SIMD_PROFILING
-        if (bpc == 8)
-        {
+        if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
             else
@@ -697,8 +695,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx2;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #else
-        if (bpc == 8)
-        {
+        if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_c;
             else
@@ -723,8 +720,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #if HAVE_AVX512
     if (flags & VMAF_X86_CPU_FLAG_AVX512) {
 #if ENABLE_SIMD_PROFILING
-        if (bpc == 8)
-        {
+        if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_c;
             else
@@ -746,8 +742,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 
 #else
-        if (bpc == 8)
-        {
+        if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_c;
             else
@@ -1012,38 +1007,40 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
-                s->modules.integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
-                                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
-                                    &s->i_ref_dwt2out[level + 1],
-                                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
-                                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                                    s->enable_spatial_csf, level + 1);
-                s->modules.integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
-                                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
-                                    &s->i_dist_dwt2out[level + 1],
-                                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
-                                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
-                                    s->enable_spatial_csf, level + 1);
+                s->modules.integer_funque_dwt2(
+                    s->i_ref_dwt2out[level].bands[0],
+                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
+                    &s->i_ref_dwt2out[level + 1],
+                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
+                    s->enable_spatial_csf, level + 1);
+                s->modules.integer_funque_dwt2(
+                    s->i_dist_dwt2out[level].bands[0],
+                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
+                    &s->i_dist_dwt2out[level + 1],
+                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
+                    s->enable_spatial_csf, level + 1);
             }
         }
 
         if(!s->enable_spatial_csf) {
             if(level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                s->modules.integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
-                                                3, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
-                s->modules.integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
-                                                3, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             } else {
                 // we only need CSF on approx band
-                s->modules.integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
-                                                0, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
-                s->modules.integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
-                                                0, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             }
         }
 

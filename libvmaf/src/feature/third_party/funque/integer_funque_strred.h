@@ -50,7 +50,7 @@ void strred_integer_reflect_pad(const dwt2_dtype *src, size_t width, size_t heig
                                 dwt2_dtype *dest);
 
 void strred_funque_generate_log22(uint32_t *log_22);
-void strred_funque_log_generate(uint32_t* log_18);
+void strred_funque_log_generate(uint32_t *log_18);
 
 FORCE_INLINE inline uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
 {

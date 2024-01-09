@@ -27,15 +27,13 @@
 #include "../integer_funque_strred.h"
 
 void integer_subract_subbands_neon(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                                    const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
-                                    int width, int height)
+                                   dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                   const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst, int width,
+                                   int height)
 {
     int i, j;
-    for(i = 0; i < height; i++)
-    {
-        for(j = 0; j <= width - 8; j += 8)
-        {
+    for(i = 0; i < height; i++) {
+        for(j = 0; j <= width - 8; j += 8) {
             int16x8_t ref_src_vector = vld1q_s16(&ref_src[i * width + j]);
             int16x8_t ref_prev_src_vector = vld1q_s16(&ref_prev_src[i * width + j]);
             int16x8_t dist_src_vector = vld1q_s16(&dist_src[i * width + j]);
@@ -47,19 +45,19 @@ void integer_subract_subbands_neon(const dwt2_dtype *ref_src, const dwt2_dtype *
             vst1q_s16(&ref_dst[i * width + j], diff_ref);
             vst1q_s16(&dist_dst[i * width + j], diff_dist);
         }
-        for(; j < width; j++)
-        {
+        for(; j < width; j++) {
             ref_dst[i * width + j] = ref_src[i * width + j] - ref_prev_src[i * width + j];
             dist_dst[i * width + j] = dist_src[i * width + j] - dist_prev_src[i * width + j];
         }
     }
 }
 
-float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_dtype *y_t, size_t width,
-                                        size_t height, uint32_t *log_18, uint32_t *log_22,
-                                        double sigma_nsq_arg, int32_t shift_val,
-                                        uint8_t enable_temporal, float *spat_scales_x,
-                                        float *spat_scales_y, uint8_t check_enable_spatial_csf)
+float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_dtype *y_t,
+                                             size_t width, size_t height, uint32_t *log_18,
+                                             uint32_t *log_22, double sigma_nsq_arg,
+                                             int32_t shift_val, uint8_t enable_temporal,
+                                             float *spat_scales_x, float *spat_scales_y,
+                                             uint8_t check_enable_spatial_csf)
 {
     int kh = STRRED_WINDOW_SIZE;
     int kw = STRRED_WINDOW_SIZE;
@@ -100,7 +98,8 @@ float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_d
     int16_t knorm_fact =
         25891;  // (2^21)/81 knorm factor is multiplied and shifted instead of division
     int16_t knorm_shift = 21;
-    uint32_t entr_const = (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
+    uint32_t entr_const =
+        (uint32_t) (log2f(2 * PI_CONSTANT * EULERS_CONSTANT) * TWO_POWER_Q_FACTOR);
 
     {
         int width_p1 = r_width + 1;
@@ -216,13 +215,11 @@ float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_d
     return agg_abs_accum;
 }
 
-int integer_compute_strred_funque_neon(const struct i_dwt2buffers *ref,
-                                    const struct i_dwt2buffers *dist,
-                                    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
-                                    size_t width, size_t height,
-                                    struct strred_results *strred_scores, int block_size, int level,
-                                    uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
-                                    double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+int integer_compute_strred_funque_neon(
+    const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
+    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
+    struct strred_results *strred_scores, int block_size, int level, uint32_t *log_18,
+    uint32_t *log_22, int32_t shift_val_arg, double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
@@ -261,9 +258,9 @@ int integer_compute_strred_funque_neon(const struct i_dwt2buffers *ref,
             dwt2_dtype *dist_temporal = (dwt2_dtype *) calloc(width * height, sizeof(dwt2_dtype));
             temp_values[subband] = 0;
 
-            integer_subract_subbands_neon(ref->bands[subband], prev_ref->bands[subband], ref_temporal,
-                                     dist->bands[subband], prev_dist->bands[subband], dist_temporal,
-                                     width, height);
+            integer_subract_subbands_neon(ref->bands[subband], prev_ref->bands[subband],
+                                          ref_temporal, dist->bands[subband],
+                                          prev_dist->bands[subband], dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales_neon(
                 ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val,
                 enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
@@ -280,8 +277,7 @@ int integer_compute_strred_funque_neon(const struct i_dwt2buffers *ref,
 
     // Add equations to compute ST-RRED using norm factors
     int norm_factor, num_level;
-    for(num_level = 0; num_level <= level; num_level++)
-        norm_factor = num_level + 1;
+    for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
 
     strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
     strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];

@@ -21,21 +21,20 @@
 #include "../common/macros.h"
 #include "../funque_global_options.h"
 
-int integer_compute_strred_funque_avx512(const struct i_dwt2buffers* ref,
-                                    const struct i_dwt2buffers* dist,
-                                    struct i_dwt2buffers* prev_ref, struct i_dwt2buffers* prev_dist,
-                                    size_t width, size_t height,
-                                    struct strred_results* strred_scores, int block_size, int level,
-                                    uint32_t* log_18, uint32_t* log_22, int32_t shift_val,
-                                    double sigma_nsq_t, uint8_t enable_spatial_csf);
+int integer_compute_strred_funque_avx512(
+    const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
+    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
+    struct strred_results *strred_scores, int block_size, int level, uint32_t *log_18,
+    uint32_t *log_22, int32_t shift_val, double sigma_nsq_t, uint8_t enable_spatial_csf);
 
 void integer_subract_subbands_avx512(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
-                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
-                                    const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
-                                    int width, int height);
+                                     dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
+                                     const dwt2_dtype *dist_prev_src, dwt2_dtype *dist_dst,
+                                     int width, int height);
 
-float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2_dtype *y_t, size_t width,
-                                        size_t height, uint32_t *log_18, uint32_t *log_22,
-                                        double sigma_nsq_arg, int32_t shift_val,
-                                        uint8_t enable_temporal, float *spat_scales_x,
-                                        float *spat_scales_y, uint8_t check_enable_spatial_csf);
+float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2_dtype *y_t,
+                                               size_t width, size_t height, uint32_t *log_18,
+                                               uint32_t *log_22, double sigma_nsq_arg,
+                                               int32_t shift_val, uint8_t enable_temporal,
+                                               float *spat_scales_x, float *spat_scales_y,
+                                               uint8_t check_enable_spatial_csf);

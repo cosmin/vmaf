@@ -247,12 +247,12 @@ static const uint8_t i_li_pending_div_factors[4][4] = {
 
 static const spat_fil_coeff_dtype i_hill_coeffs[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
-    {16384,  22691, 10041,  22691},
-    {16384, -22164,  7134, -22164},
-    {16384, -8960, -26774, -8960 },
+    {16384, 22691, 10041, 22691},
+    {16384, -22164, 7134, -22164},
+    {16384, -8960, -26774, -8960},
 #else
-    {16384,  22691,  20082,  22691},
-    {16384, -22164,  28535, -22164},
+    {16384, 22691, 20082, 22691},
+    {16384, -22164, 28535, -22164},
     {16384, -17920, -26774, -17920},
 #endif
     {16384, -22347, -32484, -22347},
@@ -268,7 +268,7 @@ static const uint8_t i_hill_pending_div_factors[4][4] = {
     {5, 7, 7, 9},     // L1
     {4, 8, 8, 7},     // L2
 #endif
-    {3, 8, 8, 8},     // L3
+    {3, 8, 8, 8},  // L3
 };
 
 static const spat_fil_coeff_dtype i_watson_coeffs[4][4] = {
@@ -312,22 +312,22 @@ static const spat_fil_coeff_dtype i_mannos_weight_coeffs[4][4] = {
 static const uint8_t i_mannos_weight_pending_div_factors[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
     {6, 14, 14, 14},  // L0
-    {5,  8,  8,  8},  // L1
+    {5, 8, 8, 8},     // L1
 #else
     {6, 14, 14, 19},  // L0
-    {5,  8,  8, 10},  // L1
+    {5, 8, 8, 10},    // L1
 #endif
-    {4,  5,  5,  5},  // L2
-    {3,  4,  4,  4},  // L3
+    {4, 5, 5, 5},  // L2
+    {3, 4, 4, 4},  // L3
 };
 
 void integer_spatial_filter_c(void *src, spat_fil_output_dtype *dst, int dst_stride, int width,
-                            int height, int bitdepth, spat_fil_inter_dtype *tmp,
-                            char *spatial_csf_filter);
+                              int height, int bitdepth, spat_fil_inter_dtype *tmp,
+                              char *spatial_csf_filter);
 
-void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride, i_dwt2buffers *dwt2_dst,
-                         ptrdiff_t dst_stride, int width, int height, int spatial_csf_flag,
-                         int level);
+void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride,
+                           i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height,
+                           int spatial_csf_flag, int level);
 
 void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride,
                                  int width, int height);
@@ -335,8 +335,9 @@ void integer_funque_dwt2_wavelet(void *src, i_dwt2buffers *dwt2_dst, ptrdiff_t d
 void integer_funque_vifdwt2_band0(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride, int width, int height);
 
 void integer_funque_dwt2_inplace_csf_c(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
-                                     int min_theta, int max_theta, uint16_t interim_rnd_factors[4],
-                                     uint8_t interim_shift_factors[4], int level);
+                                       int min_theta, int max_theta,
+                                       uint16_t interim_rnd_factors[4],
+                                       uint8_t interim_shift_factors[4], int level);
 
 void integer_reflect_pad_for_input_hbd(void *src, void *dst, int width, int height,
                                        int reflect_width, int reflect_height);
