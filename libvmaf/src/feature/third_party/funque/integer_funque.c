@@ -627,8 +627,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         }
         s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_neon;
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
-        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
-        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_neon;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_neon;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
@@ -722,7 +722,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #if ENABLE_SIMD_PROFILING
         if(bpc == 8) {
             if(s->spatial_csf_filter == 21)
-                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+                s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
             else
                 s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx512;
         }
