@@ -23,6 +23,7 @@
 
 // #include "config.h"
 #include "dict.h"
+#include "framesync.h"
 #include "feature_collector.h"
 #include "feature_extractor.h"
 #include "feature_name.h"
