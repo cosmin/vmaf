@@ -50,7 +50,7 @@ int integer_compute_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist, do
     ssim_inter_dtype var_x, var_y, cov_xy, var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype map, l_num, l_den, cs_num, cs_den;
     ssim_inter_dtype C1 = ((K1 * max_val) * (K1 * max_val) * ((pending_div * pending_div) << (2 - SSIM_INTER_L_SHIFT)));
-    ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * ((pending_div * pending_div) >> (SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT - 2)));
+    ssim_inter_dtype C2 = ((K2 * max_val) * (K2 * max_val) * ((pending_div * pending_div) << (2 - SSIM_INTER_VAR_SHIFTS + SSIM_INTER_CS_SHIFT)));
 
 #if ENABLE_MINK3POOL
     ssim_accum_dtype rowcube_1minus_map = 0;
