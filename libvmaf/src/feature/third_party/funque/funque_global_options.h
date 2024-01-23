@@ -13,6 +13,7 @@
 
 #define MAX_LEVELS 4
 #define MIN_LEVELS 0
+#define DEFAULT_BANDS 4
 
 
 #endif //VMAF_FUNQUE_GLOBAL_OPTIONS_H

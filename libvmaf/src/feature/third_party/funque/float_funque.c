@@ -66,6 +66,9 @@ typedef struct FunqueState {
     dwt2buffers dist_dwt2out[4];
     strredbuffers prev_ref[4];
     strredbuffers prev_dist[4];
+    dwt2buffers shared_ref[4];
+    dwt2buffers shared_dist[4];
+
     strred_results strred_scores;
 
     // funque configurable parameters
@@ -98,6 +101,7 @@ typedef struct FunqueState {
     VmafDictionary *feature_name_dict;
     ResizerState resize_module;
     MsSsimScore *score;
+    FrameBufLen frame_buf_len;
 
 } FunqueState;
 
@@ -325,6 +329,8 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     (void)bpc;
 
     FunqueState *s = fex->priv;
+    s->frame_buf_len.total_buf_size = 0;
+
     s->feature_name_dict =
         vmaf_feature_name_dict_from_provided_features(fex->provided_features,
                 fex->options, s);
@@ -476,16 +482,25 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         tdist_width = (dist_process_width + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
         tdist_height = (dist_process_height + (process_wh_div_factor * 3/4)) / process_wh_div_factor;
 
+        for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+            s->frame_buf_len.buf_size[level][subband] = tref_width * tref_height;
+            s->frame_buf_len.total_buf_size += s->frame_buf_len.buf_size[level][subband];
+        }
+
         err |= alloc_dwt2buffers(&s->ref_dwt2out[level], tref_width, tref_height);
         err |= alloc_dwt2buffers(&s->dist_dwt2out[level], tdist_width, tdist_height);
 
-        s->prev_ref[level].bands[0] = NULL;
-        s->prev_dist[level].bands[0] = NULL;
-
-        for(int subband = 1; subband < 4; subband++) {
-            s->prev_ref[level].bands[subband] = (float*) calloc(tref_width * tref_height, sizeof(float));
-            s->prev_dist[level].bands[subband] = (float*) calloc(tref_width * tref_height, sizeof(float));
+        for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+            s->prev_ref[level].bands[subband] = NULL;
+            s->prev_dist[level].bands[subband] = NULL;
         }
+        s->prev_ref[level].width = s->ref_dwt2out[level].width;
+        s->prev_ref[level].height = s->ref_dwt2out[level].height;
+        s->prev_ref[level].stride = s->ref_dwt2out[level].stride;
+
+        s->prev_dist[level].width = s->dist_dwt2out[level].width;
+        s->prev_dist[level].height = s->dist_dwt2out[level].height;
+        s->prev_dist[level].stride = s->dist_dwt2out[level].stride;
 
         last_w = (int) (last_w + 1) / 2;
         last_h = (int) (last_h + 1) / 2;
@@ -525,6 +540,8 @@ static int extract(VmafFeatureExtractor *fex,
 
     VmafPicture *res_ref_pic = &s->res_ref_pic;
     VmafPicture *res_dist_pic = &s->res_dist_pic;
+
+    VmafFrameSyncContext *framesync = fex->framesync;
 
     if(s->enable_resize)
     {
@@ -676,6 +693,27 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
+    float *shared_buf, *shared_buf_temp; 
+    vmaf_framesync_aquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(float), index);
+    //total_buf_size is multiplied by 2 for ref and dist
+
+    shared_buf_temp = shared_buf;
+    //Distibute the big buffer to smaller ones for each levels and bands
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
+        for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+            s->shared_ref[level].bands[subband] = shared_buf;
+            s->shared_dist[level].bands[subband] = shared_buf + s->frame_buf_len.total_buf_size;
+
+            shared_buf += s->frame_buf_len.buf_size[level][subband];
+        }
+    }
+
+    //copy level 0
+    //err |= copy_frame_funque(
+      //              &s->ref_dwt2out[0], &s->dist_dwt2out[0], &s->shared_ref[0],
+        //            &s->shared_dist[0], s->ref_dwt2out[0].width,
+          //          s->ref_dwt2out[0].height);
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
         if (level+1 < s->needed_dwt_levels) {
@@ -702,7 +740,16 @@ static int extract(VmafFeatureExtractor *fex,
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 0);
             }
         }
+        
+        //Function to copy all bands from ref_dwt2out, dist_dwt2out (2 copies)
+        err |= copy_frame_funque(
+                &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->shared_ref[level],
+                &s->shared_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height);
     }
+
+
+    vmaf_framesync_submit_filled_data(framesync, shared_buf_temp, index);
+    //Add error checks
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
 
@@ -750,29 +797,41 @@ static int extract(VmafFeatureExtractor *fex,
         if (err) return err;
     }
 
+    float *dependent_buf, *dependent_buf_temp;
+    if(index != 0) {
+        vmaf_framesync_retrive_filled_data(framesync,(void **)&dependent_buf,(index-1));
+        //Add error checks
+
+        dependent_buf_temp = dependent_buf;
+
+        //Distribute buffers
+        for (int level = 0; level < s->needed_dwt_levels; level++) {
+            for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+                s->prev_ref[level].bands[subband] = dependent_buf;
+                s->prev_dist[level].bands[subband] = dependent_buf + s->frame_buf_len.total_buf_size;
+
+                dependent_buf += s->frame_buf_len.buf_size[level][subband];
+            }
+        }
+    }
+
     for (int level = 0; level < s->needed_dwt_levels; level++) {
 
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
-            if(index == 0) {
-                err |= copy_prev_frame_strred_funque(
-                    &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].width,
-                    s->ref_dwt2out[level].height);
-            }
-            else {
+            if(index != 0) {
+
                 err |= compute_strred_funque(
                     &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
                     &s->prev_dist[level], s->ref_dwt2out[level].width, s->ref_dwt2out[level].height,
                     spat_scales_ref[level], spat_scales_dist[level], &s->strred_scores, BLOCK_SIZE, level);
-
-                err |= copy_prev_frame_strred_funque(
-                    &s->ref_dwt2out[level], &s->dist_dwt2out[level], &s->prev_ref[level],
-                    &s->prev_dist[level], s->ref_dwt2out[level].width,
-                    s->ref_dwt2out[level].height);
             }
         }
 
         if (err) return err;
+    }
+
+    if(index != 0) {
+        vmaf_framesync_release_buf (framesync,dependent_buf_temp,(index-1));
     }
 
     if(s->ms_ssim_levels != 0) {
@@ -1003,11 +1062,6 @@ static int close(VmafFeatureExtractor *fex)
             if (s->ref_dwt2out[level].bands[i]) aligned_free(s->ref_dwt2out[level].bands[i]);
             if (s->dist_dwt2out[level].bands[i]) aligned_free(s->dist_dwt2out[level].bands[i]);
         }
-        for(unsigned i=1; i<4; i++)
-        {
-            if (s->prev_ref[level].bands[i]) free(s->prev_ref[level].bands[i]);
-            if (s->prev_dist[level].bands[i]) free(s->prev_dist[level].bands[i]);
-        }
     }
 
     vmaf_dictionary_free(&s->feature_name_dict);
@@ -1047,4 +1101,5 @@ VmafFeatureExtractor vmaf_fex_float_funque = {
     .close = close,
     .priv_size = sizeof(FunqueState),
     .provided_features = provided_features,
+    .flags = VMAF_FEATURE_FRAME_SYNC,
 };

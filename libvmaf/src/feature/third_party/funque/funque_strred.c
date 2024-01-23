@@ -171,28 +171,6 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
     }
 }
 
-int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
-                                  struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
-                                  size_t width, size_t height)
-{
-    int subband;
-    int total_subbands = DEFAULT_STRRED_SUBBANDS;
-
-    for(subband = 1; subband < total_subbands; subband++) {
-        memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(float));
-        memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(float));
-    }
-    prev_ref->width = ref->width;
-    prev_ref->height = ref->height;
-    prev_ref->stride = ref->stride;
-
-    prev_dist->width = dist->width;
-    prev_dist->height = dist->height;
-    prev_dist->stride = dist->stride;
-
-    return 0;
-}
-
 int compute_srred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
                          size_t width, size_t height, float** spat_scales_ref, float** spat_scales_dist,
                          struct strred_results* strred_scores, int block_size, int level)

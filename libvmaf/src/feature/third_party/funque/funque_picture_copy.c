@@ -21,6 +21,7 @@
 #include <libvmaf/picture.h>
 
 #include "funque_filters.h"
+#include "funque_global_options.h"
 
 void funque_picture_copy_hbd(float *dst, ptrdiff_t dst_stride,
                       VmafPicture *src, int offset, int width, int height)
@@ -56,4 +57,26 @@ void funque_picture_copy(float *dst, ptrdiff_t dst_stride,
     }
 
     return;
+}
+
+int copy_frame_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
+                      struct dwt2buffers* shared_ref, struct dwt2buffers* shared_dist,
+                      size_t width, size_t height)
+{
+    int subband;
+    int total_subbands = DEFAULT_BANDS;
+
+    for(subband = 0; subband < total_subbands; subband++) {
+        memcpy(shared_ref->bands[subband], ref->bands[subband], width * height * sizeof(float));
+        memcpy(shared_dist->bands[subband], dist->bands[subband], width * height * sizeof(float));
+    }
+    shared_ref->width = ref->width;
+    shared_ref->height = ref->height;
+    shared_ref->stride = ref->stride;
+
+    shared_dist->width = dist->width;
+    shared_dist->height = dist->height;
+    shared_dist->stride = dist->stride;
+
+    return 0;
 }

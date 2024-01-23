@@ -462,6 +462,7 @@ libvmaf_feature_sources = [
     feature_src_dir + 'cambi.c',
     feature_src_dir + 'luminance_tools.c',
     feature_src_dir + 'null.c',
+	src_dir + 'framesync.c',
 ]
 
 if float_enabled
@@ -553,7 +554,6 @@ libvmaf_sources = [
     src_dir + 'read_json_model.c',
     src_dir + 'pdjson.c',
     src_dir + 'log.c',
-    src_dir + 'framesync.c',
 ]
 
 if is_cuda_enabled
