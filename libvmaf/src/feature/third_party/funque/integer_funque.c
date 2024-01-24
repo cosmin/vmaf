@@ -565,6 +565,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->resize_module.hbd_resizer_step = hbd_step;
     s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
 
+    s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
     s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
     s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 
@@ -610,6 +611,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
 
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
     }
@@ -855,6 +857,23 @@ static int extract(VmafFeatureExtractor *fex,
     s->strred_scores.temp_vals_cumsum = 0;
     s->strred_scores.spat_temp_vals_cumsum = 0;
 
+    float* spat_scales_ref[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    float* spat_scales_dist[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
+
+    if((s->strred_levels != 0) && (index != 0)) {
+        for (int level = 0; level <= s->strred_levels-1; level++) {
+            for(size_t subband = 1; subband < total_subbands; subband++) {
+                size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
+                size_t r_width = s->i_ref_dwt2out[level].width + (2 * x_reflect);
+                size_t r_height = s->i_ref_dwt2out[level].height + (2 * x_reflect);
+
+                spat_scales_ref[level][subband] = (float*) calloc(r_width * r_height, sizeof(float));
+                spat_scales_dist[level][subband] = (float*) calloc(r_width * r_height, sizeof(float));
+            }
+        }
+    }
+
     for(int level = 0; level < s->needed_dwt_levels;
         level++)  // For ST-RRED Debugging level set to 0
     {
@@ -901,7 +920,10 @@ static int extract(VmafFeatureExtractor *fex,
                                                 s->csf_interim_shift[level], level);
             }
         }
+    }
 
+    for(int level = 0; level < s->needed_dwt_levels; level++)
+    {
         // TODO: Need to modify for crop width and height
         if((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err = integer_compute_adm_funque(
@@ -983,6 +1005,22 @@ static int extract(VmafFeatureExtractor *fex,
                 return err;
         }
 
+        if((s->strred_levels != 0) && (level <= s->strred_levels - 1) && (index != 0)) {
+            int32_t strred_pending_div = spatfilter_shifts + dwt_shifts - level;
+
+            err |= s->modules.integer_compute_srred_funque(
+                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], s->i_ref_dwt2out[level].width,
+                s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level], 
+                &s->strred_scores, BLOCK_SIZE, level, s->log_18,
+                s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
+
+            if(err)
+                return err;
+        }
+    }
+
+    for(int level = 0; level < s->needed_dwt_levels; level++)
+    {
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
             int32_t strred_pending_div = spatfilter_shifts + dwt_shifts - level;
 
@@ -995,7 +1033,8 @@ static int extract(VmafFeatureExtractor *fex,
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height, &s->strred_scores, BLOCK_SIZE, level, s->log_18,
+                    s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level], 
+                    &s->strred_scores, BLOCK_SIZE, level, s->log_18,
                     s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
 
                 err |= s->modules.integer_copy_prev_frame_strred_funque(
@@ -1187,6 +1226,15 @@ static int extract(VmafFeatureExtractor *fex,
     free(var_x_cum);
     free(var_y_cum);
     free(cov_xy_cum);
+
+    if((s->strred_levels != 0) && (index != 0)) {
+        for (int level = 0; level <= s->strred_levels-1; level++) {
+            for(size_t subband = 1; subband < total_subbands; subband++) {
+                free(spat_scales_ref[level][subband]);
+                free(spat_scales_dist[level][subband]);
+            }
+        }
+    }
 
     return err;
 }

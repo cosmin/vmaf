@@ -165,11 +165,22 @@ typedef struct ModuleFunqueState
 #endif
     // void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 
+    int (*integer_compute_srred_funque)(const struct i_dwt2buffers *ref,
+                                         const struct i_dwt2buffers *dist,
+                                         size_t width, size_t height,
+                                         float** spat_scales_ref, float** spat_scales_dist,
+                                         struct strred_results *strred_scores,
+                                         int block_size, int level, uint32_t *log_18,
+                                         uint32_t *log_22, int32_t shift_val, double sigma_nsq_t,
+                                         uint8_t enable_spatial_csf);
+
     int (*integer_compute_strred_funque)(const struct i_dwt2buffers *ref,
                                          const struct i_dwt2buffers *dist,
                                          struct i_dwt2buffers *prev_ref,
-                                         struct i_dwt2buffers *prev_dist, size_t width,
-                                         size_t height, struct strred_results *strred_scores,
+                                         struct i_dwt2buffers *prev_dist,
+                                         size_t width, size_t height,
+                                         float** spat_scales_ref, float** spat_scales_dist,
+                                         struct strred_results *strred_scores,
                                          int block_size, int level, uint32_t *log_18,
                                          uint32_t *log_22, int32_t shift_val, double sigma_nsq_t,
                                          uint8_t enable_spatial_csf);
