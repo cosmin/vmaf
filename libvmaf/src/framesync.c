@@ -122,11 +122,11 @@ int vmaf_framesync_submit_filled_data(VmafFrameSyncContext *fs_ctx, void *data, 
 
 int vmaf_framesync_retrive_filled_data(VmafFrameSyncContext *fs_ctx, void **data, unsigned index)
 {
-    VmafFrameSyncBuff *buf_que = fs_ctx->buf_que;
     *data = NULL;
         
     while (*data == NULL)
     {
+        VmafFrameSyncBuff *buf_que = fs_ctx->buf_que;
         pthread_mutex_lock(&(fs_ctx->retrive_lock));
         /* loop unitl a free buffer is found */
         for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)

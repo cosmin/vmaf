@@ -105,6 +105,9 @@ typedef struct IntFunqueState
     i_dwt2buffers i_dist_dwt2out[4];
     i_dwt2buffers i_prev_ref[4];
     i_dwt2buffers i_prev_dist[4];
+	i_dwt2buffers i_shared_ref[4];
+    i_dwt2buffers i_shared_dist[4];
+
 
     // funque configurable parameters
     bool enable_resize;
@@ -140,6 +143,7 @@ typedef struct IntFunqueState
     ResizerState resize_module;
     strred_results strred_scores;
     MsSsimScore_int *score;
+	FrameBufLen frame_buf_len;
 
 } IntFunqueState;
 
@@ -366,6 +370,9 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     (void)bpc;
 
     IntFunqueState *s = fex->priv;
+	
+    s->frame_buf_len.total_buf_size = 0;
+	
     s->feature_name_dict =
         vmaf_feature_name_dict_from_provided_features(fex->provided_features,
                                                       fex->options, s);
@@ -532,15 +539,23 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         err |= integer_alloc_dwt2buffers(&s->i_ref_dwt2out[level], tref_width, tref_height);
         err |= integer_alloc_dwt2buffers(&s->i_dist_dwt2out[level], tdist_width, tdist_height);
 
-        s->i_prev_ref[level].bands[0] = NULL;
-        s->i_prev_dist[level].bands[0] = NULL;
-
-        for(int subband = 1; subband < 4; subband++) {
-            s->i_prev_ref[level].bands[subband] =
-                calloc(tref_width * tref_height, sizeof(dwt2_dtype));
-            s->i_prev_dist[level].bands[subband] =
-                calloc(tref_width * tref_height, sizeof(dwt2_dtype));
+		for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+            s->frame_buf_len.buf_size[level][subband] = tref_width * tref_height;
+            s->frame_buf_len.total_buf_size += s->frame_buf_len.buf_size[level][subband];
         }
+
+        for(int subband = 0; subband < 4; subband++) {
+            s->i_prev_ref[level].bands[subband] = NULL;
+            s->i_prev_dist[level].bands[subband] = NULL;
+        }
+
+		s->i_prev_ref[level].width = s->i_ref_dwt2out[level].width;
+        s->i_prev_ref[level].height = s->i_ref_dwt2out[level].height;
+        s->i_prev_ref[level].stride = s->i_ref_dwt2out[level].stride;
+
+        s->i_prev_dist[level].width = s->i_dist_dwt2out[level].width;
+        s->i_prev_dist[level].height = s->i_dist_dwt2out[level].height;
+        s->i_prev_dist[level].stride = s->i_dist_dwt2out[level].stride;
 
         /* Last width and height is half of the current layer */
         last_w = (int) (last_w + 1) / 2;
@@ -658,10 +673,6 @@ fail:
                 aligned_free(s->i_ref_dwt2out[level].bands[i]);
             if(s->i_dist_dwt2out[level].bands[i])
                 aligned_free(s->i_dist_dwt2out[level].bands[i]);
-            if(s->i_prev_ref[level].bands[i])
-                aligned_free(s->i_prev_ref[level].bands[i]);
-            if(s->i_prev_dist[level].bands[i])
-                aligned_free(s->i_prev_dist[level].bands[i]);
         }
     }
     vmaf_dictionary_free(&s->feature_name_dict);
@@ -676,6 +687,8 @@ static int extract(VmafFeatureExtractor *fex,
 {
     IntFunqueState *s = fex->priv;
     int err = 0;
+
+	VmafFrameSyncContext *framesync = fex->framesync;
 
     (void)ref_pic_90;
     (void)dist_pic_90;
@@ -874,8 +887,22 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
-    for(int level = 0; level < s->needed_dwt_levels;
-        level++)  // For ST-RRED Debugging level set to 0
+	dwt2_dtype *shared_buf, *shared_buf_temp; 
+    vmaf_framesync_aquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(dwt2_dtype), index);
+    //total_buf_size is multiplied by 2 for ref and dist
+
+    shared_buf_temp = shared_buf;
+    //Distibute the big buffer to smaller ones for each levels and bands
+    for (int level = 0; level < s->needed_dwt_levels; level++) {
+        for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+            s->i_shared_ref[level].bands[subband] = shared_buf;
+s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_size;
+
+            shared_buf += s->frame_buf_len.buf_size[level][subband];
+        }
+    }
+
+    for(int level = 0; level < s->needed_dwt_levels; level++)  
     {
         if(level + 1 < s->needed_dwt_levels) {
             if(level + 1 > s->needed_full_dwt_levels - 1) {
@@ -920,7 +947,15 @@ static int extract(VmafFeatureExtractor *fex,
                                                 s->csf_interim_shift[level], level);
             }
         }
+		
+		//Function to copy all bands from i_ref_dwt2out, i_dist_dwt2out (2 copies)
+        err |= integer_copy_frame_funque(
+                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_shared_ref[level],
+                &s->i_shared_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height);
     }
+
+	vmaf_framesync_submit_filled_data(framesync, shared_buf_temp, index);
+    //Add error checks
 
     for(int level = 0; level < s->needed_dwt_levels; level++)
     {
@@ -1019,32 +1054,46 @@ static int extract(VmafFeatureExtractor *fex,
         }
     }
 
+	dwt2_dtype *dependent_buf, *dependent_buf_temp;
+    dependent_buf_temp = NULL;
+    if(index != 0) {
+        vmaf_framesync_retrive_filled_data(framesync,(void **)&dependent_buf,(index-1));
+        //Add error checks
+
+        dependent_buf_temp = dependent_buf;
+
+        //Distribute buffers
+        for (int level = 0; level < s->needed_dwt_levels; level++) {
+            for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
+                s->i_prev_ref[level].bands[subband] = dependent_buf;
+                s->i_prev_dist[level].bands[subband] = dependent_buf + s->frame_buf_len.total_buf_size;
+
+                dependent_buf += s->frame_buf_len.buf_size[level][subband];
+            }
+        }
+    }
+	
     for(int level = 0; level < s->needed_dwt_levels; level++)
     {
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
             int32_t strred_pending_div = spatfilter_shifts + dwt_shifts - level;
 
-            if(index == 0) {
-                err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height);
-            } else {
+            if(index != 0) {
+            
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
                     s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level], 
                     &s->strred_scores, BLOCK_SIZE, level, s->log_18,
                     s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
-
-                err |= s->modules.integer_copy_prev_frame_strred_funque(
-                    &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
-                    &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height);
             }
             if(err)
                 return err;
         }
+    }
+	
+	if(index != 0) {
+        vmaf_framesync_release_buf (framesync,dependent_buf_temp,(index-1));
     }
 
     if(s->ms_ssim_levels != 0) {
@@ -1257,10 +1306,6 @@ static int close(VmafFeatureExtractor *fex)
                 aligned_free(s->i_ref_dwt2out[level].bands[i]);
             if(s->i_dist_dwt2out[level].bands[i])
                 aligned_free(s->i_dist_dwt2out[level].bands[i]);
-            if(s->i_prev_ref[level].bands[i])
-                aligned_free(s->i_prev_ref[level].bands[i]);
-            if(s->i_prev_dist[level].bands[i])
-                aligned_free(s->i_prev_dist[level].bands[i]);
         }
     }
     vmaf_dictionary_free(&s->feature_name_dict);

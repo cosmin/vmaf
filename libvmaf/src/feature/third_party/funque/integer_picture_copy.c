@@ -49,3 +49,26 @@ void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_
 
     return;
 }
+
+
+int integer_copy_frame_funque(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
+                      struct i_dwt2buffers* shared_ref, struct i_dwt2buffers* shared_dist,
+                      size_t width, size_t height)
+{
+    int subband;
+    int total_subbands = DEFAULT_BANDS;
+
+    for(subband = 0; subband < total_subbands; subband++) {
+        memcpy(shared_ref->bands[subband], ref->bands[subband], width * height * sizeof(dwt2_dtype));
+        memcpy(shared_dist->bands[subband], dist->bands[subband], width * height * sizeof(dwt2_dtype));
+    }
+    shared_ref->width = ref->width;
+    shared_ref->height = ref->height;
+    shared_ref->stride = ref->stride;
+
+    shared_dist->width = dist->width;
+    shared_dist->height = dist->height;
+    shared_dist->stride = dist->stride;
+
+    return 0;
+}

@@ -125,11 +125,6 @@ static const float mannos_weight_coeffs[4][4] = {
     /*{ 9.81000000e-01, 9.81000000e-01, 9.81000000e-01, 9.81000000e-01},*/
 };
 
-typedef struct FrameBufLen {
-    int buf_size[4][4];
-    int total_buf_size;
-}FrameBufLen;
-
 void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, char *spatial_csf_filter);
 
 void funque_dwt2(float *src, dwt2buffers *dwt2_dst, int width, int height);
