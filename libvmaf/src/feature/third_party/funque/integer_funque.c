@@ -888,7 +888,7 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
 	dwt2_dtype *shared_buf, *shared_buf_temp; 
-    vmaf_framesync_aquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(dwt2_dtype), index);
+    vmaf_framesync_acquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(dwt2_dtype), index);
     //total_buf_size is multiplied by 2 for ref and dist
 
     shared_buf_temp = shared_buf;
@@ -1057,7 +1057,7 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
 	dwt2_dtype *dependent_buf, *dependent_buf_temp;
     dependent_buf_temp = NULL;
     if(index != 0) {
-        vmaf_framesync_retrive_filled_data(framesync,(void **)&dependent_buf,(index-1));
+        vmaf_framesync_retrieve_filled_data(framesync,(void **)&dependent_buf,(index-1));
         //Add error checks
 
         dependent_buf_temp = dependent_buf;
