@@ -397,7 +397,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
 
     s->needed_dwt_levels =
-        MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
+        MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels,0);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     int ref_process_width, ref_process_height, dist_process_width, dist_process_height,

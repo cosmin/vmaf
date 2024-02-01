@@ -35,7 +35,7 @@
 #include "funque_adm.h"
 #include "funque_adm_options.h"
 #include "funque_ssim_options.h"
-//#include "funque_motion.h"
+#include "funque_motion.h"
 #include "funque_picture_copy.h"
 #include "funque_ssim.h"
 #include "resizer.h"
@@ -85,6 +85,7 @@ typedef struct FunqueState {
     double norm_view_dist;
     int ref_display_height;
     int strred_levels;
+    int motion_levels;
     int process_ref_width;
     int process_ref_height;
     int process_dist_width;
@@ -257,7 +258,16 @@ static const VmafOption options[] = {
         .min = MIN_LEVELS,
         .max = MAX_LEVELS,
     },
-
+    {
+        .name = "motion_levels",
+        .alias = "motion",
+        .help = "Number of levels in MOTION",
+        .offset = offsetof(FunqueState, motion_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_MOTION_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
     { 0 }
 };
 
@@ -342,7 +352,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         h = (h+1)>>1;
     }
 
-    s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
+    s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels, s->motion_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     int ref_process_width, ref_process_height, dist_process_width, dist_process_height, process_wh_div_factor;
@@ -654,6 +664,8 @@ static int extract(VmafFeatureExtractor *fex,
     }
 #endif
     double ssim_score[MAX_LEVELS];
+    double motion_score[MAX_LEVELS];
+
     MsSsimScore ms_ssim_score[MAX_LEVELS];
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
@@ -832,6 +844,15 @@ static int extract(VmafFeatureExtractor *fex,
             }
         }
 
+        if((s->motion_levels != 0) && (level <= s->motion_levels - 1)) {
+            if(index != 0) {
+                
+                err |= compute_motion_funque(s->prev_ref[level].bands[0], s->ref_dwt2out[level].bands[0], 
+                                s->ref_dwt2out[level].width, s->ref_dwt2out[level].height, 
+                                s->prev_ref[level].stride, s->ref_dwt2out[level].stride, &motion_score[level]);
+            }
+        }
+
         if (err) return err;
     }
 
@@ -923,6 +944,54 @@ if (s->ssim_levels > 0) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
                                                                s->feature_name_dict, "FUNQUE_feature_ssim_scale3_score",
                                                                ssim_score[3], index);
+            }
+        }
+    }
+}
+
+if(s->motion_levels > 0) {
+    if(index == 0) {
+        err |=
+            vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                    "FUNQUE_feature_motion_scale0_score", 0, index);
+
+        if(s->motion_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                           "FUNQUE_feature_motion_scale1_score", 0,
+                                                           index);
+
+            if(s->motion_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict, "FUNQUE_feature_motion_scale2_score",
+                    0, index);
+
+                if(s->motion_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_feature_motion_scale3_score", 0, index);
+                }
+            }
+        }
+    } else {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_feature_motion_scale0_score",
+                                                       motion_score[0], index);
+
+        if(s->motion_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                           "FUNQUE_feature_motion_scale1_score",
+                                                           motion_score[1], index);
+
+            if(s->motion_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict, "FUNQUE_feature_motion_scale2_score",
+                    motion_score[2], index);
+
+                if(s->motion_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_feature_motion_scale3_score", motion_score[3], index);
+                }
             }
         }
     }
@@ -1089,6 +1158,9 @@ static const char *provided_features[] = {
 
     "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
     "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
+    
+    "FUNQUE_feature_motion_scale0_score", "FUNQUE_feature_motion_scale1_score",
+    "FUNQUE_feature_motion_scale2_score", "FUNQUE_feature_motion_scale3_score",
 
     "FUNQUE_feature_ms_ssim_mean_scale0_score", "FUNQUE_feature_ms_ssim_mean_scale1_score",
     "FUNQUE_feature_ms_ssim_mean_scale2_score", "FUNQUE_feature_ms_ssim_mean_scale3_score",

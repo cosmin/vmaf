@@ -15,5 +15,6 @@
  *     limitations under the License.
  *
  */
+#define DEFAULT_MOTION_LEVELS   4
 
 int compute_motion_funque(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score);
