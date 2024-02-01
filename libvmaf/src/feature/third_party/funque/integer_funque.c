@@ -51,6 +51,7 @@
 #include "arm64/integer_funque_adm_neon.h"
 #include "arm64/resizer_neon.h"
 #include "arm64/integer_funque_vif_neon.h"
+#include "arm64/integer_funque_strred_neon.h"
 #elif ARCH_ARM
 #include "arm32/integer_funque_filters_armv7.h"
 #include "arm32/integer_funque_ssim_armv7.h"
@@ -63,6 +64,7 @@
 #include "x86/integer_funque_ssim_avx2.h"
 #include "x86/integer_funque_adm_avx2.h"
 #include "x86/integer_funque_motion_avx2.h"
+#include "x86/integer_funque_strred_avx2.h"
 #include "x86/resizer_avx2.h"
 #if HAVE_AVX512
 #include "x86/integer_funque_filters_avx512.h"
@@ -70,6 +72,7 @@
 #include "x86/integer_funque_ssim_avx512.h"
 #include "x86/integer_funque_adm_avx512.h"
 #include "x86/integer_funque_vif_avx512.h"
+#include "x86/integer_funque_strred_avx512.h"
 #endif
 #endif
 
@@ -77,6 +80,8 @@
 
 #include <time.h>
 #include <sys/time.h>
+
+#define ENABLE_SIMD_PROFILING 1
 
 typedef struct IntFunqueState
 {
@@ -188,7 +193,7 @@ static const VmafOption options[] = {
         .type = VMAF_OPT_TYPE_INT,
         .default_val.i = NADENAU_WEIGHT_FILTER,
         .min = NADENAU_WEIGHT_FILTER,
-        .max = LI_FILTER,
+        .max = MANNOS_WEIGHT_FILTER,
     },
     {
         .name = "norm_view_dist",
@@ -348,11 +353,19 @@ void integer_select_filter_type(IntFunqueState *s)
                 break;
 
             case 2:
-                s->wavelet_csf_filter_type = "watson";
+                s->wavelet_csf_filter_type = "li";
                 break;
 
             case 3:
-                s->wavelet_csf_filter_type = "li";
+                s->wavelet_csf_filter_type = "hill";
+                break;
+
+            case 4:
+                s->wavelet_csf_filter_type = "watson";
+                break;
+
+            case 5:
+                s->wavelet_csf_filter_type = "mannos_weight";
                 break;
 
             default:
@@ -473,32 +486,15 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_factors[level][2] = i_nadenau_weight_coeffs[level][2];
                 s->csf_factors[level][3] = i_nadenau_weight_coeffs[level][3];
 
-                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
-                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
-                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
-                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+                s->csf_interim_shift[level][0] = i_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_interim_shift[level][3];
 
-                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
-                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
-                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
-                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
-            }
-        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
-            for(int level = 0; level < 4; level++) {
-                s->csf_factors[level][0] = i_watson_coeffs[level][0];
-                s->csf_factors[level][1] = i_watson_coeffs[level][1];
-                s->csf_factors[level][2] = i_watson_coeffs[level][2];
-                s->csf_factors[level][3] = i_watson_coeffs[level][3];
-
-                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
-                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
-                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
-                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
-
-                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
-                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
-                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
-                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+                s->csf_interim_rnd[level][0] = 1 << (i_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
         } else if(strcmp(s->wavelet_csf_filter_type, "li") == 0) {
             for(int level = 0; level < 4; level++) {
@@ -507,15 +503,66 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
                 s->csf_factors[level][2] = i_li_coeffs[level][2];
                 s->csf_factors[level][3] = i_li_coeffs[level][3];
 
-                s->csf_interim_shift[level][0] = i_nadenau_weight_interim_shift[level][0];
-                s->csf_interim_shift[level][1] = i_nadenau_weight_interim_shift[level][1];
-                s->csf_interim_shift[level][2] = i_nadenau_weight_interim_shift[level][2];
-                s->csf_interim_shift[level][3] = i_nadenau_weight_interim_shift[level][3];
+                s->csf_interim_shift[level][0] = i_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_interim_shift[level][3];
 
-                s->csf_interim_rnd[level][0] = 1 << (i_nadenau_weight_interim_shift[level][0] - 1);
-                s->csf_interim_rnd[level][1] = 1 << (i_nadenau_weight_interim_shift[level][1] - 1);
-                s->csf_interim_rnd[level][2] = 1 << (i_nadenau_weight_interim_shift[level][2] - 1);
-                s->csf_interim_rnd[level][3] = 1 << (i_nadenau_weight_interim_shift[level][3] - 1);
+                s->csf_interim_rnd[level][0] = 1 << (i_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
+            }
+        } else if(strcmp(s->wavelet_csf_filter_type, "hill") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_hill_coeffs[level][0];
+                s->csf_factors[level][1] = i_hill_coeffs[level][1];
+                s->csf_factors[level][2] = i_hill_coeffs[level][2];
+                s->csf_factors[level][3] = i_hill_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
+            }
+        } else if(strcmp(s->wavelet_csf_filter_type, "watson") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_watson_coeffs[level][0];
+                s->csf_factors[level][1] = i_watson_coeffs[level][1];
+                s->csf_factors[level][2] = i_watson_coeffs[level][2];
+                s->csf_factors[level][3] = i_watson_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
+            }
+        } else if(strcmp(s->wavelet_csf_filter_type, "mannos_weight") == 0) {
+            for(int level = 0; level < 4; level++) {
+                s->csf_factors[level][0] = i_mannos_weight_coeffs[level][0];
+                s->csf_factors[level][1] = i_mannos_weight_coeffs[level][1];
+                s->csf_factors[level][2] = i_mannos_weight_coeffs[level][2];
+                s->csf_factors[level][3] = i_mannos_weight_coeffs[level][3];
+
+                s->csf_interim_shift[level][0] = i_interim_shift[level][0];
+                s->csf_interim_shift[level][1] = i_interim_shift[level][1];
+                s->csf_interim_shift[level][2] = i_interim_shift[level][2];
+                s->csf_interim_shift[level][3] = i_interim_shift[level][3];
+
+                s->csf_interim_rnd[level][0] = 1 << (i_interim_shift[level][0] - 1);
+                s->csf_interim_rnd[level][1] = 1 << (i_interim_shift[level][1] - 1);
+                s->csf_interim_rnd[level][2] = 1 << (i_interim_shift[level][2] - 1);
+                s->csf_interim_rnd[level][3] = 1 << (i_interim_shift[level][3] - 1);
             }
         }
     }
@@ -564,11 +611,11 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         goto fail;
 
     s->modules.integer_funque_picture_copy = integer_funque_picture_copy;
-    s->modules.integer_spatial_filter = integer_spatial_filter;
-    s->modules.integer_funque_dwt2 = integer_funque_dwt2;
-    // s->modules.integer_funque_dwt2_wavelet = integer_funque_dwt2_wavelet;
-    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
-    s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque;
+    s->modules.integer_spatial_filter = integer_spatial_filter_c;
+    s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+    s->modules.integer_funque_dwt2 = integer_funque_dwt2_c;
+    s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+    s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
     s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
     s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
@@ -585,16 +632,18 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #if ARCH_AARCH64
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_ARM_CPU_FLAG_NEON) {
+#if ENABLE_SIMD_PROFILING
         if (bpc == 8)
         {
-            if(s->num_taps == 21)
+            if(s->spatial_csf_filter == 21)
                 s->modules.integer_spatial_filter = integer_spatial_filter_neon;
             else
                 s->modules.integer_spatial_filter = integer_spatial_5tap_filter_neon;
         }
         s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_neon;
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_neon;
-        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_neon;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_neon;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_neon;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_neon;
@@ -602,6 +651,31 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         // s->resize_module.resizer_step = step_neon;
         // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
         // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
+
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#else
+        if(bpc == 8) {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_c;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step;
+        s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#endif
     }
 #elif ARCH_ARM
     if (bpc == 8)
@@ -614,30 +688,96 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
 #elif ARCH_X86
     unsigned flags = vmaf_get_cpu_flags();
     if (flags & VMAF_X86_CPU_FLAG_AVX2) {
-        s->modules.integer_spatial_filter = integer_spatial_filter;
-        s->modules.integer_funque_dwt2 = integer_funque_dwt2;
+#if ENABLE_SIMD_PROFILING
+        if(bpc == 8) {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_avx2;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx2;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_avx2;
+
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx2;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx2;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx2;
-        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx2;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx2;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx2;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx2;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#else
+        if(bpc == 8) {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
 
-        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_c;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step;
+        s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#endif
     }
 #if HAVE_AVX512
     if (flags & VMAF_X86_CPU_FLAG_AVX512) {
-        s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
-        s->resize_module.resizer_step = step_avx512;
-        s->resize_module.hbd_resizer_step = hbd_step_avx512;
-        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx512;
-        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+#if ENABLE_SIMD_PROFILING
+        if(bpc == 8) {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_avx512;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_5tap_filter_avx512;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_avx512;
+
         s->modules.integer_funque_dwt2 = integer_funque_dwt2_avx512;
         s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0_avx512;
         s->modules.integer_compute_vif_funque = integer_compute_vif_funque_avx512;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_avx512;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step_avx512;
+        s->resize_module.hbd_resizer_step = hbd_step_avx512;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx512;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+
+#else
+        if(bpc == 8) {
+            if(s->spatial_csf_filter == 21)
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+            else
+                s->modules.integer_spatial_filter = integer_spatial_filter_c;
+        }
+        s->modules.integer_funque_dwt2_inplace_csf = integer_funque_dwt2_inplace_csf_c;
+
+        s->modules.integer_funque_dwt2 = integer_funque_dwt2_c;
+        s->modules.integer_funque_vifdwt2_band0 = integer_funque_vifdwt2_band0;
+        s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
+        s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
+        s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
+        s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
+        s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
+        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->resize_module.resizer_step = step;
+        s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
+        s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
+#endif
     }
 #endif
 #endif
@@ -916,38 +1056,40 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height);
             } else {
                 // compute full DWT if either SSIM or ADM need it for this level
-                integer_funque_dwt2(s->i_ref_dwt2out[level].bands[0],
-                                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
-                                    &s->i_ref_dwt2out[level + 1],
-                                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
-                                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
-                                    s->enable_spatial_csf, level + 1);
-                integer_funque_dwt2(s->i_dist_dwt2out[level].bands[0],
-                                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
-                                    &s->i_dist_dwt2out[level + 1],
-                                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
-                                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
-                                    s->enable_spatial_csf, level + 1);
+                s->modules.integer_funque_dwt2(
+                    s->i_ref_dwt2out[level].bands[0],
+                    s->i_ref_dwt2out[level].width * sizeof(dwt2_dtype),
+                    &s->i_ref_dwt2out[level + 1],
+                    s->i_ref_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                    s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height,
+                    s->enable_spatial_csf, level + 1);
+                s->modules.integer_funque_dwt2(
+                    s->i_dist_dwt2out[level].bands[0],
+                    s->i_dist_dwt2out[level].width * sizeof(dwt2_dtype),
+                    &s->i_dist_dwt2out[level + 1],
+                    s->i_dist_dwt2out[level + 1].width * sizeof(dwt2_dtype),
+                    s->i_dist_dwt2out[level].width, s->i_dist_dwt2out[level].height,
+                    s->enable_spatial_csf, level + 1);
             }
         }
 
         if(!s->enable_spatial_csf) {
             if(level < s->adm_levels || level < s->ssim_levels) {
                 // we need full CSF on all bands
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
-                                                3, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
-                                                3, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_ref_dwt2out[level], s->csf_factors[level], 0, 3,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_dist_dwt2out[level], s->csf_factors[level], 0, 3,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             } else {
                 // we only need CSF on approx band
-                integer_funque_dwt2_inplace_csf(&s->i_ref_dwt2out[level], s->csf_factors[level], 0,
-                                                0, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
-                integer_funque_dwt2_inplace_csf(&s->i_dist_dwt2out[level], s->csf_factors[level], 0,
-                                                0, s->csf_interim_rnd[level],
-                                                s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_ref_dwt2out[level], s->csf_factors[level], 0, 0,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
+                s->modules.integer_funque_dwt2_inplace_csf(
+                    &s->i_dist_dwt2out[level], s->csf_factors[level], 0, 0,
+                    s->csf_interim_rnd[level], s->csf_interim_shift[level], level);
             }
         }
 
