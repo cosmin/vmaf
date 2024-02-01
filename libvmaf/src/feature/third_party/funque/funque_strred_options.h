@@ -15,7 +15,21 @@
  *     limitations under the License.
  *
  */
-#include <stddef.h>
 
-void funque_picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
-                  int offset, unsigned bpc, int width, int height);
+#pragma once
+
+#ifndef STRRED_OPTIONS_H_
+#define STRRED_OPTIONS_H_
+
+#define STRRED_SIGMA_NSQ        0.1
+#define STRRED_WINDOW_SIZE      9
+
+#define PI_CONSTANT             3.1415926535897932384626433832795028841971693993751
+#define EULERS_CONSTANT         2.71828182845904523536028747135266249775724709369995
+
+#define BLOCK_SIZE              1
+
+#define DEFAULT_STRRED_LEVELS   4
+#define DEFAULT_STRRED_SUBBANDS 4
+
+#endif /* STRRED_OPTIONS_H_ */
