@@ -17,6 +17,7 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 
 #include <libvmaf/picture.h>
 

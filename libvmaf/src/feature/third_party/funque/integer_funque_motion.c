@@ -55,8 +55,10 @@ double integer_funque_image_mad_c(const dwt2_dtype *img1, const dwt2_dtype *img2
  * Note: prev_stride and curr_stride are in terms of bytes
  */
 
-int integer_compute_motion_funque_c(const dwt2_dtype *prev, const dwt2_dtype *curr, int w, int h, int prev_stride, int curr_stride, float pending_div_factor, double *score)
+int integer_compute_motion_funque_c(const dwt2_dtype *prev, const dwt2_dtype *curr, int w, int h, int prev_stride, int curr_stride, int pending_div_factor_arg, double *score)
 {
+
+    float pending_div_factor = (1 << pending_div_factor_arg) * 255;
 
     if (prev_stride % sizeof(dwt2_dtype) != 0)
     {

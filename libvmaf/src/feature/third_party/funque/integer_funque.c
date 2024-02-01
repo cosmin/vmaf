@@ -998,7 +998,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore_int ms_ssim_score[MAX_LEVELS];
-    float motion_score[MAX_LEVELS];
+    double motion_score[MAX_LEVELS];
     // s->score = &ms_ssim_score;
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
@@ -1217,19 +1217,19 @@ static int extract(VmafFeatureExtractor *fex,
                 return err;
         }
 
-        if((s->motion_levels != 0) && (level <= s->motion_levels - 1)) {
-            float motion_pending_div = spatfilter_shifts + dwt_shifts - level;
-            if(!s->enable_spatial_csf)
-                motion_pending_div = (1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
+        // if((s->motion_levels != 0) && (level <= s->motion_levels - 1)) {
+        //     float motion_pending_div = spatfilter_shifts + dwt_shifts - level;
+        //     if(!s->enable_spatial_csf)
+        //         motion_pending_div = (1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
 
-            if(index != 0) {
-                err |= s->modules.integer_compute_motion_funque(s->i_prev_ref[level].bands[0], s->i_ref_dwt2out[level].bands[0], 
-                                s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 
-                                s->i_prev_ref[level].stride, s->i_ref_dwt2out[level].stride, motion_pending_div, &motion_score[level]);
-            }
-            if(err)
-                return err;
-        }
+        //     if(index != 0) {
+        //         err |= s->modules.integer_compute_motion_funque(s->i_prev_ref[level].bands[0], s->i_ref_dwt2out[level].bands[0], 
+        //                         s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 
+        //                         s->i_prev_ref[level].stride, s->i_ref_dwt2out[level].stride, motion_pending_div, &motion_score[level]);
+        //     }
+        //     if(err)
+        //         return err;
+        // }
     }
 
     dwt2_dtype *dependent_buf, *dependent_buf_temp;
