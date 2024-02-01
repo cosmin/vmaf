@@ -652,6 +652,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         // s->modules.integer_funque_image_mad = integer_funque_image_mad_neon;
         // s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_neon;
 
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_neon;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_neon;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #else
@@ -673,6 +674,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #endif
@@ -707,6 +709,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_avx2;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx2;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #else
@@ -728,6 +731,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #endif
@@ -753,6 +757,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step_avx512;
         s->resize_module.hbd_resizer_step = hbd_step_avx512;
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_avx512;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx512;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 
@@ -775,6 +780,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
+        s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
         s->modules.integer_copy_prev_frame_strred_funque = integer_copy_prev_frame_strred_funque_c;
 #endif
