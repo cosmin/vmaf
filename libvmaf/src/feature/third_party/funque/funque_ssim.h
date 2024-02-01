@@ -17,3 +17,7 @@
  */
 
 int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2);
+int compute_ms_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, MsSsimScore *score, int max_val,
+                            float K1, float K2, int n_levels);
+int mean_2x2_ms_ssim_funque(float *var_x_cum, float *var_y_cum, float *cov_xy_cum, int width, int height, int level);
+int compute_ms_ssim_mean_scales(MsSsimScore* score, int n_levels);
