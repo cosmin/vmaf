@@ -534,6 +534,7 @@ static int extract(VmafFeatureExtractor *fex,
 {
     FunqueState *s = fex->priv;
     int err = 0;
+    int mt_err = 0;
 
     (void) ref_pic_90;
     (void) dist_pic_90;
@@ -694,11 +695,12 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
     float *shared_buf, *shared_buf_temp; 
-    vmaf_framesync_acquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(float), index);
-    //total_buf_size is multiplied by 2 for ref and dist
+    // Total_buf_size is multiplied by 2 for ref and dist
+    mt_err = vmaf_framesync_acquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(float), index);
+    if (mt_err) return mt_err;
 
     shared_buf_temp = shared_buf;
-    //Distibute the big buffer to smaller ones for each levels and bands
+    // Distibute the big buffer to smaller ones for each levels and bands
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
             s->shared_ref[level].bands[subband] = shared_buf;
@@ -707,12 +709,6 @@ static int extract(VmafFeatureExtractor *fex,
             shared_buf += s->frame_buf_len.buf_size[level][subband];
         }
     }
-
-    //copy level 0
-    //err |= copy_frame_funque(
-      //              &s->ref_dwt2out[0], &s->dist_dwt2out[0], &s->shared_ref[0],
-        //            &s->shared_dist[0], s->ref_dwt2out[0].width,
-          //          s->ref_dwt2out[0].height);
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
         // pre-compute the next level of DWT
@@ -748,8 +744,8 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
 
-    vmaf_framesync_submit_filled_data(framesync, shared_buf_temp, index);
-    //Add error checks
+    mt_err = vmaf_framesync_submit_filled_data(framesync, shared_buf_temp, index);
+    if (mt_err) return mt_err;
 
     for (int level = 0; level < s->needed_dwt_levels; level++) {
 
@@ -799,8 +795,8 @@ static int extract(VmafFeatureExtractor *fex,
 
     float *dependent_buf, *dependent_buf_temp;
     if(index != 0) {
-        vmaf_framesync_retrieve_filled_data(framesync,(void **)&dependent_buf,(index-1));
-        //Add error checks
+        mt_err = vmaf_framesync_retrieve_filled_data(framesync,(void **)&dependent_buf,(index-1));
+        if (mt_err) return mt_err;
 
         dependent_buf_temp = dependent_buf;
 
@@ -831,7 +827,8 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
     if(index != 0) {
-        vmaf_framesync_release_buf (framesync,dependent_buf_temp,(index-1));
+        mt_err = vmaf_framesync_release_buf (framesync,dependent_buf_temp,(index - 1));
+        if (mt_err) return mt_err;
     }
 
     if(s->ms_ssim_levels != 0) {
