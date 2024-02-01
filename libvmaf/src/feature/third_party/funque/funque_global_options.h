@@ -18,6 +18,6 @@
 typedef struct FrameBufLen {
     int buf_size[4][4];
     int total_buf_size;
-}FrameBufLen;
+} FrameBufLen;
 
 #endif //VMAF_FUNQUE_GLOBAL_OPTIONS_H

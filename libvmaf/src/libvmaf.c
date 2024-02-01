@@ -103,7 +103,8 @@ int vmaf_init(VmafContext **vmaf, VmafConfiguration cfg)
     err = vmaf_framesync_init(&(v->framesync));
     if (err) goto free_v;
     err = vmaf_feature_collector_init(&(v->feature_collector));
-    if (err) goto free_framesync;
+    if(err)
+        goto free_framesync;
     err = feature_extractor_vector_init(&(v->registered_feature_extractors));
     if (err) goto free_feature_collector;
 
@@ -240,10 +241,9 @@ static int set_fex_cuda_state(VmafFeatureExtractorContext *fex_ctx,
 
 #endif
 
-static int set_fex_framesync(VmafFeatureExtractorContext *fex_ctx,
-                              VmafContext *vmaf)
+static int set_fex_framesync(VmafFeatureExtractorContext *fex_ctx, VmafContext *vmaf)
 {
-    if (fex_ctx->fex->flags & VMAF_FEATURE_FRAME_SYNC)
+    if(fex_ctx->fex->flags & VMAF_FEATURE_FRAME_SYNC)
         fex_ctx->fex->framesync = (vmaf->framesync);
     return 0;
 }

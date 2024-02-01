@@ -108,7 +108,6 @@ typedef struct IntFunqueState
     i_dwt2buffers i_shared_ref[4];
     i_dwt2buffers i_shared_dist[4];
 
-
     // funque configurable parameters
     bool enable_resize;
     bool enable_spatial_csf;
@@ -870,42 +869,44 @@ static int extract(VmafFeatureExtractor *fex,
     s->strred_scores.temp_vals_cumsum = 0;
     s->strred_scores.spat_temp_vals_cumsum = 0;
 
-    float* spat_scales_ref[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
-    float* spat_scales_dist[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    float *spat_scales_ref[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
+    float *spat_scales_dist[DEFAULT_STRRED_LEVELS][DEFAULT_STRRED_SUBBANDS];
     size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
 
     if((s->strred_levels != 0) && (index != 0)) {
-        for (int level = 0; level <= s->strred_levels-1; level++) {
+        for(int level = 0; level <= s->strred_levels - 1; level++) {
             for(size_t subband = 1; subband < total_subbands; subband++) {
                 size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
                 size_t r_width = s->i_ref_dwt2out[level].width + (2 * x_reflect);
                 size_t r_height = s->i_ref_dwt2out[level].height + (2 * x_reflect);
 
-                spat_scales_ref[level][subband] = (float*) calloc(r_width * r_height, sizeof(float));
-                spat_scales_dist[level][subband] = (float*) calloc(r_width * r_height, sizeof(float));
+                spat_scales_ref[level][subband] =
+                    (float *) calloc(r_width * r_height, sizeof(float));
+                spat_scales_dist[level][subband] =
+                    (float *) calloc(r_width * r_height, sizeof(float));
             }
         }
     }
 
-    dwt2_dtype *shared_buf, *shared_buf_temp; 
+    dwt2_dtype *shared_buf, *shared_buf_temp;
     // Total_buf_size is multiplied by 2 for ref and dist
-    mt_err = vmaf_framesync_acquire_new_buf(framesync, (void **)&shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(dwt2_dtype), index);
-    if (mt_err) return mt_err;
-
+    mt_err = vmaf_framesync_acquire_new_buf(
+        framesync, (void **) &shared_buf, s->frame_buf_len.total_buf_size * 2 * sizeof(dwt2_dtype), index);
+    if(mt_err)
+        return mt_err;
 
     shared_buf_temp = shared_buf;
-    //Distibute the big buffer to smaller ones for each levels and bands
-    for (int level = 0; level < s->needed_dwt_levels; level++) {
+    // Distibute the big buffer to smaller ones for each levels and bands
+    for(int level = 0; level < s->needed_dwt_levels; level++) {
         for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
             s->i_shared_ref[level].bands[subband] = shared_buf;
-s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_size;
+            s->i_shared_dist[level].bands[subband] = shared_buf + s->frame_buf_len.total_buf_size;
 
             shared_buf += s->frame_buf_len.buf_size[level][subband];
         }
     }
 
-    for(int level = 0; level < s->needed_dwt_levels; level++)  
-    {
+    for(int level = 0; level < s->needed_dwt_levels; level++) {
         if(level + 1 < s->needed_dwt_levels) {
             if(level + 1 > s->needed_full_dwt_levels - 1) {
                 // from here on out we only need approx band for VIF
@@ -950,17 +951,18 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
             }
         }
 
-        //Function to copy all bands from i_ref_dwt2out, i_dist_dwt2out (2 copies)
-        err |= integer_copy_frame_funque(
-                &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_shared_ref[level],
-                &s->i_shared_dist[level], s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height);
+        // Function to copy all bands from i_ref_dwt2out, i_dist_dwt2out (2 copies)
+        err |= integer_copy_frame_funque(&s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level],
+                                         &s->i_shared_ref[level], &s->i_shared_dist[level],
+                                         s->i_ref_dwt2out[level].width,
+                                         s->i_ref_dwt2out[level].height);
     }
 
     mt_err = vmaf_framesync_submit_filled_data(framesync, shared_buf_temp, index);
-    if (mt_err) return mt_err;
+    if(mt_err)
+        return mt_err;
 
-    for(int level = 0; level < s->needed_dwt_levels; level++)
-    {
+    for(int level = 0; level < s->needed_dwt_levels; level++) {
         // TODO: Need to modify for crop width and height
         if((s->adm_levels != 0) && (level <= s->adm_levels - 1)) {
             err = integer_compute_adm_funque(
@@ -1047,9 +1049,9 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
 
             err |= s->modules.integer_compute_srred_funque(
                 &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], s->i_ref_dwt2out[level].width,
-                s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level], 
-                &s->strred_scores, BLOCK_SIZE, level, s->log_18,
-                s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
+                s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level],
+                &s->strred_scores, BLOCK_SIZE, level, s->log_18, s->log_22, strred_pending_div,
+                (double) 0.1, s->enable_spatial_csf);
 
             if(err)
                 return err;
@@ -1059,35 +1061,36 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
     dwt2_dtype *dependent_buf, *dependent_buf_temp;
     dependent_buf_temp = NULL;
     if(index != 0) {
-        mt_err = vmaf_framesync_retrieve_filled_data(framesync,(void **)&dependent_buf,(index-1));
-        if (mt_err) return mt_err;
+        mt_err =
+            vmaf_framesync_retrieve_filled_data(framesync, (void **) &dependent_buf, (index - 1));
+        if(mt_err)
+            return mt_err;
 
         dependent_buf_temp = dependent_buf;
 
-        //Distribute buffers
-        for (int level = 0; level < s->needed_dwt_levels; level++) {
+        // Distribute buffers
+        for(int level = 0; level < s->needed_dwt_levels; level++) {
             for(int subband = 0; subband < DEFAULT_BANDS; subband++) {
                 s->i_prev_ref[level].bands[subband] = dependent_buf;
-                s->i_prev_dist[level].bands[subband] = dependent_buf + s->frame_buf_len.total_buf_size;
+                s->i_prev_dist[level].bands[subband] =
+                    dependent_buf + s->frame_buf_len.total_buf_size;
 
                 dependent_buf += s->frame_buf_len.buf_size[level][subband];
             }
         }
     }
 
-    for(int level = 0; level < s->needed_dwt_levels; level++)
-    {
+    for(int level = 0; level < s->needed_dwt_levels; level++) {
         if((s->strred_levels != 0) && (level <= s->strred_levels - 1)) {
             int32_t strred_pending_div = spatfilter_shifts + dwt_shifts - level;
 
             if(index != 0) {
-            
                 err |= s->modules.integer_compute_strred_funque(
                     &s->i_ref_dwt2out[level], &s->i_dist_dwt2out[level], &s->i_prev_ref[level],
                     &s->i_prev_dist[level], s->i_ref_dwt2out[level].width,
-                    s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level], 
-                    &s->strred_scores, BLOCK_SIZE, level, s->log_18,
-                    s->log_22, strred_pending_div, (double) 0.1, s->enable_spatial_csf);
+                    s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level],
+                    &s->strred_scores, BLOCK_SIZE, level, s->log_18, s->log_22, strred_pending_div,
+                    (double) 0.1, s->enable_spatial_csf);
             }
             if(err)
                 return err;
@@ -1095,8 +1098,9 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
     }
 
     if(index != 0) {
-        mt_err = vmaf_framesync_release_buf (framesync,dependent_buf_temp,(index-1));
-        if (mt_err) return mt_err;
+        mt_err = vmaf_framesync_release_buf(framesync, dependent_buf_temp, (index - 1));
+        if(mt_err)
+            return mt_err;
     }
 
     if(s->ms_ssim_levels != 0) {
@@ -1280,7 +1284,7 @@ s->i_shared_dist[level].bands[subband] = shared_buf +s->frame_buf_len.total_buf_
     free(cov_xy_cum);
 
     if((s->strred_levels != 0) && (index != 0)) {
-        for (int level = 0; level <= s->strred_levels-1; level++) {
+        for(int level = 0; level <= s->strred_levels - 1; level++) {
             for(size_t subband = 1; subband < total_subbands; subband++) {
                 free(spat_scales_ref[level][subband]);
                 free(spat_scales_dist[level][subband]);

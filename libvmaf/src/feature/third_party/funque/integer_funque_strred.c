@@ -118,12 +118,11 @@ void integer_subract_subbands_c(const dwt2_dtype *ref_src, const dwt2_dtype *ref
 }
 
 int integer_compute_srred_funque_c(const struct i_dwt2buffers *ref,
-                                    const struct i_dwt2buffers *dist,
-                                    size_t width, size_t height,
-                                    float** spat_scales_ref, float** spat_scales_dist, 
-                                    struct strred_results *strred_scores, int block_size, int level,
-                                    uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
-                                    double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+                                   const struct i_dwt2buffers *dist, size_t width, size_t height,
+                                   float **spat_scales_ref, float **spat_scales_dist,
+                                   struct strred_results *strred_scores, int block_size, int level,
+                                   uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
+                                   double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
@@ -144,7 +143,8 @@ int integer_compute_srred_funque_c(const struct i_dwt2buffers *ref,
         }
         spat_values[subband] = integer_rred_entropies_and_scales(
             ref->bands[subband], dist->bands[subband], width, height, log_18, log_22, sigma_nsq_t,
-            shift_val, enable_temp, spat_scales_ref[subband], spat_scales_dist[subband], check_enable_spatial_csf);
+            shift_val, enable_temp, spat_scales_ref[subband], spat_scales_dist[subband],
+            check_enable_spatial_csf);
         fspat_val[subband] = spat_values[subband] / (width * height);
     }
 
@@ -165,11 +165,11 @@ int integer_compute_srred_funque_c(const struct i_dwt2buffers *ref,
 int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
                                     const struct i_dwt2buffers *dist,
                                     struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
-                                    size_t width, size_t height,
-                                    float** spat_scales_ref, float** spat_scales_dist,
-                                    struct strred_results *strred_scores, int block_size, int level,
-                                    uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
-                                    double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+                                    size_t width, size_t height, float **spat_scales_ref,
+                                    float **spat_scales_dist, struct strred_results *strred_scores,
+                                    int block_size, int level, uint32_t *log_18, uint32_t *log_22,
+                                    int32_t shift_val_arg, double sigma_nsq_t,
+                                    uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
@@ -180,7 +180,6 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
     int32_t shift_val;
 
     for(subband = 1; subband < total_subbands; subband++) {
-
         if(check_enable_spatial_csf == 1)
             shift_val = 2 * shift_val_arg;
         else {
@@ -198,7 +197,8 @@ int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
                                        dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales(
                 ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val,
-                enable_temp, spat_scales_ref[subband], spat_scales_dist[subband], check_enable_spatial_csf);
+                enable_temp, spat_scales_ref[subband], spat_scales_dist[subband],
+                check_enable_spatial_csf);
             ftemp_val[subband] = temp_values[subband] / (width * height);
 
             free(ref_temporal);

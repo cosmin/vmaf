@@ -29,7 +29,7 @@
 #include "thread_pool.h"
 
 #define NUM_TEST_FRAMES 10
-#define FRAME_BUF_LEN   1024
+#define FRAME_BUF_LEN 1024
 
 typedef struct ThreadData {
     uint8_t *ref;
@@ -42,16 +42,16 @@ typedef struct ThreadData {
 static void framesync_proc_func(void *frm_ctx)
 {
     int ctr;
-    struct ThreadData *frame_ctx = (ThreadData *)frm_ctx;
+    struct ThreadData *frame_ctx = (ThreadData *) frm_ctx;
     uint8_t *shared_buf;
     uint8_t *dependent_buf;
 
     // acquire new buffer from frame sync
-    vmaf_framesync_acquire_new_buf(frame_ctx->framesync, (void **)&shared_buf, FRAME_BUF_LEN, frame_ctx->index);
+    vmaf_framesync_acquire_new_buf(frame_ctx->framesync, (void **) &shared_buf, FRAME_BUF_LEN,
+                                   frame_ctx->index);
 
     // populate shared buffer with values
-    for (ctr = 0; ctr < FRAME_BUF_LEN; ctr++)
-    {
+    for(ctr = 0; ctr < FRAME_BUF_LEN; ctr++) {
         shared_buf[ctr] = frame_ctx->ref[ctr] + frame_ctx->dist[ctr] + 2;
     }
 
@@ -66,24 +66,24 @@ static void framesync_proc_func(void *frm_ctx)
     sleep(sleep_seconds);
 #endif
 
-    if (frame_ctx->index != 0)
+    if(frame_ctx->index != 0)
     {
         // retrieve dependent buffer from frame sync
-        vmaf_framesync_retrieve_filled_data(frame_ctx->framesync, (void **)&dependent_buf, frame_ctx->index - 1);
+        vmaf_framesync_retrieve_filled_data(frame_ctx->framesync, (void **) &dependent_buf,
+                                            frame_ctx->index - 1);
 
-        for (ctr = 0; ctr < FRAME_BUF_LEN; ctr++)
+        for(ctr = 0; ctr < FRAME_BUF_LEN; ctr++)
         {
-            if (dependent_buf[ctr] != (frame_ctx->ref[ctr] + frame_ctx->dist[ctr]))
+            if(dependent_buf[ctr] != (frame_ctx->ref[ctr] + frame_ctx->dist[ctr]))
                 printf("Verification error in frame index %d\n", frame_ctx->index);
         }
         // release dependent buffer from frame sync
-        vmaf_framesync_release_buf(frame_ctx->framesync,dependent_buf, frame_ctx->index - 1);
+        vmaf_framesync_release_buf(frame_ctx->framesync, dependent_buf, frame_ctx->index - 1);
     }
 
     free(frame_ctx->ref);
     free(frame_ctx->dist);
 }
-
 
 static char *test_framesync_create_process_and_destroy()
 {
@@ -100,7 +100,7 @@ static char *test_framesync_create_process_and_destroy()
     mu_assert("problem during vmaf_framesync_init", !err);
 
     // loop over frames to be tested
-    for (frame_index = 0; frame_index < NUM_TEST_FRAMES; frame_index++)
+    for(frame_index = 0; frame_index < NUM_TEST_FRAMES; frame_index++)
     {
         uint8_t *pic_a = malloc(FRAME_BUF_LEN);
         uint8_t *pic_b = malloc(FRAME_BUF_LEN);
@@ -123,7 +123,7 @@ static char *test_framesync_create_process_and_destroy()
         mu_assert("problem during vmaf_thread_pool_enqueue with data", !err);
 
         // wait once in 2 frames
-        if ((frame_index >= 1) && (frame_index & 1))
+        if((frame_index >= 1) && (frame_index & 1))
         {
             err = vmaf_thread_pool_wait(pool);
             mu_assert("problem during vmaf_thread_pool_wait", !err);

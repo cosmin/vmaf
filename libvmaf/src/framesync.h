@@ -25,8 +25,7 @@
 #include <stdlib.h>
 #include "libvmaf/libvmaf.h"
 
-typedef enum
-{
+typedef enum {
     BUF_FREE = 0,
     BUF_ACQUIRED,
     BUF_FILLED,
@@ -36,25 +35,26 @@ typedef enum
 typedef struct VmafFrameSyncBuf VmafFrameSyncBuf;
 
 struct VmafFrameSyncBuf {
-    void          *frame_data;
-    unsigned      buf_status; //BUF_STATUS_T
-    signed long   index;
+    void *frame_data;
+    unsigned buf_status;  // BUF_STATUS_T
+    signed long index;
     VmafFrameSyncBuf *next;
 };
 
 typedef struct VmafFrameSyncContext {
-    VmafFrameSyncBuf *buf_que; // linked list
-    pthread_mutex_t  acquire_lock;
-    pthread_mutex_t  retrieve_lock;
-    pthread_cond_t   retrieve;
-    unsigned         buf_cnt;
+    VmafFrameSyncBuf *buf_que;  // linked list
+    pthread_mutex_t acquire_lock;
+    pthread_mutex_t retrieve_lock;
+    pthread_cond_t retrieve;
+    unsigned buf_cnt;
 } VmafFrameSyncContext;
 
 typedef struct VmafFrameSyncContext VmafFrameSyncContext;
 
 int vmaf_framesync_init(VmafFrameSyncContext **fs_ctx);
 
-int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, unsigned data_sz, unsigned index);
+int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, unsigned data_sz,
+                                   unsigned index);
 
 int vmaf_framesync_submit_filled_data(VmafFrameSyncContext *fs_ctx, void *data, unsigned index);
 

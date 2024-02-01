@@ -172,8 +172,9 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
 }
 
 int compute_srred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
-                         size_t width, size_t height, float** spat_scales_ref, float** spat_scales_dist,
-                         struct strred_results* strred_scores, int block_size, int level)
+                         size_t width, size_t height, float** spat_scales_ref,
+                         float** spat_scales_dist, struct strred_results* strred_scores,
+                         int block_size, int level)
 {
     size_t subband;
     float spat_abs, spat_values[DEFAULT_STRRED_SUBBANDS];
@@ -232,8 +233,9 @@ int compute_srred_funque(const struct dwt2buffers* ref, const struct dwt2buffers
 
 int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
                           struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
-                          size_t width, size_t height, float** spat_scales_ref, float** spat_scales_dist, 
-                          struct strred_results* strred_scores, int block_size, int level)
+                          size_t width, size_t height, float** spat_scales_ref,
+                          float** spat_scales_dist, struct strred_results* strred_scores,
+                          int block_size, int level)
 {
     size_t subband;
     float temp_abs, temp_values[DEFAULT_STRRED_SUBBANDS];

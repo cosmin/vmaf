@@ -59,9 +59,9 @@ void funque_picture_copy(float *dst, ptrdiff_t dst_stride,
     return;
 }
 
-int copy_frame_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
-                      struct dwt2buffers* shared_ref, struct dwt2buffers* shared_dist,
-                      size_t width, size_t height)
+int copy_frame_funque(const struct dwt2buffers *ref, const struct dwt2buffers *dist,
+                      struct dwt2buffers *shared_ref, struct dwt2buffers *shared_dist, size_t width,
+                      size_t height)
 {
     int subband;
     int total_subbands = DEFAULT_BANDS;

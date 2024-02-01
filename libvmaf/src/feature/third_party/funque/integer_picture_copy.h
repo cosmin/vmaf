@@ -22,5 +22,5 @@ void integer_funque_picture_copy(void *src, spat_fil_output_dtype *dst, int dst_
                                  int height, int bitdepth);
 
 int integer_copy_frame_funque(const struct i_dwt2buffers* ref, const struct i_dwt2buffers* dist,
-                      struct i_dwt2buffers* shared_ref, struct i_dwt2buffers* shared_dist,
-                      size_t width, size_t height);
+                              struct i_dwt2buffers* shared_ref, struct i_dwt2buffers* shared_dist,
+                              size_t width, size_t height);

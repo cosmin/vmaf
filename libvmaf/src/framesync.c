@@ -27,7 +27,8 @@
 int vmaf_framesync_init(VmafFrameSyncContext **fs_ctx)
 {
     VmafFrameSyncContext *const ctx = *fs_ctx = malloc(sizeof(VmafFrameSyncContext));
-    if (!ctx) return -ENOMEM;
+    if(!ctx)
+        return -ENOMEM;
     memset(ctx, 0, sizeof(VmafFrameSyncContext));
     ctx->buf_cnt = 1;
 
@@ -41,14 +42,15 @@ int vmaf_framesync_init(VmafFrameSyncContext **fs_ctx)
     {
         buf_que->frame_data = NULL;
         buf_que->buf_status = BUF_FREE;
-        buf_que->index      = -1;
-        buf_que->next       = NULL;
+        buf_que->index = -1;
+        buf_que->next = NULL;
     }
 
     return 0;
 }
 
-int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, unsigned data_sz, unsigned index)
+int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, unsigned data_sz,
+                                   unsigned index)
 {
     VmafFrameSyncBuf *buf_que = fs_ctx->buf_que;
     *data = NULL;
@@ -56,24 +58,24 @@ int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, un
     pthread_mutex_lock(&(fs_ctx->acquire_lock));
 
     // traverse until a free buffer is found
-    for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)
+    for(unsigned i = 0; i < fs_ctx->buf_cnt; i++)
     {
-        if (buf_que->buf_status == BUF_FREE)
+        if(buf_que->buf_status == BUF_FREE)
         {
             buf_que->frame_data = *data = malloc(data_sz);
-            if (!buf_que->frame_data)
+            if(!buf_que->frame_data)
                 return -ENOMEM;
             buf_que->buf_status = BUF_ACQUIRED;
             buf_que->index = index;
             break;
         }
         // move to next node
-        if (buf_que->next != NULL)
+        if(buf_que->next != NULL)
             buf_que = buf_que->next;
     }
 
     // create a new node if all nodes are occupied in the list and append to the tail
-    if (*data == NULL)
+    if(*data == NULL)
     {
         VmafFrameSyncBuf *new_buf_node = malloc(sizeof(VmafFrameSyncBuf));
         buf_que->next = new_buf_node;
@@ -83,7 +85,7 @@ int vmaf_framesync_acquire_new_buf(VmafFrameSyncContext *fs_ctx, void **data, un
         fs_ctx->buf_cnt++;
 
         new_buf_node->frame_data = *data = malloc(data_sz);
-        if (!new_buf_node->frame_data)
+        if(!new_buf_node->frame_data)
             return -ENOMEM;
         new_buf_node->buf_status = BUF_ACQUIRED;
         new_buf_node->index = index;
@@ -100,19 +102,19 @@ int vmaf_framesync_submit_filled_data(VmafFrameSyncContext *fs_ctx, void *data, 
 
     pthread_mutex_lock(&(fs_ctx->retrieve_lock));
     // loop until a matchng buffer is found
-    for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)
+    for(unsigned i = 0; i < fs_ctx->buf_cnt; i++)
     {
-        if ((buf_que->index == index) && (buf_que->buf_status == BUF_ACQUIRED))
+        if((buf_que->index == index) && (buf_que->buf_status == BUF_ACQUIRED))
         {
             buf_que->buf_status = BUF_FILLED;
-            if (data != buf_que->frame_data){
+            if(data != buf_que->frame_data) {
                 return -1;
             }
             break;
         }
 
         // move to next node
-        if (NULL != buf_que->next)
+        if(NULL != buf_que->next)
             buf_que = buf_que->next;
     }
 
@@ -127,13 +129,13 @@ int vmaf_framesync_retrieve_filled_data(VmafFrameSyncContext *fs_ctx, void **dat
     VmafFrameSyncBuf *buf_que = fs_ctx->buf_que;
     *data = NULL;
 
-    while (*data == NULL)
+    while(*data == NULL)
     {
         pthread_mutex_lock(&(fs_ctx->retrieve_lock));
         // loop until a free buffer is found
-        for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)
+        for(unsigned i = 0; i < fs_ctx->buf_cnt; i++)
         {
-            if ((buf_que->index == index) && (buf_que->buf_status == BUF_FILLED))
+            if((buf_que->index == index) && (buf_que->buf_status == BUF_FILLED))
             {
                 buf_que->buf_status = BUF_RETRIEVED;
                 *data = buf_que->frame_data;
@@ -141,11 +143,11 @@ int vmaf_framesync_retrieve_filled_data(VmafFrameSyncContext *fs_ctx, void **dat
             }
 
             // move to next node
-            if (NULL != buf_que->next)
+            if(NULL != buf_que->next)
                 buf_que = buf_que->next;
         }
 
-        if (*data == NULL)
+        if(*data == NULL)
             pthread_cond_wait(&(fs_ctx->retrieve), &(fs_ctx->retrieve_lock));
 
         pthread_mutex_unlock(&(fs_ctx->retrieve_lock));
@@ -160,11 +162,12 @@ int vmaf_framesync_release_buf(VmafFrameSyncContext *fs_ctx, void *data, unsigne
 
     pthread_mutex_lock(&(fs_ctx->acquire_lock));
     // loop until a matching buffer is found
-    for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)
+    for(unsigned i = 0; i < fs_ctx->buf_cnt; i++)
     {
-        if ((buf_que->index == index) && (buf_que->buf_status == BUF_RETRIEVED))
+        if((buf_que->index == index) && (buf_que->buf_status == BUF_RETRIEVED))
         {
-            if (data != buf_que->frame_data){
+            if(data != buf_que->frame_data)
+            {
                 return -1;
             }
             free(buf_que->frame_data);
@@ -175,7 +178,7 @@ int vmaf_framesync_release_buf(VmafFrameSyncContext *fs_ctx, void *data, unsigne
         }
 
         // move to next node
-        if (NULL != buf_que->next)
+        if(NULL != buf_que->next)
             buf_que = buf_que->next;
     }
 
@@ -193,22 +196,21 @@ int vmaf_framesync_destroy(VmafFrameSyncContext *fs_ctx)
     pthread_cond_destroy(&(fs_ctx->retrieve));
 
     // check for any data buffers which are not freed
-    for (unsigned i = 0; i < fs_ctx->buf_cnt; i++)
+    for(unsigned i = 0; i < fs_ctx->buf_cnt; i++)
     {
-        if (NULL != buf_que->frame_data)
+        if(NULL != buf_que->frame_data)
         {
             free(buf_que->frame_data);
             buf_que->frame_data = NULL;
         }
 
         // move to next node
-        if (NULL != buf_que->next)
+        if(NULL != buf_que->next)
         {
             buf_que_tmp = buf_que;
             buf_que = buf_que->next;
             free(buf_que_tmp);
-        }
-        else{
+        } else {
             free(buf_que);
         }
     }

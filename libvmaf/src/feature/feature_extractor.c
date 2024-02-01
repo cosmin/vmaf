@@ -401,7 +401,7 @@ int vmaf_fex_ctx_pool_aquire(VmafFeatureExtractorContextPool *pool,
             }
             err = vmaf_feature_extractor_context_create(&f, entry->fex, d);
             if (err) goto unlock;
-            if (f->fex->flags & VMAF_FEATURE_FRAME_SYNC)
+            if(f->fex->flags & VMAF_FEATURE_FRAME_SYNC)
                 f->fex->framesync = (fex->framesync);
         }
         if (!entry->ctx_list[i].in_use) {
