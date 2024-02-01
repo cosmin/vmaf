@@ -3056,6 +3056,7 @@ void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int
                                       int width, int height, int bitdepth,
                                       spat_fil_inter_dtype *tmp, char *spatial_csf_filter)
 {
+    UNUSED(bitdepth);
     int filter_size = 0;
     const spat_fil_coeff_dtype *i_filter_coeffs;
 

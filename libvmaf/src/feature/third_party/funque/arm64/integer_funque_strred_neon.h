@@ -21,11 +21,21 @@
 #include "../common/macros.h"
 #include "../funque_global_options.h"
 
-int integer_compute_strred_funque_neon(
-    const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
-    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
-    struct strred_results *strred_scores, int block_size, int level, uint32_t *log_18,
-    uint32_t *log_22, int32_t shift_val, double sigma_nsq_t, uint8_t enable_spatial_csf);
+int integer_compute_srred_funque_neon(const struct i_dwt2buffers *ref,
+                                      const struct i_dwt2buffers *dist, size_t width, size_t height,
+                                      float **spat_scales_ref, float **spat_scales_dist,
+                                      struct strred_results *strred_scores, int block_size, int level,
+                                      uint32_t *log_18, uint32_t *log_22, int32_t shift_val_arg,
+                                      double sigma_nsq_t, uint8_t check_enable_spatial_csf);
+
+int integer_compute_strred_funque_neon(const struct i_dwt2buffers *ref,
+                                       const struct i_dwt2buffers *dist,
+                                       struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
+                                       size_t width, size_t height, float **spat_scales_ref,
+                                       float **spat_scales_dist, struct strred_results *strred_scores,
+                                       int block_size, int level, uint32_t *log_18, uint32_t *log_22,
+                                       int32_t shift_val_arg, double sigma_nsq_t,
+                                       uint8_t check_enable_spatial_csf);
 
 void integer_subract_subbands_neon(const dwt2_dtype *ref_src, const dwt2_dtype *ref_prev_src,
                                    dwt2_dtype *ref_dst, const dwt2_dtype *dist_src,
