@@ -17,6 +17,7 @@
  */
 
 #include "integer_funque_filters.h"
+#define DEFAULT_MOTION_LEVELS   4
 
 double integer_funque_image_mad_c(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
-int integer_compute_motion_funque(ModuleFunqueState m,const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score);
+int integer_compute_motion_funque_c(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score);

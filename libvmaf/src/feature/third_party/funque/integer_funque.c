@@ -123,6 +123,7 @@ typedef struct IntFunqueState
     int ssim_levels;
     int ms_ssim_levels;
     int strred_levels;
+    int motion_levels;
     double norm_view_dist;
     int ref_display_height;
     int i_process_ref_width;
@@ -314,6 +315,16 @@ static const VmafOption options[] = {
         .min = MIN_LEVELS,
         .max = MAX_LEVELS,
     },
+    {
+        .name = "motion_levels",
+        .alias = "motion",
+        .help = "Number of levels in MOTION",
+        .offset = offsetof(IntFunqueState, motion_levels),
+        .type = VMAF_OPT_TYPE_INT,
+        .default_val.i = DEFAULT_MOTION_LEVELS,
+        .min = MIN_LEVELS,
+        .max = MAX_LEVELS,
+    },
 
     {0}};
 
@@ -397,7 +408,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
 
     s->needed_dwt_levels =
-        MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels,0);
+        MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels, s->motion_levels);
     s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
 
     int ref_process_width, ref_process_height, dist_process_width, dist_process_height,
@@ -617,7 +628,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_compute_ssim_funque = integer_compute_ssim_funque_c;
     s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
     s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
-    s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+    s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
@@ -671,7 +682,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
@@ -706,7 +717,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx2;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx2;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx2;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
         s->modules.integer_compute_srred_funque = integer_compute_srred_funque_avx2;
@@ -728,7 +739,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
@@ -754,7 +765,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_avx512;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
         s->resize_module.resizer_step = step_avx512;
         s->resize_module.hbd_resizer_step = hbd_step_avx512;
         s->modules.integer_compute_srred_funque = integer_compute_srred_funque_avx512;
@@ -777,7 +788,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_srred_funque = integer_compute_srred_funque_c;
@@ -987,6 +998,7 @@ static int extract(VmafFeatureExtractor *fex,
 
     double ssim_score[MAX_LEVELS];
     MsSsimScore_int ms_ssim_score[MAX_LEVELS];
+    float motion_score[MAX_LEVELS];
     // s->score = &ms_ssim_score;
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
@@ -1204,6 +1216,20 @@ static int extract(VmafFeatureExtractor *fex,
             if(err)
                 return err;
         }
+
+        if((s->motion_levels != 0) && (level <= s->motion_levels - 1)) {
+            float motion_pending_div = spatfilter_shifts + dwt_shifts - level;
+            if(!s->enable_spatial_csf)
+                motion_pending_div = (1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
+
+            if(index != 0) {
+                err |= s->modules.integer_compute_motion_funque(s->i_prev_ref[level].bands[0], s->i_ref_dwt2out[level].bands[0], 
+                                s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 
+                                s->i_prev_ref[level].stride, s->i_ref_dwt2out[level].stride, motion_pending_div, &motion_score[level]);
+            }
+            if(err)
+                return err;
+        }
     }
 
     dwt2_dtype *dependent_buf, *dependent_buf_temp;
@@ -1239,6 +1265,20 @@ static int extract(VmafFeatureExtractor *fex,
                     s->i_ref_dwt2out[level].height, spat_scales_ref[level], spat_scales_dist[level],
                     &s->strred_scores, BLOCK_SIZE, level, s->log_18, s->log_22, strred_pending_div,
                     (double) 0.1, s->enable_spatial_csf);
+            }
+            if(err)
+                return err;
+        }
+
+        if((s->motion_levels != 0) && (level <= s->motion_levels - 1)) {
+            float motion_pending_div = spatfilter_shifts + dwt_shifts - level;
+            if(!s->enable_spatial_csf)
+                motion_pending_div = (1 << (i_nadenau_pending_div_factors[level][0])) * bitdepth_pow2;
+
+            if(index != 0) {
+                err |= s->modules.integer_compute_motion_funque(s->i_prev_ref[level].bands[0], s->i_ref_dwt2out[level].bands[0], 
+                                s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 
+                                s->i_prev_ref[level].stride, s->i_ref_dwt2out[level].stride, motion_pending_div, &motion_score[level]);
             }
             if(err)
                 return err;
@@ -1332,6 +1372,32 @@ static int extract(VmafFeatureExtractor *fex,
                     err |= vmaf_feature_collector_append_with_dict(
                         feature_collector, s->feature_name_dict,
                         "FUNQUE_integer_feature_ssim_scale3_score", ssim_score[3], index);
+                }
+            }
+        }
+    }
+
+    if(s->motion_levels > 0) {
+        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                       "FUNQUE_integer_feature_motion_scale0_score",
+                                                       motion_score[0], index);
+        if(s->motion_levels > 1) {
+            err |= vmaf_feature_collector_append_with_dict(
+                feature_collector, s->feature_name_dict,
+                "FUNQUE_integer_feature_motion_scale1_score", motion_score[1],
+                index);
+
+            if(s->motion_levels > 2) {
+                err |= vmaf_feature_collector_append_with_dict(
+                    feature_collector, s->feature_name_dict,
+                    "FUNQUE_integer_feature_motion_scale2_score", motion_score[2],
+                    index);
+
+                if(s->motion_levels > 3) {
+                    err |= vmaf_feature_collector_append_with_dict(
+                        feature_collector, s->feature_name_dict,
+                        "FUNQUE_integer_feature_motion_scale3_score",
+                        motion_score[3], index);
                 }
             }
         }
@@ -1488,6 +1554,11 @@ static const char *provided_features[] = {"FUNQUE_integer_feature_vif_score",
                                           "FUNQUE_integer_feature_strred_scale1_score",
                                           "FUNQUE_integer_feature_strred_scale2_score",
                                           "FUNQUE_integer_feature_strred_scale3_score",
+                                        
+                                          "FUNQUE_integer_feature_motion_scale0_score",
+                                          "FUNQUE_integer_feature_motion_scale1_score",
+                                          "FUNQUE_integer_feature_motion_scale2_score",
+                                          "FUNQUE_integer_feature_motion_scale3_score",
 
                                           "FUNQUE_integer_feature_ms_ssim_mean_scale0_score",
                                           "FUNQUE_integer_feature_ms_ssim_mean_scale1_score",
