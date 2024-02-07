@@ -20,10 +20,15 @@
 #define FUNQUE_SSIM_OPTIONS_H_
 
 #define ENABLE_MINK3POOL 0
-#define ENABLE_PADDING 0
+#define ENABLE_PADDING 1
 
 #define DEFAULT_SSIM_LEVELS 4
 #define DEFAULT_MS_SSIM_LEVELS 4
+
+typedef struct SsimScore {
+    double mean;
+    double mink3;
+} SsimScore;
 
 typedef struct MsSsimScore {
     double ssim_mean;

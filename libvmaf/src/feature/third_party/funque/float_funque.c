@@ -634,7 +634,7 @@ static int extract(VmafFeatureExtractor *fex,
         funque_dwt2(s->dist, &s->dist_dwt2out[0], s->process_dist_width, s->process_dist_height);
     }
 #endif
-    double ssim_score[MAX_LEVELS];
+    SsimScore ssim_score[MAX_LEVELS];
     MsSsimScore ms_ssim_score[MAX_LEVELS];
     s->score = ms_ssim_score;
     double adm_score[MAX_LEVELS], adm_score_num[MAX_LEVELS], adm_score_den[MAX_LEVELS];
@@ -809,23 +809,39 @@ if (s->adm_levels > 0) {
 
 if (s->ssim_levels > 0) {
     err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                                                   "FUNQUE_feature_ssim_scale0_score",
-                                         ssim_score[0], index);
+                                                   "FUNQUE_feature_ssim_mean_scale0_score",
+                                         ssim_score[0].mean, index);
+
+    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
+                                                   "FUNQUE_feature_ssim_mink3_scale0_score",
+                                         ssim_score[0].mink3, index);
 
     if (s->ssim_levels > 1) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                       s->feature_name_dict, "FUNQUE_feature_ssim_scale1_score",
-                                                       ssim_score[1], index);
+                                                       s->feature_name_dict, "FUNQUE_feature_ssim_mean_scale1_score",
+                                                       ssim_score[1].mean, index);
+
+        err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                       s->feature_name_dict, "FUNQUE_feature_ssim_mink3_scale1_score",
+                                                       ssim_score[1].mink3, index);
 
         if (s->ssim_levels > 2) {
             err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                           s->feature_name_dict, "FUNQUE_feature_ssim_scale2_score",
-                                                           ssim_score[2], index);
+                                                           s->feature_name_dict, "FUNQUE_feature_ssim_mean_scale2_score",
+                                                           ssim_score[2].mean, index);
+
+            err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                           s->feature_name_dict, "FUNQUE_feature_ssim_mink3_scale2_score",
+                                                           ssim_score[2].mink3, index);
 
             if (s->ssim_levels > 3) {
                 err |= vmaf_feature_collector_append_with_dict(feature_collector,
-                                                               s->feature_name_dict, "FUNQUE_feature_ssim_scale3_score",
-                                                               ssim_score[3], index);
+                                                               s->feature_name_dict, "FUNQUE_feature_ssim_mean_scale3_score",
+                                                               ssim_score[3].mean, index);
+
+                err |= vmaf_feature_collector_append_with_dict(feature_collector,
+                                                               s->feature_name_dict, "FUNQUE_feature_ssim_mink3_scale3_score",
+                                                               ssim_score[3].mink3, index);
             }
         }
     }
@@ -983,9 +999,10 @@ static const char *provided_features[] = {
     "FUNQUE_feature_adm_scale0_score","FUNQUE_feature_adm_scale1_score",
     "FUNQUE_feature_adm_scale2_score","FUNQUE_feature_adm_scale3_score",
 
-    "FUNQUE_feature_ssim_scale0_score", "FUNQUE_feature_ssim_scale1_score",
-    "FUNQUE_feature_ssim_scale2_score", "FUNQUE_feature_ssim_scale3_score",
-
+    "FUNQUE_feature_ssim_mean_scale0_score", "FUNQUE_feature_ssim_mean_scale1_score",
+    "FUNQUE_feature_ssim_mean_scale2_score", "FUNQUE_feature_ssim_mean_scale3_score",
+    "FUNQUE_feature_ssim_mink3_scale0_score", "FUNQUE_feature_ssim_mink3_scale1_score",
+    "FUNQUE_feature_ssim_mink3_scale2_score", "FUNQUE_feature_ssim_mink3_scale3_score",
     "FUNQUE_feature_strred_scale0_score", "FUNQUE_feature_strred_scale1_score",
     "FUNQUE_feature_strred_scale2_score", "FUNQUE_feature_strred_scale3_score",
 

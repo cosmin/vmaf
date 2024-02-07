@@ -25,13 +25,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int max_val, float K1, float K2)
+int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, SsimScore *score, int max_val, float K1, float K2)
 {
     //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
     int ret = 1;
-
-    *score = 0;
-
     int n_levels = 1;
 
     int width = ref->width;
@@ -44,9 +41,7 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
     float* var_y = (float*)calloc(width * height, sizeof(float));
     float* cov_xy = (float*)calloc(width * height, sizeof(float));
 
-#if ENABLE_MINK3POOL
     float cube_1minus_map = 0;
-#endif
 
     int win_dim = 1 << n_levels;
     int win_size = (1 << (n_levels << 1));
@@ -75,21 +70,18 @@ int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, double *score, int 
 
             l = (2 * mx * my + C1) / ((mx * mx) + (my * my) + C1);
             cs = (2 * cov_xy[index] + C2) / (var_x[index] + var_y[index] + C2);
-#if ENABLE_MINK3POOL
+
             cube_1minus_map += pow((1 - (l * cs)), 3);
-#else
             sum += (l * cs);
-#endif
         }
     }
 
-#if ENABLE_MINK3POOL
     double ssim_val = 1 - cbrt((double)cube_1minus_map/(width*height));
-    *score = ssim_clip(ssim_val, 0, 1);
-#else
+    score->mink3 = ssim_clip(ssim_val, 0, 1);
+
     float ssim_mean = sum / (height * width);
-    *score = ssim_mean;
-#endif
+    score->mean = ssim_mean;
+
     free(var_x);
     free(var_y);
     free(cov_xy);
