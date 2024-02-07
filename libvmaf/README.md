@@ -27,10 +27,14 @@ Ninja package name might be `ninja` or `ninja-build`, depending on your system. 
 Run:
 
 ```
-meson build --buildtype release
+meson setup build --buildtype release
 ```
 
-(add `-Denable_float=true` flag in the rare case if you want to use the floating-point feature extractors.)
+Special cases:
+- add `-Denable_float=true` flag in the rare case if you want to use the floating-point feature extractors.
+- add `-Denable_avx512=true` to support wider SIMD instructions to achieve the fastest processing on supported CPUs
+- add `-Denable_cuda=true` to build with CUDA support, which requires `nvcc` for compilation (tested with CUDA >= 11)
+- add `-Denable_nvtx=true` to build with [NVTX](https://github.com/NVIDIA/NVTX) marker support, which enables easy profiling using Nsight Systems
 
 Build with:
 
@@ -61,7 +65,6 @@ This will install the following files:
 │   └── vmaf
 ├── include
 │   └── libvmaf
-│       ├── compute_vmaf.h
 │       ├── feature.h
 │       ├── libvmaf.h
 │       ├── model.h
@@ -89,7 +92,7 @@ ninja -vC build doc/html
 
 ## `vmaf`
 
-A command line tool called `vmaf` is included as part of the build/installation. See the `vmaf` [README.md](tools/README.md) for details. An older command line tool (`vmafossexec`) is still part of the build but is not part of the installation. `vmafossexec` will be removed in a future version of this library.
+A command line tool called `vmaf` is included as part of the build/installation. See the `vmaf` [README.md](tools/README.md) for details.
 
 ## API Walkthrough
 

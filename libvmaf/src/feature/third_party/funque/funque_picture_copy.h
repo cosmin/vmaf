@@ -18,4 +18,4 @@
 #include <stddef.h>
 
 void funque_picture_copy(float *dst, ptrdiff_t dst_stride, VmafPicture *src,
-                  int offset, unsigned bpc);
+                  int offset, unsigned bpc, int width, int height);

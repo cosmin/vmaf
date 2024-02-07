@@ -528,7 +528,7 @@ void vif_statistic_8_avx2(struct VifPublicState *s, float *num, float *den, unsi
             }
         }
         if ((n << 4) != w) {
-            VifResiduals residuals = vif_compute_line_residuals(s, n << 4, w, 8, 0);
+            VifResiduals residuals = vif_compute_line_residuals(s, n << 4, w, 0);
             accum_num_log += residuals.accum_num_log;
             accum_den_log += residuals.accum_den_log;
             accum_num_non_log += residuals.accum_num_non_log;
@@ -553,7 +553,6 @@ void vif_statistic_16_avx2(struct VifPublicState *s, float *num, float *den, uns
     const ptrdiff_t stride = buf.stride / sizeof(uint16_t);
     int fwidth_half = fwidth >> 1;
 
-    int32_t add_shift_round_HP, shift_HP;
     int32_t add_shift_round_VP, shift_VP;
     int32_t add_shift_round_VP_sq, shift_VP_sq;
 
@@ -573,15 +572,11 @@ void vif_statistic_16_avx2(struct VifPublicState *s, float *num, float *den, uns
     ALIGNED(32) uint32_t xy[16];
 
     if (scale == 0) {
-        shift_HP = 16;
-        add_shift_round_HP = 32768;
         shift_VP = bpc;
         add_shift_round_VP = 1 << (bpc - 1);
         shift_VP_sq = (bpc - 8) * 2;
         add_shift_round_VP_sq = (bpc == 8) ? 0 : 1 << (shift_VP_sq - 1);
     } else {
-        shift_HP = 16;
-        add_shift_round_HP = 32768;
         shift_VP = 16;
         add_shift_round_VP = 32768;
         shift_VP_sq = 16;
@@ -1088,7 +1083,7 @@ void vif_statistic_16_avx2(struct VifPublicState *s, float *num, float *den, uns
 
         if ((n << 4) != w) {
             VifResiduals residuals =
-                vif_compute_line_residuals(s, n << 4, w, bpc, scale);
+                vif_compute_line_residuals(s, n << 4, w, scale);
             accum_num_log += residuals.accum_num_log;
             accum_den_log += residuals.accum_den_log;
             accum_num_non_log += residuals.accum_num_non_log;

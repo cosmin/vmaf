@@ -32,6 +32,7 @@
                                                         : X)
 #define MAX(LEFT, RIGHT) (LEFT > RIGHT ? LEFT : RIGHT)
 #define MIN(LEFT, RIGHT) (LEFT < RIGHT ? LEFT : RIGHT)
+#define MAX5(A, B, C, D, E) MAX(MAX(MAX(MAX(A, B), C), D), E)
 
 typedef struct ResizerState
 {

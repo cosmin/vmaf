@@ -107,11 +107,10 @@ void funque_vifdwt2_band0(float *src, float *band_a, ptrdiff_t dst_stride, int w
     aligned_free(tmplo);
 }
 
-//Convolution using coefficients from python workspace
-void spatial_filter(float *src, float *dst, int width, int height)
-{
-    //Copied the coefficients from python coefficients
-        float filter_coeffs[21] = {
+const float nadeanu_filter_coeffs[5] = {0.0253133196, 0.2310067710, 0.4759767950, 0.2310067710,
+                                            0.0253133196 };
+
+const float ngan_filter_coeffs[21] = {
         -0.01373463642215844680849 ,
         -0.01608514932055564797264 ,
         -0.01890698454168517061991 ,
@@ -132,57 +131,62 @@ void spatial_filter(float *src, float *dst, int width, int height)
         -0.02215701978091480159327 ,
         -0.01890698454168517061991 ,
         -0.01608514932055564797264 ,
-        -0.01373463642215844680849
-    };
+        -0.01373463642215844680849 };
     
+void spatial_csfs(float *src, float *dst, int width, int height, float *tmp_buf, char *spatial_csf_filter)
+{
+    const float *filter_coeffs;
+    int filter_size;
+    if(strcmp(spatial_csf_filter, "nadenau_spat") == 0) {
+        /*coefficients for 5 tap nadeanu_spat filter */
+        filter_coeffs = nadeanu_filter_coeffs;
+        filter_size = 5;
+    } else if (strcmp(spatial_csf_filter, "ngan_spat") == 0) {
+        filter_coeffs = ngan_filter_coeffs;
+        filter_size = 21;
+    }
     int src_px_stride = width;
     int dst_px_stride = width;
 
-    float *tmp = aligned_malloc(ALIGN_CEIL(src_px_stride * sizeof(float)), MAX_ALIGN);
     float fcoeff, imgcoeff;
 
     int i, j, fi, fj, ii, jj;
-    int fwidth = 21;
-    for (i = 0; i < height; ++i) {
 
+    for(i = 0; i < height; ++i) {
         /* Vertical pass. */
-        for (j = 0; j < width; ++j) {
+        for(j = 0; j < width; ++j) {
             double accum = 0;
 
-            for (fi = 0; fi < fwidth; ++fi) {
+            for(fi = 0; fi < filter_size; ++fi) {
                 fcoeff = filter_coeffs[fi];
-                
-                ii = i - fwidth / 2 + fi;
-                ii = ii < 0 ? -(ii+1)  : (ii >= height ? 2 * height - ii - 1 : ii);
+
+                ii = i - filter_size / 2 + fi;
+                ii = ii < 0 ? -(ii + 1) : (ii >= height ? 2 * height - ii - 1 : ii);
 
                 imgcoeff = src[ii * src_px_stride + j];
 
                 accum += (double) fcoeff * imgcoeff;
             }
-
-            tmp[j] = accum;
+            tmp_buf[j] = accum;
         }
 
         /* Horizontal pass. */
-        for (j = 0; j < width; ++j) {
+        for(j = 0; j < width; ++j) {
             double accum = 0;
 
-            for (fj = 0; fj < fwidth; ++fj) {
+            for(fj = 0; fj < filter_size; ++fj) {
                 fcoeff = filter_coeffs[fj];
 
-                jj = j - fwidth / 2 + fj;
-                jj = jj < 0 ? -(jj+1) : (jj >= width ? 2 * width - jj - 1 : jj);
+                jj = j - filter_size / 2 + fj;
+                jj = jj < 0 ? -(jj + 1) : (jj >= width ? 2 * width - jj - 1 : jj);
 
-                imgcoeff = tmp[jj];
+                imgcoeff = tmp_buf[jj];
 
                 accum += (double) fcoeff * imgcoeff;
             }
-
             dst[i * dst_px_stride + j] = accum;
         }
     }
-
-    aligned_free(tmp);
 
     return;
 }
@@ -197,6 +201,30 @@ void normalize_bitdepth(float *src, float *dst, int scaler, ptrdiff_t dst_stride
         src += dst_stride / sizeof(float);
     }
     return;
+}
+
+void reflect_pad_for_input(const float *src, float *dst, int width, int height, int reflect_width, int reflect_height)
+{
+   size_t out_width = width + 2 * reflect_width;
+   size_t out_height = height + 2 * reflect_height;
+
+   for (size_t i = reflect_height; i != (out_height - reflect_height); i++) {
+
+       for (int j = 0; j != reflect_width; j++)
+       {
+           dst[i * out_width + (reflect_width - 1 - j)] = src[(i - reflect_height) * width + j + 1];
+       }
+
+       memcpy(&dst[i * out_width + reflect_width], &src[(i - reflect_height) * width], sizeof(float) * width);
+
+       for (int j = 0; j != reflect_width; j++)
+           dst[i * out_width + out_width - reflect_width + j] = dst[i * out_width + out_width - reflect_width - 2 - j];
+   }
+
+  for (int i = 0; i != reflect_height; i++) {
+      memcpy(&dst[(reflect_height - 1) * out_width - i * out_width], &dst[reflect_height * out_width + (i + 1) * out_width], sizeof(float) * out_width);
+      memcpy(&dst[(out_height - reflect_height) * out_width + i * out_width], &dst[(out_height - reflect_height - 1) * out_width - (i + 1) * out_width], sizeof(float) * out_width);
+  }
 }
 
 void funque_dwt2_inplace_csf(const dwt2buffers *src, float factors[4], int min_theta, int max_theta)
