@@ -25,7 +25,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-int compute_ssim_funque(dwt2buffers *ref, dwt2buffers *dist, SsimScore *score, int max_val, float K1, float K2)
+int compute_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, SsimScore* score, int max_val,
+                        float K1, float K2)
 {
     //TODO: Assert checks to make sure src_ref, src_dist same in qty and nlevels = 1
     int ret = 1;
