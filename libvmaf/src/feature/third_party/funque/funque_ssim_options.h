@@ -34,15 +34,11 @@ typedef struct MsSsimScore {
     double ssim_mean;
     double l_mean;
     double cs_mean;
-    double ssim_cov;
-    double l_cov;
-    double cs_cov;
     double ssim_mink3;
     double l_mink3;
     double cs_mink3;
     
     double ms_ssim_mean;
-    double ms_ssim_cov;
     double ms_ssim_mink3;
 
     float **var_x_cum;

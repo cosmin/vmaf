@@ -902,10 +902,6 @@ if(s->ms_ssim_levels > 0) {
                                                    s->score[0].ms_ssim_mean, index);
 
     err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                                                   "FUNQUE_feature_ms_ssim_cov_scale0_score",
-                                                   s->score[0].ms_ssim_cov, index);
-    
-    err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                    "FUNQUE_feature_ms_ssim_mink3_scale0_score",
                                                    s->score[0].ms_ssim_mink3, index);
 
@@ -913,10 +909,6 @@ if(s->ms_ssim_levels > 0) {
         err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                        "FUNQUE_feature_ms_ssim_mean_scale1_score",
                                                        s->score[1].ms_ssim_mean, index);
-
-        err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
-                                                       "FUNQUE_feature_ms_ssim_cov_scale1_score",
-                                                       s->score[1].ms_ssim_cov, index);
 
         err |= vmaf_feature_collector_append_with_dict(feature_collector, s->feature_name_dict,
                                                        "FUNQUE_feature_ms_ssim_mink3_scale1_score",
@@ -928,10 +920,6 @@ if(s->ms_ssim_levels > 0) {
                 s->score[2].ms_ssim_mean, index);
 
             err |= vmaf_feature_collector_append_with_dict(
-                feature_collector, s->feature_name_dict, "FUNQUE_feature_ms_ssim_cov_scale2_score",
-                s->score[2].ms_ssim_cov, index);
-
-            err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict, "FUNQUE_feature_ms_ssim_mink3_scale2_score",
                 s->score[2].ms_ssim_mink3, index);
 
@@ -940,9 +928,6 @@ if(s->ms_ssim_levels > 0) {
                     feature_collector, s->feature_name_dict,
                     "FUNQUE_feature_ms_ssim_mean_scale3_score", s->score[3].ms_ssim_mean, index);
 
-                err |= vmaf_feature_collector_append_with_dict(
-                    feature_collector, s->feature_name_dict,
-                    "FUNQUE_feature_ms_ssim_cov_scale3_score", s->score[3].ms_ssim_cov, index);
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
                     "FUNQUE_feature_ms_ssim_mink3_scale3_score", s->score[3].ms_ssim_mink3, index);
@@ -1008,8 +993,6 @@ static const char *provided_features[] = {
 
     "FUNQUE_feature_ms_ssim_mean_scale0_score", "FUNQUE_feature_ms_ssim_mean_scale1_score",
     "FUNQUE_feature_ms_ssim_mean_scale2_score", "FUNQUE_feature_ms_ssim_mean_scale3_score",
-    "FUNQUE_feature_ms_ssim_cov_scale0_score", "FUNQUE_feature_ms_ssim_cov_scale1_score",
-    "FUNQUE_feature_ms_ssim_cov_scale2_score", "FUNQUE_feature_ms_ssim_cov_scale3_score",
     "FUNQUE_feature_ms_ssim_mink3_scale0_score", "FUNQUE_feature_ms_ssim_mink3_scale1_score",
     "FUNQUE_feature_ms_ssim_mink3_scale2_score", "FUNQUE_feature_ms_ssim_mink3_scale3_score",
 
