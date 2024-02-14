@@ -35,7 +35,7 @@ double integer_funque_image_mad_c(const dwt2_dtype *img1, const dwt2_dtype *img2
     motion_accum_dtype accum = 0;
 
     for (int i = 0; i < height; ++i) {
-    	motion_interaccum_dtype accum_line = 0;
+        motion_interaccum_dtype accum_line = 0;
         for (int j = 0; j < width; ++j) {
             dwt2_dtype img1px = img1[i * img1_stride + j];
             dwt2_dtype img2px = img2[i * img2_stride + j];

@@ -128,19 +128,19 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     uint32_t log_in_num_2 = get_best_u18_from_u64((uint64_t)n2, &x2);
     int64_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
     int32_t temp_power_num = x1 - x2; 
-	
+
 #if VIF_STABILITY
-	if(cov_xy < 0)
-	{
-		temp_numerator = 0;
-		temp_power_num = 0;
-	}
-	if (var_x < sigma_nsq)
-	{
-		double sigma_max_inv = 4.0;
-		temp_numerator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT) - ((int32_t)((var_y * sigma_max_inv)));
-		temp_power_num = 0;
-	}
+    if(cov_xy < 0)
+    {
+        temp_numerator = 0;
+        temp_power_num = 0;
+    }
+    if (var_x < sigma_nsq)
+    {
+        double sigma_max_inv = 4.0;
+        temp_numerator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT) - ((int32_t)((var_y * sigma_max_inv)));
+        temp_power_num = 0;
+    }
 #endif
     *score_num += temp_numerator;
     *num_power += temp_power_num;
@@ -154,11 +154,11 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
     int64_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
     int32_t temp_power_den = y1 - y2;
 #if VIF_STABILITY
-	if (var_x < sigma_nsq)
-	{
-		temp_denominator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT);
-		temp_power_den = 0;
-	}
+    if (var_x < sigma_nsq)
+    {
+        temp_denominator = ((shift_val*shift_val*k_norm)>> VIF_COMPUTE_METRIC_R_SHIFT);
+        temp_power_den = 0;
+    }
 #endif
     *score_den += temp_denominator;
     *den_power += temp_power_den;
