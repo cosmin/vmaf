@@ -44,7 +44,7 @@ void div_lookup_generator(int32_t *adm_div_lookup)
 
 void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, int width, int height, 
-                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num)
+                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num, float adm_pending_div)
 {    
     int i, j, index;
 
@@ -169,12 +169,12 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
     {
         num_band += powf(accum_num[band-1], 1.0/3.0);
     }
-    *adm_score_num = num_band + 1e-4;
+    *adm_score_num = (num_band / (adm_pending_div / powf((double)(256), 1.0 / 3.0)) / 30) + 1e-4;
 }
 
 void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
-                          int32_t *adm_div_lookup, float border_size, double *adm_score_den)
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div)
 {
     // const float cos_1deg_sq = COS_1DEG_SQ;
 
@@ -328,12 +328,12 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
         den_band += powf((double)(accum_den), 1.0 / 3.0);
     }
     // compensation for the division by thirty in the numerator
-    *adm_score_den = (den_band * 30) + 1e-4;
+    *adm_score_den = ((den_band) / (adm_pending_div / powf((double)(256), 1.0 / 3.0))) + 1e-4;
 
 }
 
 
-int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int32_t *adm_div_lookup)
+int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int32_t *adm_div_lookup, float adm_pending_div)
 {
     i_dwt2buffers i_dlm_rest;
     adm_i32_dtype *i_dlm_add, *interim_x;
@@ -386,9 +386,9 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 
     // double row_num, accum_num = 0;
 
-    m.integer_funque_adm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
+    m.integer_funque_adm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den, adm_pending_div);
 
-    m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
+    m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num, adm_pending_div);
 
 
     *adm_score = (*adm_score_num) / (*adm_score_den);

@@ -27,6 +27,16 @@
 #include "integer_funque_filters.h"
 #include <time.h>
 
+void funque_log_generate(uint32_t *log_lut)
+{
+    uint64_t i;
+    uint64_t start = (unsigned int) pow(2, (BITS_USED_BY_VIF_AND_STRRED_LUT - 1));
+    uint64_t end = (unsigned int) pow(2, BITS_USED_BY_VIF_AND_STRRED_LUT);
+    for(i = start; i < end; i++) {
+        log_lut[i] = (uint32_t) round(log2((double) i) * (1 << STRRED_Q_FORMAT));
+    }
+}
+
 void integer_funque_dwt2_c(spat_fil_output_dtype *src, ptrdiff_t src_stride,
                            i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height,
                            int spatial_csf, int level)

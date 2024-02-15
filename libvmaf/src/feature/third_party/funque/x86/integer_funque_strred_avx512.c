@@ -55,8 +55,8 @@ void integer_subract_subbands_avx512(const dwt2_dtype *ref_src, const dwt2_dtype
 }
 
 float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2_dtype *y_t,
-                                               size_t width, size_t height, uint32_t *log_18,
-                                               uint32_t *log_22, double sigma_nsq_arg,
+                                               size_t width, size_t height,
+                                               uint32_t *log_lut, double sigma_nsq_arg,
                                                int32_t shift_val, uint8_t enable_temporal,
                                                float *spat_scales_x, float *spat_scales_y,
                                                uint8_t check_enable_spatial_csf)
@@ -246,12 +246,12 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
 
         if(check_enable_spatial_csf == 1)
             agg_abs_accum += strred_horz_integralsum_spatial_csf(
-                kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_18, log_22,
+                kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_lut,
                 interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x,
                 spat_scales_y, i - kh, shift_val);
         else
             agg_abs_accum += strred_horz_integralsum_wavelet(
-                kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_18, log_22,
+                kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_lut,
                 interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal, spat_scales_x,
                 spat_scales_y, i - kh, shift_val);
 
@@ -423,13 +423,13 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
             // horizontal summation and score compuations
             if(check_enable_spatial_csf == 1)
                 agg_abs_accum += strred_horz_integralsum_spatial_csf(
-                    kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_18,
-                    log_22, interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal,
+                    kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg,
+                    log_lut, interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal,
                     spat_scales_x, spat_scales_y, (i - kh) * width_p1, shift_val);
             else
                 agg_abs_accum += strred_horz_integralsum_wavelet(
-                    kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg, log_18,
-                    log_22, interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal,
+                    kw, width_p1, knorm_fact, knorm_shift, entr_const, sigma_nsq_arg,
+                    log_lut, interim_1_x, interim_2_x, interim_1_y, interim_2_y, enable_temporal,
                     spat_scales_x, spat_scales_y, (i - kh) * width_p1, shift_val);
         }
 
@@ -449,8 +449,8 @@ float integer_rred_entropies_and_scales_avx512(const dwt2_dtype *x_t, const dwt2
 int integer_compute_strred_funque_avx512(
     const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
     struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
-    struct strred_results *strred_scores, int block_size, int level, uint32_t *log_18,
-    uint32_t *log_22, int32_t shift_val_arg, double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+    struct strred_results *strred_scores, int block_size, int level,
+    uint32_t *log_lut, int32_t shift_val_arg, double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
@@ -493,7 +493,7 @@ int integer_compute_strred_funque_avx512(
                 ref->bands[subband], prev_ref->bands[subband], ref_temporal, dist->bands[subband],
                 prev_dist->bands[subband], dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales_avx512(
-                ref_temporal, dist_temporal, width, height, log_18, log_22, sigma_nsq_t, shift_val,
+                ref_temporal, dist_temporal, width, height, log_lut, sigma_nsq_t, shift_val,
                 enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
             ftemp_val[subband] = temp_values[subband] / (width * height);
 
@@ -507,7 +507,7 @@ int integer_compute_strred_funque_avx512(
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     // Add equations to compute ST-RRED using norm factors
-    int norm_factor, num_level;
+    int norm_factor = 1, num_level;
     for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
 
     strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];

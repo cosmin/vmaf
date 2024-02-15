@@ -113,7 +113,7 @@ static inline int16_t get_best_i16_from_u64(uint64_t temp, int *power)
     return (int16_t) temp;
 }
 
-int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
+int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, SsimScore_int *score, int max_val, float K1, float K2, int pending_div, int32_t *div_lookup)
 {
     int ret = 1;
 
@@ -145,7 +145,6 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype l_num, l_den, cs_num, cs_den;
 
-#if ENABLE_MINK3POOL
     ssim_accum_dtype rowcube_1minus_map = 0;
     double accumcube_1minus_map = 0;
     const ssim_inter_dtype const_1 = 32768;  // div_Q_factor>>SSIM_SHIFT_DIV
@@ -158,9 +157,9 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
 
     __m128i const_1_128 = _mm_set1_epi64x(32768);
     __m128i accum_rowcube_128 = _mm_setzero_si128();
-#else
+
     ssim_accum_dtype accum_map = 0;
-#endif
+
     __m512i C1_512 = _mm512_set1_epi32(C1);
     __m512i C2_512 = _mm512_set1_epi32(C2);
     __m512i constant_2 = _mm512_set1_epi32(2);
@@ -222,6 +221,8 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             __m512i cov_xy_b2_hi = _mm512_mullo_epi32(ref_b2_hi, dis_b2_hi);
 
             __m512i var_x_b3_lo = _mm512_mullo_epi32(ref_b3_lo, ref_b3_lo);
+            __m512i var_x_b3_hi = _mm512_mullo_epi32(ref_b3_hi, ref_b3_hi);
+            __m512i var_y_b3_lo = _mm512_mullo_epi32(dis_b3_lo, dis_b3_lo);
             __m512i var_y_b3_hi = _mm512_mullo_epi32(dis_b3_hi, dis_b3_hi);
             __m512i cov_xy_b3_lo = _mm512_mullo_epi32(ref_b3_lo, dis_b3_lo);
             __m512i cov_xy_b3_hi = _mm512_mullo_epi32(ref_b3_hi, dis_b3_hi);
@@ -348,15 +349,12 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
             i16_map_den = get_best_i16_from_u64((uint64_t) denVal[k], &power_val);
             map = ((numVal[k] >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
 
-#if ENABLE_MINK3POOL
             ssim_accum_dtype const1_minus_map = const_1 - map;
             rowcube_1minus_map += const1_minus_map * const1_minus_map * const1_minus_map;
-#else
+
             accum_map += map;
             // map_sq_insum += (ssim_accum_dtype)(((ssim_accum_dtype)map * map));
-#endif
         }
-#if ENABLE_MINK3POOL
         __m256i r4 = _mm256_add_epi64(_mm512_castsi512_si256(accum_rowcube_512),
                                       _mm512_extracti64x4_epi64(accum_rowcube_512, 1));
         r4 = _mm256_add_epi64(r4, accum_rowcube_256);
@@ -367,15 +365,12 @@ int integer_compute_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dist, 
         accum_rowcube_256 = _mm256_setzero_si256();
         accum_rowcube_128 = _mm_setzero_si128();
         rowcube_1minus_map = 0;
-#endif
     }
 
-#if ENABLE_MINK3POOL
     double ssim_val = 1 - cbrt(accumcube_1minus_map / (width * height)) / const_1;
-    *score = ssim_clip(ssim_val, 0, 1);
-#else
-    *score = (double) accum_map / (height * width) / (1 << SSIM_SHIFT_DIV);
-#endif
+    score->mink3 = ssim_clip(ssim_val, 0, 1);
+
+    score->mean = (double) accum_map / (height * width) / (1 << SSIM_SHIFT_DIV);
 
     free(numVal);
     free(denVal);
@@ -605,6 +600,7 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
             __m512i cov_xy_b2_hi = _mm512_mullo_epi32(ref_b2_hi, dis_b2_hi);
 
             __m512i var_x_b3_lo = _mm512_mullo_epi32(ref_b3_lo, ref_b3_lo);
+            __m512i var_x_b3_hi = _mm512_mullo_epi32(ref_b3_hi, ref_b3_hi);
             __m512i var_y_b3_lo = _mm512_mullo_epi32(dis_b3_lo, dis_b3_lo);
             __m512i var_y_b3_hi = _mm512_mullo_epi32(dis_b3_hi, dis_b3_hi);
             __m512i cov_xy_b3_lo = _mm512_mullo_epi32(ref_b3_lo, dis_b3_lo);
@@ -660,6 +656,24 @@ int integer_compute_ms_ssim_funque_avx512(i_dwt2buffers *ref, i_dwt2buffers *dis
             cs_den_lo = _mm512_add_epi32(cs_den_lo, C2_512);
             cs_den_hi = _mm512_add_epi32(cs_den_hi, C2_512);
 
+            _mm512_storeu_si512((__m512i *) (csNumVal + j), cs_num_lo);
+            _mm512_storeu_si512((__m512i *) (csNumVal + j + 16), cs_num_hi);
+
+            _mm512_storeu_si512((__m512i *) (csDenVal + j), cs_den_lo);
+            _mm512_storeu_si512((__m512i *) (csDenVal + j + 16), cs_den_hi);
+
+            index_cum += 32;
+        }
+
+        for(; j < width; j++) {
+            index = i * width + j;
+
+            mx = ref->bands[0][index];
+            my = dist->bands[0][index];
+
+            var_x = 0;
+            var_y = 0;
+            cov_xy = 0;
             int k;
 #if BAND_HVD_SAME_PENDING_DIV
             for(k = 1; k < 4; k++)
@@ -885,4 +899,44 @@ int integer_mean_2x2_ms_ssim_funque_avx512(int32_t *var_x_cum, int32_t *var_y_cu
     }
     ret = 0;
     return ret;
+}
+
+int integer_ms_ssim_shift_cum_buffer_funque_avx512(int32_t *var_x_cum, int32_t *var_y_cum, int32_t *cov_xy_cum,
+                                                   int width, int height, int level, uint8_t csf_pending_div[4],
+                                                   uint8_t csf_pending_div_lp1[4])
+{
+    int cum_array_width = width * (1 << (level + 1));
+    int index_cum = 0;
+    int shift_cums = 2 * (csf_pending_div[1] - csf_pending_div_lp1[1] - 1);
+    int i = 0;
+    int j = 0;
+    __m512i add_constant = _mm512_set1_epi32(1 << (shift_cums - 1));
+
+    for(i = 0; i < height; i++)
+    {
+        for(j = 0; j < width - 16; j += 16)
+        {
+            __m512i var_x_cum_buf = _mm512_loadu_si512((__m512i*) (var_x_cum + index_cum));
+            __m512i var_y_cum_buf = _mm512_loadu_si512((__m512i*) (var_y_cum + index_cum));
+            __m512i cov_xy_cum_buf = _mm512_loadu_si512((__m512i*) (cov_xy_cum + index_cum));
+
+            __m512i var_x_cum_str = _mm512_srai_epi32(_mm512_add_epi32(var_x_cum_buf, add_constant), shift_cums);
+            __m512i var_y_cum_str = _mm512_srai_epi32(_mm512_add_epi32(var_y_cum_buf, add_constant), shift_cums);
+            __m512i cov_xy_cum_str = _mm512_srai_epi32(_mm512_add_epi32(cov_xy_cum_buf, add_constant), shift_cums);
+
+            _mm512_store_si512((__m512i*)(var_x_cum + index_cum), var_x_cum_str);
+            _mm512_store_si512((__m512i*)(var_y_cum + index_cum), var_y_cum_str);
+            _mm512_store_si512((__m512i*)(cov_xy_cum + index_cum), cov_xy_cum_str);
+
+            index_cum += 16;
+        }
+        for(; j < width; j++)
+        {
+            var_x_cum[index_cum] = (var_x_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            var_y_cum[index_cum] = (var_y_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            cov_xy_cum[index_cum] = (cov_xy_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            index_cum++;
+        }
+        index_cum += (cum_array_width - width);
+    }
 }

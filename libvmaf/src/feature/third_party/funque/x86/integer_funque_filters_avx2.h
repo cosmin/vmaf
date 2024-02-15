@@ -38,7 +38,9 @@
     _mm256_store_si256((__m256i*)(addr + 16), r8); \
 }
 
-void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height);
+void integer_funque_dwt2_avx2(spat_fil_output_dtype *src, ptrdiff_t src_stride,
+                              i_dwt2buffers *dwt2_dst, ptrdiff_t dst_stride, int width, int height,
+                              int spatial_csf_flag, int level);
 
 void integer_funque_vifdwt2_band0_avx2(dwt2_dtype *src, dwt2_dtype *band_a, ptrdiff_t dst_stride,
                                        int width, int height);

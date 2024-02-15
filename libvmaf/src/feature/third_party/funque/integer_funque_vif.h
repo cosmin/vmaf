@@ -21,7 +21,7 @@
 #include <assert.h>
 #define VIF_COMPUTE_METRIC_R_SHIFT 6
 
-void funque_log_generate(uint32_t* log_18);
+void funque_log_generate(uint32_t* log_lut);
 
 void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest);
 
@@ -29,35 +29,36 @@ void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18, int vif_level);
+                                 int64_t shift_val, uint32_t* log_lut, int vif_level);
 #else
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18);
+                                 int64_t shift_val, uint32_t* log_lut);
 #endif
 
 FORCE_INLINE inline uint32_t get_best_u18_from_u64(uint64_t temp, int *x)
 {
     int k = __builtin_clzll(temp);
+    int best_bits = 64 - BITS_USED_BY_VIF_AND_STRRED_LUT;
 
-    if (k > 46) 
+    if (k > best_bits) 
     {
-        k -= 46;
+        k -= best_bits;
         temp = temp << k;
         *x = -k;
 
     }
-    else if (k < 45) 
+    else if (k < (best_bits - 1)) 
     {
-        k = 46 - k;
+        k = best_bits - k;
         temp = temp >> k;
         *x = k;
     }
     else
     {
         *x = 0;
-        if (temp >> 18)
+        if (temp >> BITS_USED_BY_VIF_AND_STRRED_LUT)
         {
             temp = temp >> 1;
             *x = 1;
@@ -74,14 +75,14 @@ FORCE_INLINE inline uint32_t get_best_u18_from_u64(uint64_t temp, int *x)
 static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
                              int64_t int_2_x, int64_t int_2_y, int64_t int_x_y, 
                              int16_t knorm_fact, int16_t knorm_shift,  
-                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power,int64_t shift_val, int k_norm)
 #else
 static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y, 
                              int64_t int_2_x, int64_t int_2_y, int64_t int_x_y, 
                              int16_t knorm_fact, int16_t knorm_shift,  
-                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
 #endif                          
@@ -126,7 +127,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 
     uint32_t log_in_num_1 = get_best_u18_from_u64((uint64_t)n1, &x1);
     uint32_t log_in_num_2 = get_best_u18_from_u64((uint64_t)n2, &x2);
-    int64_t temp_numerator = (int64_t)log_18[log_in_num_1] - (int64_t)log_18[log_in_num_2];
+    int64_t temp_numerator = (int64_t)log_lut[log_in_num_1] - (int64_t)log_lut[log_in_num_2];
     int32_t temp_power_num = x1 - x2; 
 
 #if VIF_STABILITY
@@ -151,7 +152,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 
     uint32_t log_in_den_1 = get_best_u18_from_u64((uint64_t)d1, &y1);
     uint32_t log_in_den_2 = get_best_u18_from_u64((uint64_t)d2, &y2);
-    int64_t temp_denominator =  (int64_t)log_18[log_in_den_1] - (int64_t)log_18[log_in_den_2];
+    int64_t temp_denominator =  (int64_t)log_lut[log_in_den_1] - (int64_t)log_lut[log_in_den_2];
     int32_t temp_power_den = y1 - y2;
 #if VIF_STABILITY
     if (var_x < sigma_nsq)
@@ -169,7 +170,7 @@ static inline void vif_stats_calc(int32_t int_1_x, int32_t int_1_y,
 #if VIF_STABILITY
 static inline void vif_horz_integralsum(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -177,7 +178,7 @@ static inline void vif_horz_integralsum(int kw, int width_p1,
 #else
 static inline void vif_horz_integralsum(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -217,12 +218,12 @@ static inline void vif_horz_integralsum(int kw, int width_p1,
 #if VIF_STABILITY
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift, 
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift, 
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power);
 #endif
 
@@ -241,12 +242,12 @@ static inline void vif_horz_integralsum(int kw, int width_p1,
 #if VIF_STABILITY
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift, 
-                        exp, sigma_nsq, log_18, 
+                        exp, sigma_nsq, log_lut, 
                         score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift, 
-                        exp, sigma_nsq, log_18, 
+                        exp, sigma_nsq, log_lut, 
                         score_num, num_power, score_den, den_power);
 #endif
     }

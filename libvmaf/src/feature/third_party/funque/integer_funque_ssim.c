@@ -69,7 +69,7 @@ static inline int16_t ms_ssim_get_best_i16_from_u32(uint32_t temp, int *x)
 
 const double int_exps[5] = {0.0448000000, 0.2856000000, 0.3001000000, 0.2363000000, 0.1333000000};
 
-int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, double *score,
+int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, SsimScore_int *score,
                                   int max_val, float K1, float K2, int pending_div,
                                   int32_t *div_lookup)
 {
@@ -103,13 +103,10 @@ int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, doubl
     ssim_inter_dtype var_x_band0, var_y_band0, cov_xy_band0;
     ssim_inter_dtype l_num, l_den, cs_num, cs_den;
 
-#if ENABLE_MINK3POOL
     ssim_accum_dtype rowcube_1minus_map = 0;
     double accumcube_1minus_map = 0;
     const ssim_inter_dtype const_1 = 32768;  //div_Q_factor>>SSIM_SHIFT_DIV
-#else
     ssim_accum_dtype accum_map = 0;
-#endif
 
     int index = 0;
     for (int i = 0; i < height; i++)
@@ -181,25 +178,19 @@ int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, doubl
             */
             map = ((map_num >> power_val) * div_lookup[i16_map_den + 32768]) >> SSIM_SHIFT_DIV;
 
-#if ENABLE_MINK3POOL
             ssim_accum_dtype const1_minus_map = const_1 - map;
             rowcube_1minus_map += const1_minus_map * const1_minus_map * const1_minus_map;
-#else
             accum_map += map;
-#endif
         }
-#if ENABLE_MINK3POOL
         accumcube_1minus_map += (double) rowcube_1minus_map;
         rowcube_1minus_map = 0;
-#endif
     }
 
-#if ENABLE_MINK3POOL
     double ssim_val = 1 - cbrt(accumcube_1minus_map/(width*height))/const_1;
-    *score = ssim_clip(ssim_val, 0, 1);
-#else
-    *score = (double) accum_map / (height * width) / (1 << SSIM_SHIFT_DIV);
-#endif
+    score->mink3 = ssim_clip(ssim_val, 0, 1);
+
+    score->mean = (double) accum_map / (height * width) / (1 << SSIM_SHIFT_DIV);
+
     ret = 0;
 
     return ret;
@@ -207,52 +198,26 @@ int integer_compute_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist, doubl
 
 int integer_compute_ms_ssim_funque_c(i_dwt2buffers *ref, i_dwt2buffers *dist,
                                      MsSsimScore_int *score, int max_val, float K1, float K2,
-                                     int pending_div, int32_t *div_lookup, int n_levels, int is_pyr)
+                                     int pending_div_c1, int pending_div_c2, int pending_div_offset, 
+                                     int pending_div_halfround, int32_t *div_lookup, int n_levels, int is_pyr)
 {
+#if BAND_HVD_SAME_PENDING_DIV
+    UNUSED(pending_div_halfround);
+    UNUSED(pending_div_offset);
+#endif
+
     int ret = 1;
 
     int cum_array_width = (ref->width) * (1 << n_levels);
     // int win_dim = (1 << n_levels);          // 2^L
     int win_size = (n_levels << 1);
-    int win_size_c2 = win_size;
-    pending_div = pending_div >> (n_levels - 1);
-    int pending_div_c1 = pending_div;
-    int pending_div_c2 = pending_div;
-    int pending_div_offset = 0;
-    int pending_div_halfround = 0;
+    int win_size_c2 = (is_pyr) ? 2 : win_size;
     int width = ref->width;
     int height = ref->height;
 
     int32_t *var_x_cum = *(score->var_x_cum);
     int32_t *var_y_cum = *(score->var_y_cum);
     int32_t *cov_xy_cum = *(score->cov_xy_cum);
-
-    if(is_pyr) {
-        win_size_c2 = 2;
-        pending_div_c1 = (1 << i_nadenau_pending_div_factors[n_levels - 1][0]) * 255;
-        pending_div_c2 =
-            (1 << (i_nadenau_pending_div_factors[n_levels - 1][1] + (n_levels - 1))) * 255;
-        pending_div_offset = 2 * (i_nadenau_pending_div_factors[n_levels - 1][3] -
-                                  i_nadenau_pending_div_factors[n_levels - 1][1]);
-        pending_div_halfround = (pending_div_offset == 0) ? 0 : (1 << (pending_div_offset - 1));
-        if((n_levels > 1)) {
-            int index_cum = 0;
-            int shift_cums = 2 * (i_nadenau_pending_div_factors[n_levels - 2][1] -
-                                  i_nadenau_pending_div_factors[n_levels - 1][1] - 1);
-            for(int i = 0; i < height; i++) {
-                for(int j = 0; j < width; j++) {
-                    var_x_cum[index_cum] =
-                        (var_x_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
-                    var_y_cum[index_cum] =
-                        (var_y_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
-                    cov_xy_cum[index_cum] =
-                        (cov_xy_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
-                    index_cum++;
-                }
-                index_cum += (cum_array_width - width);
-            }
-        }
-    }
 
     int64_t c1_mul = (((int64_t) pending_div_c1 * pending_div_c1) >> (SSIM_INTER_L_SHIFT));
     int64_t c2_mul = (((int64_t) pending_div_c2 * pending_div_c2) >>
@@ -494,6 +459,26 @@ int integer_mean_2x2_ms_ssim_funque_c(int32_t *var_x_cum, int32_t *var_y_cum, in
     return ret;
 }
 
+int integer_ms_ssim_shift_cum_buffer_funque_c(int32_t *var_x_cum, int32_t *var_y_cum, int32_t *cov_xy_cum,
+                                              int width, int height, int level, uint8_t csf_pending_div[4],
+                                              uint8_t csf_pending_div_lp1[4])
+{
+    int cum_array_width = width * (1 << (level + 1));
+    int index_cum = 0;
+    int shift_cums = 2 * (csf_pending_div[1] - csf_pending_div_lp1[1] - 1);
+
+    for(int i = 0; i < height; i++) {
+        for(int j = 0; j < width; j++) {
+            var_x_cum[index_cum] = (var_x_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            var_y_cum[index_cum] = (var_y_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            cov_xy_cum[index_cum] = (cov_xy_cum[index_cum] + (1 << (shift_cums - 1))) >> shift_cums;
+            index_cum++;
+        }
+        index_cum += (cum_array_width - width);
+    }
+    return 0;
+}
+
 int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
 {
     int ret = 1;
@@ -506,7 +491,6 @@ int integer_compute_ms_ssim_mean_scales(MsSsimScore_int *score, int n_levels)
 
     double cum_prod_mink3[5] = {0};
     double cum_prod_concat_mink3[5] = {0};
-    double ms_ssim_mink3_scales[5] = {0};
 
     float sign_cum_prod_mean = (score[0].cs_mean) >= 0 ? 1 : -1;
     float sign_cum_prod_cov = (score[0].cs_cov) >= 0 ? 1 : -1;

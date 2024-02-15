@@ -42,14 +42,14 @@
 static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_512, __m512i int_2_x0_512, __m512i int_2_x4_512,
                              __m512i int_2_y0_512, __m512i int_2_y4_512, __m512i int_x_y0_512, __m512i int_x_y4_512,
                              int16_t knorm_fact, int16_t knorm_shift,  
-                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power,int64_t shift_val, int k_norm)
 #else
 static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_512, __m512i int_2_x0_512, __m512i int_2_x4_512,
                              __m512i int_2_y0_512, __m512i int_2_y4_512, __m512i int_x_y0_512, __m512i int_x_y4_512,
                              int16_t knorm_fact, int16_t knorm_shift,  
-                             int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                             int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                              int64_t *score_num, int64_t *num_power,
                              int64_t *score_den, int64_t *den_power)
 #endif
@@ -250,13 +250,13 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
     log_in_num_2_0 = _mm512_srav_epi64(n2_0, x2_0);
     log_in_num_2_4 = _mm512_srav_epi64(n2_4, x2_4);
 
-    __m512i log_18_1_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_1_0, log_18, 4));
-    __m512i log_18_1_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_1_4, log_18, 4));
-    __m512i log_18_2_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_2_0, log_18, 4));
-    __m512i log_18_2_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_2_4, log_18, 4));
+    __m512i log_lut_1_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_1_0, log_lut, 4));
+    __m512i log_lut_1_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_1_4, log_lut, 4));
+    __m512i log_lut_2_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_2_0, log_lut, 4));
+    __m512i log_lut_2_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_num_2_4, log_lut, 4));
 
-    __m512i log_18_0 = _mm512_sub_epi64(log_18_1_0, log_18_2_0);
-    __m512i log_18_4 = _mm512_sub_epi64(log_18_1_4, log_18_2_4);
+    __m512i log_lut_0 = _mm512_sub_epi64(log_lut_1_0, log_lut_2_0);
+    __m512i log_lut_4 = _mm512_sub_epi64(log_lut_1_4, log_lut_2_4);
 
     __m512i x1 = _mm512_sub_epi64(x1_0, x2_0);
     __m512i x2 = _mm512_sub_epi64(x1_4, x2_4);
@@ -265,8 +265,8 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
     __mmask8 cov_xy0_lt_z = _mm512_cmplt_epi64_mask(g_num_0, zero_512);
     __mmask8 cov_xy4_lt_z = _mm512_cmplt_epi64_mask(g_num_4, zero_512);
 
-    log_18_0 = _mm512_mask_blend_epi32(cov_xy0_lt_z, log_18_0, zero_512);
-    log_18_4 = _mm512_mask_blend_epi32(cov_xy4_lt_z, log_18_4, zero_512);
+    log_lut_0 = _mm512_mask_blend_epi32(cov_xy0_lt_z, log_lut_0, zero_512);
+    log_lut_4 = _mm512_mask_blend_epi32(cov_xy4_lt_z, log_lut_4, zero_512);
     x1 = _mm512_mask_blend_epi64(cov_xy0_lt_z, x1, zero_512);
     x2 = _mm512_mask_blend_epi64(cov_xy4_lt_z, x2, zero_512);
     
@@ -288,14 +288,14 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
     __m512i tmp_num_0 = _mm512_sub_epi64(shift_val_sq_mul_k_norm_512, var_y0_mul_4);
     __m512i tmp_num_4 = _mm512_sub_epi64(shift_val_sq_mul_k_norm_512, var_y4_mul_4);
     
-    log_18_0 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, log_18_0, tmp_num_0);
-    log_18_4 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, log_18_4, tmp_num_4);
+    log_lut_0 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, log_lut_0, tmp_num_0);
+    log_lut_4 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, log_lut_4, tmp_num_4);
     x1 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, x1, zero_512);
     x2 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, x2, zero_512);
 #endif
 
-    log_18_0 = _mm512_add_epi64(log_18_0, log_18_4);
-    __m256i r4 = _mm256_add_epi64(_mm512_castsi512_si256(log_18_0), _mm512_extracti64x4_epi64(log_18_0, 1));
+    log_lut_0 = _mm512_add_epi64(log_lut_0, log_lut_4);
+    __m256i r4 = _mm256_add_epi64(_mm512_castsi512_si256(log_lut_0), _mm512_extracti64x4_epi64(log_lut_0, 1));
     __m128i r2 = _mm_add_epi64(_mm256_castsi256_si128(r4), _mm256_extracti64x2_epi64(r4, 1));
     int64_t temp_num = _mm_extract_epi64(r2, 0) + _mm_extract_epi64(r2, 1);
 
@@ -339,25 +339,25 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
     log_in_den_1_4 = _mm512_sllv_epi64(log_in_den_1_4, y1_4_neg);
     log_in_den_2_0 = _mm512_sllv_epi64(log_in_den_2_0, y2_0_neg);
 
-    log_18_1_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_1_0, log_18, 4));
-    log_18_1_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_1_4, log_18, 4));
-    log_18_2_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_2_0, log_18, 4));
-    log_18_2_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_2_0, log_18, 4));
+    log_lut_1_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_1_0, log_lut, 4));
+    log_lut_1_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_1_4, log_lut, 4));
+    log_lut_2_0 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_2_0, log_lut, 4));
+    log_lut_2_4 = _mm512_cvtepi32_epi64(_mm512_i64gather_epi32(log_in_den_2_0, log_lut, 4));
 
-    log_18_0 = _mm512_sub_epi64(log_18_1_0, log_18_2_0);
-    log_18_4 = _mm512_sub_epi64(log_18_1_4, log_18_2_4);
+    log_lut_0 = _mm512_sub_epi64(log_lut_1_0, log_lut_2_0);
+    log_lut_4 = _mm512_sub_epi64(log_lut_1_4, log_lut_2_4);
 
     __m512i y1 = _mm512_sub_epi64(y1_0, y2_0);
     __m512i y2 = _mm512_sub_epi64(y1_4, y2_0);
 #if VIF_STABILITY
-    log_18_0 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, log_18_0, shift_val_sq_mul_k_norm_512);
-    log_18_4 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, log_18_4, shift_val_sq_mul_k_norm_512);
+    log_lut_0 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, log_lut_0, shift_val_sq_mul_k_norm_512);
+    log_lut_4 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, log_lut_4, shift_val_sq_mul_k_norm_512);
     y1 = _mm512_mask_blend_epi64(mask_var_x0_lt_sigma, y1, zero_512);
     y2 = _mm512_mask_blend_epi64(mask_var_x4_lt_sigma, y2, zero_512);
 #endif
 
-    log_18_0 = _mm512_add_epi64(log_18_0, log_18_4);
-    r4 = _mm256_add_epi64(_mm512_castsi512_si256(log_18_0), _mm512_extracti64x4_epi64(log_18_0, 1));
+    log_lut_0 = _mm512_add_epi64(log_lut_0, log_lut_4);
+    r4 = _mm256_add_epi64(_mm512_castsi512_si256(log_lut_0), _mm512_extracti64x4_epi64(log_lut_0, 1));
     r2 = _mm_add_epi64(_mm256_castsi256_si128(r4), _mm256_extracti64x2_epi64(r4, 1));
     int64_t temp_den = _mm_extract_epi64(r2, 0) + _mm_extract_epi64(r2, 1);
 
@@ -374,18 +374,18 @@ static inline void vif_stats_calc_avx512(__m512i int_1_x_512, __m512i int_1_y_51
 int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18, int vif_level);
+                                 int64_t shift_val, uint32_t* log_lut, int vif_level);
 #else
 int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18);
+                                 int64_t shift_val, uint32_t* log_lut);
 #endif
 
 #if VIF_STABILITY
 static inline void vif_horz_integralsum_avx512(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -393,7 +393,7 @@ static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
 #else
 static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
                                    int16_t knorm_fact, int16_t knorm_shift,
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -468,12 +468,12 @@ static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
 #if VIF_STABILITY
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift,
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift,
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power);
 #endif
 
@@ -640,13 +640,13 @@ static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
         vif_stats_calc_avx512( int_1_x_512, int_1_y_512, int_2_x0_512, int_2_x1_512, 
                         int_2_y0_512, int_2_y1_512, int_x_y0_512, int_x_y1_512,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
         vif_stats_calc_avx512( int_1_x_512, int_1_y_512, int_2_x0_512, int_2_x1_512, 
                         int_2_y0_512, int_2_y1_512, int_x_y0_512, int_x_y1_512,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
 
 #endif
@@ -679,12 +679,12 @@ static inline void vif_horz_integralsum_avx512(int kw, int width_p1,
 #if VIF_STABILITY
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
 #endif
     }

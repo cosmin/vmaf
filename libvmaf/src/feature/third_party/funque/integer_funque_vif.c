@@ -27,17 +27,6 @@
 #include "common/macros.h"
 #include "integer_funque_vif.h"
 
-// just change the store offset to reduce multiple calculation when getting log value
-void funque_log_generate(uint32_t* log_18)
-{
-    uint64_t i;
-    uint64_t start = (unsigned int)pow(2, 17);
-    uint64_t end = (unsigned int)pow(2, 18);
-    for (i = start; i < end; i++)
-    {
-        log_18[i] = (uint32_t)round(log2((double)i) * (1 << 26));
-    }
-}
 
 void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int reflect, dwt2_dtype* dest)
 {
@@ -67,12 +56,12 @@ void integer_reflect_pad(const dwt2_dtype* src, size_t width, size_t height, int
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18, int vif_level)
+                                 int64_t shift_val, uint32_t* log_lut, int vif_level)
 #else
 int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18)
+                                 int64_t shift_val, uint32_t* log_lut)
 #endif
 {
     int ret = 1;
@@ -191,13 +180,13 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
 
 #if VIF_STABILITY
         vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
-                             exp_t, sigma_nsq_t, log_18,
+                             exp_t, sigma_nsq_t, log_lut,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power, shift_val, k_norm);
 #else
         vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift, 
-                             exp_t, sigma_nsq_t, log_18,
+                             exp_t, sigma_nsq_t, log_lut,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
@@ -243,14 +232,14 @@ int integer_compute_vif_funque_c(const dwt2_dtype* x_t, const dwt2_dtype* y_t, s
             //horizontal summation and score compuations
 #if VIF_STABILITY
             vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
-                                 exp_t, sigma_nsq_t, log_18, 
+                                 exp_t, sigma_nsq_t, log_lut, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
                                  &score_den_t, &den_power, shift_val, k_norm);
 #else
             vif_horz_integralsum(kw, width_p1, knorm_fact, knorm_shift,  
-                                 exp_t, sigma_nsq_t, log_18, 
+                                 exp_t, sigma_nsq_t, log_lut, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
