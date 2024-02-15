@@ -128,6 +128,7 @@ int compute_ms_ssim_funque(dwt2buffers* ref, dwt2buffers* dist, MsSsimScore* sco
     double ssim_sum = 0;
     double l_sum = 0;
     double cs_sum = 0;
+
     int index = 0;
     int index_cum = 0;
     for(int i = 0; i < height; i++) {
