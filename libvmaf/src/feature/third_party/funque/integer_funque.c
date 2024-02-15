@@ -639,8 +639,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_c;
     s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
     s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_c;
-    s->modules.integer_compute_motion_funque = integer_compute_motion_funque_c;
-    s->modules.integer_compute_mad_funque = integer_compute_mad_funque_c;
+    s->modules.integer_compute_motion_funque = integer_compute_motion_funque;
     s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
     s->modules.integer_adm_integralimg_numscore = integer_adm_integralimg_numscore_c;
     s->modules.integer_compute_vif_funque = integer_compute_vif_funque_c;
@@ -694,7 +693,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
@@ -728,7 +726,6 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx2;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx2;
         s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_avx2;
-        s->modules.integer_compute_motion_funque =         s->modules.integer_funque_image_mad = integer_funque_image_mad_avx2;
         s->resize_module.resizer_step = step_avx2;
         s->resize_module.hbd_resizer_step = hbd_step_avx2;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx2;
@@ -750,7 +747,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
@@ -775,7 +772,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_compute_ms_ssim_funque = integer_compute_ms_ssim_funque_avx512;
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_avx512;
         s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_avx512;
-        s->modules.integer_compute_motion_funque = integer_adm_decouple_avx512;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque;
         s->resize_module.resizer_step = step_avx512;
         s->resize_module.hbd_resizer_step = hbd_step_avx512;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_avx512;
@@ -798,7 +795,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
         s->modules.integer_mean_2x2_ms_ssim_funque = integer_mean_2x2_ms_ssim_funque_c;
         s->modules.integer_ms_ssim_shift_cum_buffer_funque = integer_ms_ssim_shift_cum_buffer_funque_c;
         s->modules.integer_funque_adm_decouple = integer_adm_decouple_c;
-        s->modules.integer_funque_image_mad = integer_funque_image_mad_c;
+        s->modules.integer_compute_motion_funque = integer_compute_motion_funque;
         s->resize_module.resizer_step = step;
         s->resize_module.hbd_resizer_step = hbd_step;
         s->modules.integer_compute_strred_funque = integer_compute_strred_funque_c;
@@ -1338,10 +1335,6 @@ static int extract(VmafFeatureExtractor *fex,
 
         err |= vmaf_feature_collector_append_with_dict(
             feature_collector, s->feature_name_dict,
-            "FUNQUE_integer_feature_ms_ssim_cov_scale0_score", s->score[0].ms_ssim_cov, index);
-
-        err |= vmaf_feature_collector_append_with_dict(
-            feature_collector, s->feature_name_dict,
             "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score", s->score[0].ms_ssim_mink3, index);
 
         if(s->ms_ssim_levels > 1) {
@@ -1349,10 +1342,6 @@ static int extract(VmafFeatureExtractor *fex,
                 feature_collector, s->feature_name_dict,
                 "FUNQUE_integer_feature_ms_ssim_mean_scale1_score", s->score[1].ms_ssim_mean,
                 index);
-
-            err |= vmaf_feature_collector_append_with_dict(
-                feature_collector, s->feature_name_dict,
-                "FUNQUE_integer_feature_ms_ssim_cov_scale1_score", s->score[1].ms_ssim_cov, index);
 
             err |= vmaf_feature_collector_append_with_dict(
                 feature_collector, s->feature_name_dict,
@@ -1367,11 +1356,6 @@ static int extract(VmafFeatureExtractor *fex,
 
                 err |= vmaf_feature_collector_append_with_dict(
                     feature_collector, s->feature_name_dict,
-                    "FUNQUE_integer_feature_ms_ssim_cov_scale2_score", s->score[2].ms_ssim_cov,
-                    index);
-
-                err |= vmaf_feature_collector_append_with_dict(
-                    feature_collector, s->feature_name_dict,
                     "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score", s->score[2].ms_ssim_mink3,
                     index);
 
@@ -1380,11 +1364,6 @@ static int extract(VmafFeatureExtractor *fex,
                         feature_collector, s->feature_name_dict,
                         "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
                         s->score[3].ms_ssim_mean, index);
-
-                    err |= vmaf_feature_collector_append_with_dict(
-                        feature_collector, s->feature_name_dict,
-                        "FUNQUE_integer_feature_ms_ssim_cov_scale3_score", s->score[3].ms_ssim_cov,
-                        index);
 
                     err |= vmaf_feature_collector_append_with_dict(
                         feature_collector, s->feature_name_dict,
@@ -1461,10 +1440,6 @@ static const char *provided_features[] = {
     "FUNQUE_integer_feature_ms_ssim_mean_scale1_score",
     "FUNQUE_integer_feature_ms_ssim_mean_scale2_score",
     "FUNQUE_integer_feature_ms_ssim_mean_scale3_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale0_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale1_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale2_score",
-    "FUNQUE_integer_feature_ms_ssim_cov_scale3_score",
     "FUNQUE_integer_feature_ms_ssim_mink3_scale0_score",
     "FUNQUE_integer_feature_ms_ssim_mink3_scale1_score",
     "FUNQUE_integer_feature_ms_ssim_mink3_scale2_score",

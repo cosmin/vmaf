@@ -312,8 +312,6 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     ssim_accum_dtype accum_l = 0;
     ssim_accum_dtype accum_cs = 0;
     ssim_accum_dtype accum_sq_map = 0;
-    ssim_accum_dtype accum_sq_l = 0;
-    ssim_accum_dtype accum_sq_cs = 0;
     ssim_accum_dtype map_sq = 0;
 
     ssim_inter_dtype mink3_const = 32768;  // 2^15
@@ -558,8 +556,7 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
             accum_l += l;
             accum_cs += cs;
             accum_map += map;
-            accum_sq_l += (l * l);
-            accum_sq_cs += (cs * cs);
+
             map_sq = ((int64_t) map * map) >> SSIM_SQ_ROW_SHIFT;
             row_accum_sq_map += map_sq;
 
@@ -588,19 +585,10 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     double cs_mean = (double) accum_cs / (height * width);
     double ssim_mean = (double) accum_map / (height * width);
 
-    double l_var = ((double) accum_sq_l / (height * width)) - (l_mean * l_mean);
-    double cs_var = ((double) accum_sq_cs / (height * width)) - (cs_mean * cs_mean);
     double inter_shift_sq = 1 << (SSIM_SQ_ROW_SHIFT + SSIM_SQ_COL_SHIFT);
     double ssim_var =
         (((double) accum_sq_map / (height * width)) * inter_shift_sq) - ((ssim_mean * ssim_mean));
 
-    double l_std = sqrt(l_var);
-    double cs_std = sqrt(cs_var);
-    double ssim_std = sqrt(ssim_var);
-
-    double l_cov = l_std / l_mean;
-    double cs_cov = cs_std / cs_mean;
-    double ssim_cov = ssim_std / ssim_mean;
 
     double mink3_cbrt_const_l = pow(2, (39 / 3));
     double mink3_cbrt_const_cs = pow(2, (38.0 / 3));
@@ -613,9 +601,6 @@ int integer_compute_ms_ssim_funque_neon(i_dwt2buffers *ref, i_dwt2buffers *dist,
     score->ssim_mean = ssim_mean / (1 << (SSIM_SHIFT_DIV * 2));
     score->l_mean = l_mean / (1 << SSIM_SHIFT_DIV);
     score->cs_mean = cs_mean / (1 << SSIM_SHIFT_DIV);
-    score->ssim_cov = ssim_cov;
-    score->l_cov = l_cov;
-    score->cs_cov = cs_cov;
     score->l_mink3 = l_mink3 / pow(2, (39 / 3));
     score->cs_mink3 = cs_mink3 / pow(2, (38.0 / 3));
     score->ssim_mink3 = ssim_mink3 / pow(2, (38.0 / 3));

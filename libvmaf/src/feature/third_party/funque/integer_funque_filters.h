@@ -157,7 +157,7 @@ typedef struct ModuleFunqueState
                                            int32_t *cov_xy_cum, int width, int height, int level);
     int (*integer_ms_ssim_shift_cum_buffer_funque)(int32_t *var_x_cum, int32_t *var_y_cum,
                                            int32_t *cov_xy_cum, int width, int height, int level, uint8_t csf_pending_div[4], uint8_t csf_pending_div_lp1[4]);
-    double (*integer_funque_image_mad)(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
+    double (*integer_compute_motion_funque)(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div);
     void (*integer_adm_integralimg_numscore)(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
