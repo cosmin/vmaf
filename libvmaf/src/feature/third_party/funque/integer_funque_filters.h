@@ -202,7 +202,7 @@ typedef struct ModuleFunqueState
 static const spat_fil_coeff_dtype i_nadenau_weight_coeffs[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
     {16384, 22544, 23331, 22544},
-    {16384, 27836, 22544, 27836},
+    {16384, 27836, 24297, 27836},
 #else
     {16384, 22544, 23331, 22544},
     {16384, 27836, 24297, 27836},
@@ -244,7 +244,7 @@ static const spat_fil_coeff_dtype i_li_coeffs[4][4] = {
 };
 
 static const uint8_t i_li_interim_shift[4][4] = {
-    {9, 12, 16, 12},
+    {9, 12, 17, 12},
     {11, 12, 14, 12},
     {13, 13, 14, 13},
     {13, 13, 13, 13}
