@@ -48,7 +48,7 @@ typedef struct MsSsimScore {
 
 static inline double ssim_clip(double value, double low, double high)
 {
-  return value < low ? low : (value > high ? high : value);
+    return value < low ? low : (value > high ? high : value);
 }
 
 #endif //FUNQUE_SSIM_OPTIONS_H_

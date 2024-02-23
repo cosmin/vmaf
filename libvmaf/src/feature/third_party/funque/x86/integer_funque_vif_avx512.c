@@ -36,12 +36,12 @@
 int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18, int vif_level)
+                                 int64_t shift_val, uint32_t* log_lut, int vif_level)
 #else
 int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18)
+                                 int64_t shift_val, uint32_t* log_lut)
 #endif
 {
     int ret = 1;
@@ -305,13 +305,13 @@ int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y
 
 #if VIF_STABILITY
         vif_horz_integralsum_avx512(kw, width_p1, knorm_fact, knorm_shift, 
-                             exp_t, sigma_nsq_t, log_18,
+                             exp_t, sigma_nsq_t, log_lut,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power, shift_val, k_norm);
 #else
         vif_horz_integralsum_avx512(kw, width_p1, knorm_fact, knorm_shift, 
-                             exp_t, sigma_nsq_t, log_18,
+                             exp_t, sigma_nsq_t, log_lut,
                              interim_1_x, interim_1_y,
                              interim_2_x, interim_2_y, interim_x_y,
                              &score_num_t, &num_power, &score_den_t, &den_power);
@@ -584,14 +584,14 @@ int integer_compute_vif_funque_avx512(const dwt2_dtype* x_t, const dwt2_dtype* y
             //horizontal summation and score compuations
 #if VIF_STABILITY
             vif_horz_integralsum_avx512(kw, width_p1, knorm_fact, knorm_shift,  
-                                 exp_t, sigma_nsq_t, log_18, 
+                                 exp_t, sigma_nsq_t, log_lut, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 
                                  &score_den_t, &den_power, shift_val, k_norm);
 #else
             vif_horz_integralsum_avx512(kw, width_p1, knorm_fact, knorm_shift,  
-                                 exp_t, sigma_nsq_t, log_18, 
+                                 exp_t, sigma_nsq_t, log_lut, 
                                  interim_1_x, interim_1_y,
                                  interim_2_x, interim_2_y, interim_x_y,
                                  &score_num_t, &num_power, 

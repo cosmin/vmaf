@@ -70,13 +70,13 @@ typedef struct u_adm_buffers
 
 int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers ref, i_dwt2buffers dist, double *adm_score, 
                                double *adm_score_num, double *adm_score_den, size_t width, size_t height, 
-                               float border_size, int32_t* adm_div_lookup);
+                               float border_size, int32_t* adm_div_lookup, float adm_pending_div);
 void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
-                          int32_t *adm_div_lookup, float border_size, double *adm_score_den);
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div);
 void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, int width, int height, 
-                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num);
+                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num, float adm_pending_div);
 void div_lookup_generator(int32_t* adm_div_lookup);
 
 static inline void adm_horz_integralsum(int k, size_t r_width_p1, 
