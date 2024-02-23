@@ -122,7 +122,7 @@ void strred_compute_entropy_scale(const double* int_1_x, const double* int_2_x, 
             var_x = (var_x < 0) ? 0 : var_x; /* Add CLIP macro */
 
             entropy[i * width + j] = log(var_x + sigma_nsq) + entr_const;
-            scale[i * width + j] = log(1 + var_x);
+            scale[i * width + j] = log(0.1 + var_x);
         }
     }
 }

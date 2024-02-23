@@ -336,7 +336,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
     }
 
     s->needed_dwt_levels = MAX5(s->vif_levels, s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
-    s->needed_full_dwt_levels = MAX(s->adm_levels, s->ssim_levels);
+    s->needed_full_dwt_levels = MAX4(s->adm_levels, s->ssim_levels, s->ms_ssim_levels, s->strred_levels);
 
     int ref_process_width, ref_process_height, dist_process_width, dist_process_height, process_wh_div_factor;
 
@@ -674,7 +674,7 @@ static int extract(VmafFeatureExtractor *fex,
         }
 
         if (!s->enable_spatial_csf) {
-            if (level < s->adm_levels || level < s->ssim_levels) {
+            if (level < s->adm_levels || level < s->ssim_levels || level < s->ms_ssim_levels || level < s->strred_levels) {
                 // we need full CSF on all bands
                 funque_dwt2_inplace_csf(&s->ref_dwt2out[level], s->csf_factors[level], 0, 3);
                 funque_dwt2_inplace_csf(&s->dist_dwt2out[level], s->csf_factors[level], 0, 3);
@@ -745,7 +745,7 @@ static int extract(VmafFeatureExtractor *fex,
     }
 
     if(s->ms_ssim_levels != 0) {
-        err |= compute_ms_ssim_mean_scales(ms_ssim_score, s->ssim_levels);
+        err |= compute_ms_ssim_mean_scales(ms_ssim_score, s->ms_ssim_levels);
     }
 
     double vif = vif_den > 0 ? vif_num / vif_den : 1.0;

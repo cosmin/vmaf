@@ -44,32 +44,32 @@ void div_lookup_generator(int32_t *adm_div_lookup)
 
 void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
                                      int stride, int width, int height, 
-                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num)
+                                     adm_i32_dtype *interim_x, float border_size, double *adm_score_num, float adm_pending_div)
 {    
     int i, j, index;
 
     int64_t num_sum[3] = {0};
     double accum_num[3] = {0};
-	/**
-	DLM has the configurability of computing the metric only for the
-	centre region. currently border_size defines the percentage of pixels to be avoided
-	from all sides so that size of centre region is defined.
-	
-	*/
+    /**
+    DLM has the configurability of computing the metric only for the
+    centre region. currently border_size defines the percentage of pixels to be avoided
+    from all sides so that size of centre region is defined.
+    
+    */
     int x_reflect = (int)((k - stride) / 2) * ADM_REFLECT_PAD;
-	int border_h = (border_size * height);
+    int border_h = (border_size * height);
     int border_w = (border_size * width);
     // int loop_h, loop_w; 
     int dlm_width, dlm_height;
 
-	int extra_sample_h = 0, extra_sample_w = 0;
-	
-	/**
-	DLM has the configurability of computing the metric only for the
-	centre region. currently border_size defines the percentage of pixels to be avoided
-	from all sides so that size of centre region is defined.
+    int extra_sample_h = 0, extra_sample_w = 0;
+    
+    /**
+    DLM has the configurability of computing the metric only for the
+    centre region. currently border_size defines the percentage of pixels to be avoided
+    from all sides so that size of centre region is defined.
 
-	*/	
+    */    
 #if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
@@ -78,18 +78,18 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
     extra_sample_h = 1;
 #endif
 
-	border_h -= extra_sample_h;
-	border_w -= extra_sample_w;
+    border_h -= extra_sample_h;
+    border_w -= extra_sample_w;
 
 #if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
     border_h = MAX(1,border_h);
     border_w = MAX(1,border_w);
 #endif
-	
-	
-	dlm_height = height - (border_h << 1);
-	dlm_width = width - (border_w << 1);
+    
+    
+    dlm_height = height - (border_h << 1);
+    dlm_width = width - (border_w << 1);
     
     int r_width = dlm_width + (2 * x_reflect);
     int r_height = dlm_height + (2 * x_reflect);
@@ -169,12 +169,12 @@ void integer_adm_integralimg_numscore_c(i_dwt2buffers pyr_1, int32_t *x_pad, int
     {
         num_band += powf(accum_num[band-1], 1.0/3.0);
     }
-    *adm_score_num = num_band + 1e-4;
+    *adm_score_num = (num_band / (adm_pending_div / powf((double)(256), 1.0 / 3.0)) / 30) + 1e-4;
 }
 
 void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
-                          int32_t *adm_div_lookup, float border_size, double *adm_score_den)
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div)
 {
     // const float cos_1deg_sq = COS_1DEG_SQ;
 
@@ -189,20 +189,20 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
     int border_h = (border_size * height);
     int border_w = (border_size * width);
 
-	double den_sum[3] = {0};
+    double den_sum[3] = {0};
     int64_t den_row_sum[3] = {0};
     int64_t col0_ref_cube[3] = {0};
     int loop_h, loop_w, dlm_width, dlm_height;
-	int extra_sample_h = 0, extra_sample_w = 0;
+    int extra_sample_h = 0, extra_sample_w = 0;
 
-	adm_i64_dtype den_cube[3] = {0};
+    adm_i64_dtype den_cube[3] = {0};
 
 
-	/**
-	DLM has the configurability of computing the metric only for the
-	centre region. currently border_size defines the percentage of pixels to be avoided
-	from all sides so that size of centre region is defined.
-	*/
+    /**
+    DLM has the configurability of computing the metric only for the
+    centre region. currently border_size defines the percentage of pixels to be avoided
+    from all sides so that size of centre region is defined.
+    */
 #if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
@@ -211,9 +211,9 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
     extra_sample_h = 1;
 
 #endif
-	
-	border_h -= extra_sample_h;
-	border_w -= extra_sample_w;
+    
+    border_h -= extra_sample_h;
+    border_w -= extra_sample_w;
 
 #if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
@@ -223,11 +223,11 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
 
     loop_h = height - border_h;
     loop_w = width - border_w;
-	
-	dlm_height = height - (border_h << 1);
-	dlm_width = width - (border_w << 1);
+    
+    dlm_height = height - (border_h << 1);
+    dlm_width = width - (border_w << 1);
 
-	//The width of i_dlm_add buffer will be extra only if padding is enabled
+    //The width of i_dlm_add buffer will be extra only if padding is enabled
     int dlm_add_w = dlm_width  + (ADM_REFLECT_PAD << 1);
     // int dlm_add_h = dlm_height + (ADM_REFLECT_PAD << 1);
 
@@ -248,7 +248,7 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
             //If padding is enabled the computation of i_dlm_add will be from 1,1 & later padded
             addIndex = (i + ADM_REFLECT_PAD - border_h) * (dlm_add_w) + j + ADM_REFLECT_PAD - border_w;
 
-			restIndex = (i - border_h) * (dlm_width) + j - border_w;
+            restIndex = (i - border_h) * (dlm_width) + j - border_w;
             ot_dp = ((adm_i32_dtype)ref.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * dist.bands[2][index]);
             o_mag_sq = ((adm_i32_dtype)ref.bands[1][index] * ref.bands[1][index]) + ((adm_i32_dtype)ref.bands[2][index] * ref.bands[2][index]);
             t_mag_sq = ((adm_i32_dtype)dist.bands[1][index] * dist.bands[1][index]) + ((adm_i32_dtype)dist.bands[2][index] * dist.bands[2][index]);
@@ -301,24 +301,24 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
         den_row_sum[2] = 0;
 
         if(!extra_sample_w)
-		{
-			addIndex = (i + 1 - border_h) * (dlm_add_w);
+        {
+            addIndex = (i + 1 - border_h) * (dlm_add_w);
 
-			i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
-			i_dlm_add[addIndex + dlm_width + 1] = i_dlm_add[addIndex + dlm_width - 1];
-		}			
+            i_dlm_add[addIndex + 0] = i_dlm_add[addIndex + 2];
+            i_dlm_add[addIndex + dlm_width + 1] = i_dlm_add[addIndex + dlm_width - 1];
+        }            
     }
 
-	if(!extra_sample_h)
-	{
-		int row2Idx = 2 * (dlm_add_w);
-		int rowLast2Idx = (dlm_height - 1) * (dlm_add_w);
-		int rowLastPadIdx = (dlm_height + 1) * (dlm_add_w);
+    if(!extra_sample_h)
+    {
+        int row2Idx = 2 * (dlm_add_w);
+        int rowLast2Idx = (dlm_height - 1) * (dlm_add_w);
+        int rowLastPadIdx = (dlm_height + 1) * (dlm_add_w);
 
-		memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (dlm_add_w));
+        memcpy(&i_dlm_add[0], &i_dlm_add[row2Idx], sizeof(int32_t) * (dlm_add_w));
 
-		memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_width+2));
-	}
+        memcpy(&i_dlm_add[rowLastPadIdx], &i_dlm_add[rowLast2Idx], sizeof(int32_t) * (dlm_width+2));
+    }
     
     //Calculating denominator score
     double den_band = 0;
@@ -328,30 +328,30 @@ void integer_adm_decouple_c(i_dwt2buffers ref, i_dwt2buffers dist,
         den_band += powf((double)(accum_den), 1.0 / 3.0);
     }
     // compensation for the division by thirty in the numerator
-    *adm_score_den = (den_band * 30) + 1e-4;
+    *adm_score_den = ((den_band) / (adm_pending_div / powf((double)(256), 1.0 / 3.0))) + 1e-4;
 
 }
 
 
-int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int32_t *adm_div_lookup)
+int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2buffers i_dist, double *adm_score, double *adm_score_num, double *adm_score_den, size_t width, size_t height, float border_size, int32_t *adm_div_lookup, float adm_pending_div)
 {
     i_dwt2buffers i_dlm_rest;
     adm_i32_dtype *i_dlm_add, *interim_x;
-	int border_h = (border_size * height);
+    int border_h = (border_size * height);
     int border_w = (border_size * width);
-	// int loop_h, loop_w;
+    // int loop_h, loop_w;
     int dlm_width, dlm_height;
 
-	int extra_sample_h = 0, extra_sample_w = 0;
-	
-	/**
-	DLM has the configurability of computing the metric only for the
-	centre region. currently border_size defines the percentage of pixels to be avoided
-	from all sides so that size of centre region is defined.
-	
-	*/	
-	
-	// add one sample on the boundary to account for integral image calculation
+    int extra_sample_h = 0, extra_sample_w = 0;
+    
+    /**
+    DLM has the configurability of computing the metric only for the
+    centre region. currently border_size defines the percentage of pixels to be avoided
+    from all sides so that size of centre region is defined.
+    
+    */    
+    
+    // add one sample on the boundary to account for integral image calculation
 #if ADM_REFLECT_PAD
     extra_sample_w = 0;
     extra_sample_h = 0;
@@ -361,8 +361,8 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 
 #endif
 
-	border_h -= extra_sample_h;
-	border_w -= extra_sample_w;
+    border_h -= extra_sample_h;
+    border_w -= extra_sample_w;
 
 #if !ADM_REFLECT_PAD
     //If reflect pad is disabled & if border_size is 0, process 1 row,col pixels lesser
@@ -373,10 +373,10 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
     // loop_h = height - border_h;
     // loop_w = width - border_w;
 
-	
-	dlm_height = height - (border_h << 1);
-	dlm_width = width - (border_w << 1);
-	
+    
+    dlm_height = height - (border_h << 1);
+    dlm_width = width - (border_w << 1);
+    
     i_dlm_rest.bands[1] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_rest.bands[2] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
     i_dlm_rest.bands[3] = (adm_i16_dtype *)malloc(sizeof(adm_i16_dtype) * dlm_height * dlm_width);
@@ -386,9 +386,9 @@ int integer_compute_adm_funque(ModuleFunqueState m, i_dwt2buffers i_ref, i_dwt2b
 
     // double row_num, accum_num = 0;
 
-    m.integer_funque_adm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den);
+    m.integer_funque_adm_decouple(i_ref, i_dist, i_dlm_rest, i_dlm_add, adm_div_lookup, border_size, adm_score_den, adm_pending_div);
 
-    m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num);
+    m.integer_adm_integralimg_numscore(i_dlm_rest, i_dlm_add, K_INTEGRALIMG_ADM, 1, width, height, interim_x, border_size, adm_score_num, adm_pending_div);
 
 
     *adm_score = (*adm_score_num) / (*adm_score_den);

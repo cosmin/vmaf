@@ -27,12 +27,12 @@
 int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18, int vif_level);
+                                 int64_t shift_val, uint32_t* log_lut, int vif_level);
 #else
 int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t, size_t width, size_t height, 
                                  double* score, double* score_num, double* score_den, 
                                  int k, int stride, double sigma_nsq_arg, 
-                                 int64_t shift_val, uint32_t* log_18);
+                                 int64_t shift_val, uint32_t* log_lut);
 #endif
 
 //This function does summation of horizontal intermediate_vertical_sums & then 
@@ -40,7 +40,7 @@ int integer_compute_vif_funque_avx2(const dwt2_dtype* x_t, const dwt2_dtype* y_t
 #if VIF_STABILITY
 static inline void vif_horz_integralsum_avx2(int kw, int width_p1, 
                                    int16_t knorm_fact, int16_t knorm_shift, 
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -48,7 +48,7 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
 #else
 static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
                                    int16_t knorm_fact, int16_t knorm_shift,
-                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_18,
+                                   int16_t exp, int32_t sigma_nsq, uint32_t *log_lut,
                                    int32_t *interim_1_x, int32_t *interim_1_y,
                                    int64_t *interim_2_x, int64_t *interim_2_y, int64_t *interim_x_y,
                                    int64_t *score_num, int64_t *num_power,
@@ -122,12 +122,12 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
 #if VIF_STABILITY
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift,
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
     vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                     knorm_fact, knorm_shift,
-                    exp, sigma_nsq, log_18,
+                    exp, sigma_nsq, log_lut,
                     score_num, num_power, score_den, den_power);
 #endif
 
@@ -213,40 +213,40 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
 #if VIF_STABILITY
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
         vif_stats_calc(int_1_x0, int_1_y0, int_2_x0, int_2_y0, int_x_y0,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x1, int_1_y1, int_2_x1, int_2_y1, int_x_y1,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x2, int_1_y2, int_2_x2, int_2_y2, int_x_y2,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x3, int_1_y3, int_2_x3, int_2_y3, int_x_y3,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x4, int_1_y4, int_2_x4, int_2_y4, int_x_y4,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x5, int_1_y5, int_2_x5, int_2_y5, int_x_y5,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x6, int_1_y6, int_2_x6, int_2_y6, int_x_y6,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
         vif_stats_calc(int_1_x7, int_1_y7, int_2_x7, int_2_y7, int_x_y7,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
 #endif
 
@@ -280,12 +280,12 @@ static inline void vif_horz_integralsum_avx2(int kw, int width_p1,
 #if VIF_STABILITY
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power, shift_val, k_norm);
 #else
         vif_stats_calc(int_1_x, int_1_y, int_2_x, int_2_y, int_x_y,
                         knorm_fact, knorm_shift,
-                        exp, sigma_nsq, log_18,
+                        exp, sigma_nsq, log_lut,
                         score_num, num_power, score_den, den_power);
 #endif
     }
