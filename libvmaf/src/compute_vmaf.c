@@ -293,7 +293,7 @@ int compute_vmaf(double* vmaf_score, char* fmt, int width, int height,
         vmaf_log(VMAF_LOG_LEVEL_WARNING, "use default log_fmt xml");
     }
     if (output_fmt) {
-        vmaf_use_vmafossexec_aliases();
+        //vmaf_use_vmafossexec_aliases();
         err = vmaf_write_output(vmaf, log_path, output_fmt);
         if (err) {
             vmaf_log(VMAF_LOG_LEVEL_ERROR,
