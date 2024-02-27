@@ -171,36 +171,13 @@ void subract_subbands(const float* ref_src, const float* ref_prev_src, float* re
     }
 }
 
-int copy_prev_frame_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
-                                  struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
-                                  size_t width, size_t height)
-{
-    int subband;
-    int total_subbands = DEFAULT_STRRED_SUBBANDS;
-
-    for(subband = 1; subband < total_subbands; subband++) {
-        memcpy(prev_ref->bands[subband], ref->bands[subband], width * height * sizeof(float));
-        memcpy(prev_dist->bands[subband], dist->bands[subband], width * height * sizeof(float));
-    }
-    prev_ref->width = ref->width;
-    prev_ref->height = ref->height;
-    prev_ref->stride = ref->stride;
-
-    prev_dist->width = dist->width;
-    prev_dist->height = dist->height;
-    prev_dist->stride = dist->stride;
-
-    return 0;
-}
-
-int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
-                          struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
-                          size_t width, size_t height, struct strred_results* strred_scores,
-                          int block_size, int level)
+int compute_srred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
+                         size_t width, size_t height, float** spat_scales_ref,
+                         float** spat_scales_dist, struct strred_results* strred_scores,
+                         int block_size, int level)
 {
     size_t subband;
     float spat_abs, spat_values[DEFAULT_STRRED_SUBBANDS];
-    float temp_abs, temp_values[DEFAULT_STRRED_SUBBANDS];
 
     size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
     size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
@@ -209,10 +186,6 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
 
     float* entropies_ref = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
     float* entropies_dist = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
-    float* spat_scales_ref = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
-    float* spat_scales_dist = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
-    float* temp_scales_ref = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
-    float* temp_scales_dist = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
     float* spat_aggregate = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
 
     for(subband = 1; subband < total_subbands; subband++) {
@@ -220,15 +193,15 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
         spat_abs = 0;
 
         rred_entropies_and_scales(ref->bands[subband], block_size, width, height, entropies_ref,
-                                  spat_scales_ref);
+                                  spat_scales_ref[subband]);
         rred_entropies_and_scales(dist->bands[subband], block_size, width, height, entropies_dist,
-                                  spat_scales_dist);
+                                  spat_scales_dist[subband]);
 
         for(i = 0; i < r_height; i++) {
             for(j = 0; j < r_width; j++) {
                 spat_aggregate[i * r_width + j] =
-                    entropies_ref[i * r_width + j] * spat_scales_ref[i * r_width + j] -
-                    entropies_dist[i * r_width + j] * spat_scales_dist[i * r_width + j];
+                    entropies_ref[i * r_width + j] * spat_scales_ref[subband][i * r_width + j] -
+                    entropies_dist[i * r_width + j] * spat_scales_dist[subband][i * r_width + j];
             }
         }
 
@@ -238,6 +211,47 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             }
         }
         spat_values[subband] = spat_abs / (height * width);
+    }
+
+    strred_scores->spat_vals[level] = (spat_values[1] + spat_values[2] + spat_values[3]) / 3;
+
+    // Add equations to compute S-RRED using norm factors
+    int norm_factor = 1, num_level;
+    for(num_level = 0; num_level <= level; num_level++)
+        norm_factor = num_level + 1;
+
+    strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
+
+    strred_scores->srred_vals[level] = strred_scores->spat_vals_cumsum / norm_factor;
+
+    free(entropies_ref);
+    free(entropies_dist);
+    free(spat_aggregate);
+
+    return 0;
+}
+
+int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffers* dist,
+                          struct strredbuffers* prev_ref, struct strredbuffers* prev_dist,
+                          size_t width, size_t height, float** spat_scales_ref,
+                          float** spat_scales_dist, struct strred_results* strred_scores,
+                          int block_size, int level)
+{
+    size_t subband;
+    float temp_abs, temp_values[DEFAULT_STRRED_SUBBANDS];
+
+    size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
+    size_t x_reflect = (size_t) ((STRRED_WINDOW_SIZE - 1) / 2);
+    size_t r_width = width + (2 * x_reflect);
+    size_t r_height = height + (2 * x_reflect);
+
+    float* entropies_ref = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+    float* entropies_dist = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+    float* temp_scales_ref = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+    float* temp_scales_dist = (float*) calloc((r_width + 1) * (r_height + 1), sizeof(float));
+
+    for(subband = 1; subband < total_subbands; subband++) {
+        size_t i, j;
 
         if(prev_ref != NULL && prev_dist != NULL) {
             float* ref_temporal = (float*) calloc((width) * (height), sizeof(float));
@@ -258,9 +272,9 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
             for(i = 0; i < r_height; i++) {
                 for(j = 0; j < r_width; j++) {
                     temp_aggregate[i * r_width + j] =
-                        entropies_ref[i * r_width + j] * spat_scales_ref[i * r_width + j] *
+                        entropies_ref[i * r_width + j] * spat_scales_ref[subband][i * r_width + j] *
                             temp_scales_ref[i * r_width + j] -
-                        entropies_dist[i * r_width + j] * spat_scales_dist[i * r_width + j] *
+                        entropies_dist[i * r_width + j] * spat_scales_dist[subband][i * r_width + j] *
                             temp_scales_dist[i * r_width + j];
                 }
             }
@@ -281,31 +295,25 @@ int compute_strred_funque(const struct dwt2buffers* ref, const struct dwt2buffer
         }
     }
 
-    strred_scores->spat_vals[level] = (spat_values[1] + spat_values[2] + spat_values[3]) / 3;
     strred_scores->temp_vals[level] = (temp_values[1] + temp_values[2] + temp_values[3]) / 3;
     strred_scores->spat_temp_vals[level] =
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
 
     // Add equations to compute ST-RRED using norm factors
-    int norm_factor, num_level;
+    int norm_factor = 1, num_level;
     for(num_level = 0; num_level <= level; num_level++)
         norm_factor = num_level + 1;
 
-    strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
     strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];
     strred_scores->spat_temp_vals_cumsum += strred_scores->spat_temp_vals[level];
 
-    strred_scores->srred_vals[level] = strred_scores->spat_vals_cumsum / norm_factor;
     strred_scores->trred_vals[level] = strred_scores->temp_vals_cumsum / norm_factor;
     strred_scores->strred_vals[level] = strred_scores->spat_temp_vals_cumsum / norm_factor;
 
     free(entropies_ref);
     free(entropies_dist);
-    free(spat_scales_ref);
-    free(spat_scales_dist);
     free(temp_scales_ref);
     free(temp_scales_dist);
-    free(spat_aggregate);
 
     return 0;
 }

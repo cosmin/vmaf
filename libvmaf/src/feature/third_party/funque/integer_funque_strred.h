@@ -26,13 +26,22 @@
 
 #define LOGE_BASE2 1.442684682
 
+int integer_compute_srred_funque_c(const struct i_dwt2buffers *ref,
+                                   const struct i_dwt2buffers *dist, size_t width, size_t height,
+                                   float **spat_scales_ref, float **spat_scales_dist,
+                                   struct strred_results *strred_scores, int block_size, int level,
+                                   uint32_t *log_lut, int32_t shift_val,
+                                   double sigma_nsq_t, uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
+
 int integer_compute_strred_funque_c(const struct i_dwt2buffers *ref,
                                     const struct i_dwt2buffers *dist,
                                     struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
-                                    size_t width, size_t height,
-                                    struct strred_results *strred_scores, int block_size, int level,
-                                    uint32_t *log_lut, int32_t shift_val,
-                                    double sigma_nsq_t, uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
+                                    size_t width, size_t height, float **spat_scales_ref,
+                                    float **spat_scales_dist, struct strred_results *strred_scores,
+                                    int block_size, int level, uint32_t *log_lut,
+                                    int32_t shift_val, double sigma_nsq_t,
+                                    uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
+
 int integer_copy_prev_frame_strred_funque_c(const struct i_dwt2buffers *ref,
                                             const struct i_dwt2buffers *dist,
                                             struct i_dwt2buffers *prev_ref,
@@ -66,30 +75,6 @@ FORCE_INLINE inline uint32_t strred_get_best_bits_from_u64(uint64_t temp, int *x
     } else {
         *x = 0;
         if(temp >> BITS_USED_BY_VIF_AND_STRRED_LUT) {
-            temp = temp >> 1;
-            *x = 1;
-        }
-    }
-
-    return (uint32_t) temp;
-}
-
-FORCE_INLINE inline uint32_t strred_get_best_u22_from_u64(uint64_t temp, int *x)
-{
-    int k = __builtin_clzll(temp);
-
-    if(k > 42) {
-        k -= 42;
-        temp = temp << k;
-        *x = -k;
-
-    } else if(k < 41) {
-        k = 42 - k;
-        temp = (temp + (1 << (k - 1))) >> k;
-        *x = k;
-    } else {
-        *x = 0;
-        if(temp >> 22) {
             temp = temp >> 1;
             *x = 1;
         }

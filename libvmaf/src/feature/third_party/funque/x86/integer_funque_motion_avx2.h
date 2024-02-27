@@ -22,4 +22,5 @@
 #include "../integer_funque_filters.h"
 #include "../integer_funque_motion.h"
 
-double integer_funque_image_mad_avx2(const dwt2_dtype *img1, const dwt2_dtype *img2, int width, int height, int img1_stride, int img2_stride, float pending_div_factor);
+int integer_compute_motion_funque_avx2(const dwt2_dtype *prev, const dwt2_dtype *curr, int w, int h, int prev_stride, int curr_stride, int pending_div_factor_arg, double *score);
+int integer_compute_mad_funque_avx2(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, int pending_div_factor_arg, double *score);
