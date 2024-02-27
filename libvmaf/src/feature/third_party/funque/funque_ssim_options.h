@@ -25,19 +25,20 @@
 #define DEFAULT_SSIM_LEVELS 4
 #define DEFAULT_MS_SSIM_LEVELS 4
 
+typedef struct SsimScore {
+    double mean;
+    double mink3;
+} SsimScore;
+
 typedef struct MsSsimScore {
     double ssim_mean;
     double l_mean;
     double cs_mean;
-    double ssim_cov;
-    double l_cov;
-    double cs_cov;
     double ssim_mink3;
     double l_mink3;
     double cs_mink3;
     
     double ms_ssim_mean;
-    double ms_ssim_cov;
     double ms_ssim_mink3;
 
     float **var_x_cum;
@@ -47,7 +48,7 @@ typedef struct MsSsimScore {
 
 static inline double ssim_clip(double value, double low, double high)
 {
-  return value < low ? low : (value > high ? high : value);
+    return value < low ? low : (value > high ? high : value);
 }
 
 #endif //FUNQUE_SSIM_OPTIONS_H_

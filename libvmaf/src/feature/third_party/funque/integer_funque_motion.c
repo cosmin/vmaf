@@ -35,7 +35,7 @@ double integer_funque_image_mad_c(const dwt2_dtype *img1, const dwt2_dtype *img2
     motion_accum_dtype accum = 0;
 
     for (int i = 0; i < height; ++i) {
-    	motion_interaccum_dtype accum_line = 0;
+        motion_interaccum_dtype accum_line = 0;
         for (int j = 0; j < width; ++j) {
             dwt2_dtype img1px = img1[i * img1_stride + j];
             dwt2_dtype img2px = img2[i * img2_stride + j];
@@ -55,7 +55,7 @@ double integer_funque_image_mad_c(const dwt2_dtype *img1, const dwt2_dtype *img2
  * Note: ref_stride and dis_stride are in terms of bytes
  */
 
-int integer_compute_motion_funque(ModuleFunqueState m, const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score)
+int integer_compute_motion_funque(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score)
 {
 
     if (ref_stride % sizeof(dwt2_dtype) != 0)
@@ -72,7 +72,7 @@ int integer_compute_motion_funque(ModuleFunqueState m, const dwt2_dtype *ref, co
     }
     // stride for integer_funque_image_mad_c is in terms of (sizeof(dwt2_dtype) bytes)
 
-    *score = m.integer_funque_image_mad(ref, dis, w, h, ref_stride / sizeof(dwt2_dtype), dis_stride / sizeof(dwt2_dtype), pending_div_factor);
+    *score = integer_funque_image_mad_c(ref, dis, w, h, ref_stride / sizeof(dwt2_dtype), dis_stride / sizeof(dwt2_dtype), pending_div_factor);
 
     return 0;
 

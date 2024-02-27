@@ -71,7 +71,7 @@
 
 void integer_adm_decouple_avx512(i_dwt2buffers ref, i_dwt2buffers dist, 
                           i_dwt2buffers i_dlm_rest, adm_i32_dtype *i_dlm_add, 
-                          int32_t *adm_div_lookup, float border_size, double *adm_score_den)
+                          int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div)
 {
     // const float cos_1deg_sq = COS_1DEG_SQ;
 
@@ -1030,6 +1030,6 @@ void integer_adm_decouple_avx512(i_dwt2buffers ref, i_dwt2buffers dist,
         den_band += powf((double)(accum_den), 1.0 / 3.0);
     }
     // compensation for the division by thirty in the numerator
-    *adm_score_den = (den_band * 30) + 1e-4;
+    *adm_score_den = ((den_band) / (adm_pending_div / powf((double)(256), 1.0 / 3.0))) + 1e-4;
 
 }
