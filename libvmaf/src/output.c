@@ -136,7 +136,6 @@ int vmaf_write_output_xml(VmafContext *vmaf, VmafFeatureCollector *fc,
 
 
     fprintf(outfile, "  <aggregate_metrics ");
-    int leadingZeroesCount;
     for (unsigned i = 0; i < fc->aggregate_vector.cnt; i++) {
         leadingZeroesCount = countLeadingZeroesFloat(fc->aggregate_vector.metric[i].value);
         if (leadingZeroesCount <= 6)
