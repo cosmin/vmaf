@@ -820,6 +820,12 @@ static int extract(VmafFeatureExtractor *fex,
                                         &s->strred_scores, BLOCK_SIZE, level);
         }
 
+        if((s->mad_levels != 0) && (level <= s->mad_levels - 1)) {
+            err |= compute_mad_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0],
+                                s->ref_dwt2out[level].width, s->ref_dwt2out[level].height, 
+                                s->prev_ref[level].stride, s->ref_dwt2out[level].stride, &mad_score[level]);
+        }
+        
         if(err)
             return err;
     }
@@ -862,12 +868,6 @@ static int extract(VmafFeatureExtractor *fex,
                                 s->ref_dwt2out[level].width, s->ref_dwt2out[level].height, 
                                 s->prev_ref[level].stride, s->ref_dwt2out[level].stride, &motion_score[level]);
             }
-        }
-
-        if((s->mad_levels != 0) && (level <= s->mad_levels - 1)) {
-            err |= compute_mad_funque(s->ref_dwt2out[level].bands[0], s->dist_dwt2out[level].bands[0],
-                                s->ref_dwt2out[level].width, s->ref_dwt2out[level].height, 
-                                s->prev_ref[level].stride, s->ref_dwt2out[level].stride, &mad_score[level]);
         }
 
         if (err) return err;
