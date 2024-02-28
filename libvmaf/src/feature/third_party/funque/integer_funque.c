@@ -1339,6 +1339,8 @@ static int extract(VmafFeatureExtractor *fex,
                                 s->i_ref_dwt2out[level].width, s->i_ref_dwt2out[level].height, 
                                 s->i_prev_ref[level].stride, s->i_ref_dwt2out[level].stride, motion_pending_div, &motion_score[level]);
             }
+            else
+                motion_score[level] = 0;
         }
     }
 
