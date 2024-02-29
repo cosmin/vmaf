@@ -1676,4 +1676,5 @@ VmafFeatureExtractor vmaf_fex_integer_funque = {
     .close = close,
     .priv_size = sizeof(IntFunqueState),
     .provided_features = provided_features,
+    .flags = VMAF_FEATURE_FRAME_SYNC,
 };

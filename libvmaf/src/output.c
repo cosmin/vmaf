@@ -44,10 +44,13 @@ static const char *pool_method_name[] = {
     [VMAF_POOL_METHOD_HARMONIC_MEAN] = "harmonic_mean",
 };
 
-int countLeadingZeroesFloat(float x)
-{
+int countLeadingZeroesFloat(double x)
+{   
+    if(x < 0)
+        return 0;
+
     int intPart = (int)x;
-    float fractionalPart = x - intPart;
+    double fractionalPart = x - intPart;
 
     // Count leading zeroes in the fractional part
     int leadingZeroesCount = 0;
