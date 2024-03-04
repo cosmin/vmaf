@@ -47,7 +47,7 @@ static const char *pool_method_name[] = {
 int countLeadingZeroesFloat(double x)
 {   
     if(x < 0)
-        return 0;
+        x = fabs(x);
 
     int intPart = (int)x;
     double fractionalPart = x - intPart;
