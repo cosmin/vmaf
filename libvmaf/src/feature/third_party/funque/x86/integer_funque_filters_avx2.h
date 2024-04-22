@@ -55,5 +55,4 @@ void integer_spatial_5tap_filter_avx2(void *src, spat_fil_output_dtype *dst, int
 void integer_funque_dwt2_inplace_csf_avx2(const i_dwt2buffers *src, spat_fil_coeff_dtype factors[4],
                                           int min_theta, int max_theta,
                                           uint16_t interim_rnd_factors[4],
-                                          uint8_t interim_shift_factors[4], int level,
-                                          i_dwt2buffers *dst);
+                                          uint8_t interim_shift_factors[4], int level);

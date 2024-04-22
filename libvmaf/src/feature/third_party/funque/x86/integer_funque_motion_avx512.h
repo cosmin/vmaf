@@ -1,3 +1,6 @@
+/*   SPDX-License-Identifier: BSD-3-Clause
+*   Copyright (C) 2022 Intel Corporation.
+*/
 /**
  *
  *  Copyright 2016-2020 Netflix, Inc.
@@ -15,9 +18,9 @@
  *     limitations under the License.
  *
  */
-#define DEFAULT_MOTION_LEVELS   4
-#define DEFAULT_MAD_LEVELS   4
 
-int compute_motion_funque(const float *prev, const float *curr, int w, int h, int ref_stride, int dis_stride, double *score);
+#include "../integer_funque_filters.h"
+#include "../integer_funque_motion.h"
 
-int compute_mad_funque(const float *ref, const float *dis, int w, int h, int ref_stride, int dis_stride, double *score);
+int integer_compute_mad_funque_avx512(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, int pending_div_factor_arg, double *score);
+int integer_compute_motion_funque_avx512(const dwt2_dtype *prev, const dwt2_dtype *curr, int w, int h, int prev_stride, int curr_stride, int pending_div_factor_arg, double *score);

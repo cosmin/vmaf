@@ -312,6 +312,7 @@ if is_asm_enabled
                 funque_feature_dir + 'x86/integer_funque_filters_avx512.c',
                 funque_feature_dir + 'x86/resizer_avx512.c',
                 funque_feature_dir + 'x86/hbd_resizer_avx512.c',
+                funque_feature_dir + 'x86/integer_funque_motion_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_ssim_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_adm_avx512.c',
                 funque_feature_dir + 'x86/integer_funque_vif_avx512.c',
@@ -467,6 +468,7 @@ libvmaf_feature_sources = [
     feature_src_dir + 'cambi.c',
     feature_src_dir + 'luminance_tools.c',
     feature_src_dir + 'null.c',
+    src_dir + 'framesync.c',
 ]
 
 if float_enabled
@@ -543,6 +545,7 @@ libvmaf_feature_static_lib = static_library(
 
 libvmaf_sources = [
     src_dir + 'libvmaf.c',
+    src_dir + 'compute_vmaf.c',
     src_dir + 'predict.c',
     src_dir + 'model.c',
     src_dir + 'svm.cpp',

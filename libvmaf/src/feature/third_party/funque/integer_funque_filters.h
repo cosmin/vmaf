@@ -157,7 +157,8 @@ typedef struct ModuleFunqueState
                                            int32_t *cov_xy_cum, int width, int height, int level);
     int (*integer_ms_ssim_shift_cum_buffer_funque)(int32_t *var_x_cum, int32_t *var_y_cum,
                                            int32_t *cov_xy_cum, int width, int height, int level, uint8_t csf_pending_div[4], uint8_t csf_pending_div_lp1[4]);
-    double (*integer_compute_motion_funque)(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, float pending_div_factor, double *score);
+    int (*integer_compute_motion_funque)(const dwt2_dtype *prev, const dwt2_dtype *curr, int w, int h, int prev_stride, int curr_stride, int pending_div_factor, double *score);
+    int (*integer_compute_mad_funque)(const dwt2_dtype *ref, const dwt2_dtype *dis, int w, int h, int ref_stride, int dis_stride, int pending_div_factor, double *score);
     void (*integer_funque_adm_decouple)(i_dwt2buffers ref, i_dwt2buffers dist, i_dwt2buffers i_dlm_rest, int32_t *i_dlm_add, 
                                  int32_t *adm_div_lookup, float border_size, double *adm_score_den, float adm_pending_div);
     void (*integer_adm_integralimg_numscore)(i_dwt2buffers pyr_1, int32_t *x_pad, int k, 
@@ -179,14 +180,18 @@ typedef struct ModuleFunqueState
 #endif
     // void (*resizer_step)(const unsigned char *_src, unsigned char *_dst, const int *xofs, const int *yofs, const short *_alpha, const short *_beta, int iwidth, int iheight, int dwidth, int dheight, int channels, int ksize, int start, int end, int xmin, int xmax);
 
-    int (*integer_compute_strred_funque)(const struct i_dwt2buffers *ref,
-                                         const struct i_dwt2buffers *dist,
-                                         struct i_dwt2buffers *prev_ref,
-                                         struct i_dwt2buffers *prev_dist, size_t width,
-                                         size_t height, struct strred_results *strred_scores,
-                                         int block_size, int level,
-                                         uint32_t *log_lut, int32_t shift_val, double sigma_nsq_t,
-                                         uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
+    int (*integer_compute_srred_funque)(
+        const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist, size_t width,
+        size_t height, float **spat_scales_ref, float **spat_scales_dist,
+        struct strred_results *strred_scores, int block_size, int level,
+        uint32_t *log_lut, int32_t shift_val, double sigma_nsq_t, uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
+
+    int (*integer_compute_strred_funque)(
+        const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
+        struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width,
+        size_t height, float **spat_scales_ref, float **spat_scales_dist,
+        struct strred_results *strred_scores, int block_size, int level,
+        uint32_t *log_lut, int32_t shift_val, double sigma_nsq_t, uint8_t enable_spatial_csf, uint8_t csf_pending_div[4]);
 
     int (*integer_copy_prev_frame_strred_funque)(const struct i_dwt2buffers *ref,
                                                  const struct i_dwt2buffers *dist,
@@ -276,7 +281,7 @@ static const uint8_t i_hill_interim_shift[4][4] = {
     {13, 15, 14, 15},
     {13, 16, 16, 16},
 };
-
+ 
 static const uint8_t i_hill_pending_div_factors[4][4] = {
 #if BAND_HVD_SAME_PENDING_DIV
     {6, 10, 10, 10},  // L0

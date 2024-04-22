@@ -215,28 +215,20 @@ float integer_rred_entropies_and_scales_neon(const dwt2_dtype *x_t, const dwt2_d
     return agg_abs_accum;
 }
 
-int integer_compute_strred_funque_neon(
-    const struct i_dwt2buffers *ref, const struct i_dwt2buffers *dist,
-    struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist, size_t width, size_t height,
-    struct strred_results *strred_scores, int block_size, int level,
-    uint32_t *log_lut, int32_t shift_val_arg, double sigma_nsq_t, uint8_t check_enable_spatial_csf)
+int integer_compute_srred_funque_neon(const struct i_dwt2buffers *ref,
+                                      const struct i_dwt2buffers *dist, size_t width, size_t height,
+                                      float **spat_scales_ref, float **spat_scales_dist,
+                                      struct strred_results *strred_scores, int block_size, int level,
+                                      uint32_t *log_lut, int32_t shift_val_arg,
+                                      double sigma_nsq_t, uint8_t check_enable_spatial_csf)
 {
     int ret;
     UNUSED(block_size);
     size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
     size_t subband;
-    float spat_values[DEFAULT_STRRED_SUBBANDS], temp_values[DEFAULT_STRRED_SUBBANDS];
-    float fspat_val[DEFAULT_STRRED_SUBBANDS], ftemp_val[DEFAULT_STRRED_SUBBANDS];
+    float spat_values[DEFAULT_STRRED_SUBBANDS], fspat_val[DEFAULT_STRRED_SUBBANDS];
     uint8_t enable_temp = 0;
     int32_t shift_val;
-
-    /* amount of reflecting */
-    int x_reflect = (int) ((STRRED_WINDOW_SIZE - 1) / 2);
-    size_t r_width = width + (2 * x_reflect);
-    size_t r_height = height + (2 * x_reflect);
-
-    float *scales_spat_x = (float *) calloc(r_width * r_height, sizeof(float));
-    float *scales_spat_y = (float *) calloc(r_width * r_height, sizeof(float));
 
     for(subband = 1; subband < total_subbands; subband++) {
         enable_temp = 0;
@@ -249,8 +241,48 @@ int integer_compute_strred_funque_neon(
         }
         spat_values[subband] = integer_rred_entropies_and_scales_neon(
             ref->bands[subband], dist->bands[subband], width, height, log_lut, sigma_nsq_t,
-            shift_val, enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
+            shift_val, enable_temp, spat_scales_ref[subband], spat_scales_dist[subband],
+            check_enable_spatial_csf);
         fspat_val[subband] = spat_values[subband] / (width * height);
+    }
+
+    strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;
+
+    // Add equations to compute S-RRED using norm factors
+    int norm_factor = 1, num_level;
+    for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
+
+    strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
+
+    strred_scores->srred_vals[level] = strred_scores->spat_vals_cumsum / norm_factor;
+
+    ret = 0;
+    return ret;
+}
+
+int integer_compute_strred_funque_neon(const struct i_dwt2buffers *ref,
+                                       const struct i_dwt2buffers *dist,
+                                       struct i_dwt2buffers *prev_ref, struct i_dwt2buffers *prev_dist,
+                                       size_t width, size_t height, float **spat_scales_ref,
+                                       float **spat_scales_dist, struct strred_results *strred_scores,
+                                       int block_size, int level, uint32_t *log_lut,
+                                       int32_t shift_val_arg, double sigma_nsq_t,
+                                       uint8_t check_enable_spatial_csf)
+{
+    int ret;
+    UNUSED(block_size);
+    size_t total_subbands = DEFAULT_STRRED_SUBBANDS;
+    size_t subband;
+    float temp_values[DEFAULT_STRRED_SUBBANDS], ftemp_val[DEFAULT_STRRED_SUBBANDS];
+    uint8_t enable_temp = 0;
+    int32_t shift_val;
+
+    for(subband = 1; subband < total_subbands; subband++) {
+        if(check_enable_spatial_csf == 1)
+            shift_val = 2 * shift_val_arg;
+        else {
+            shift_val = 2 * i_nadenau_pending_div_factors[level][subband];
+        }
 
         if(prev_ref != NULL && prev_dist != NULL) {
             enable_temp = 1;
@@ -258,19 +290,19 @@ int integer_compute_strred_funque_neon(
             dwt2_dtype *dist_temporal = (dwt2_dtype *) calloc(width * height, sizeof(dwt2_dtype));
             temp_values[subband] = 0;
 
-            integer_subract_subbands_neon(ref->bands[subband], prev_ref->bands[subband],
-                                          ref_temporal, dist->bands[subband],
-                                          prev_dist->bands[subband], dist_temporal, width, height);
+            integer_subract_subbands_neon(ref->bands[subband], prev_ref->bands[subband], ref_temporal,
+                                       dist->bands[subband], prev_dist->bands[subband],
+                                       dist_temporal, width, height);
             temp_values[subband] = integer_rred_entropies_and_scales_neon(
                 ref_temporal, dist_temporal, width, height, log_lut, sigma_nsq_t, shift_val,
-                enable_temp, scales_spat_x, scales_spat_y, check_enable_spatial_csf);
+                enable_temp, spat_scales_ref[subband], spat_scales_dist[subband],
+                check_enable_spatial_csf);
             ftemp_val[subband] = temp_values[subband] / (width * height);
 
             free(ref_temporal);
             free(dist_temporal);
         }
     }
-    strred_scores->spat_vals[level] = (fspat_val[1] + fspat_val[2] + fspat_val[3]) / 3;
     strred_scores->temp_vals[level] = (ftemp_val[1] + ftemp_val[2] + ftemp_val[3]) / 3;
     strred_scores->spat_temp_vals[level] =
         strred_scores->spat_vals[level] * strred_scores->temp_vals[level];
@@ -279,16 +311,11 @@ int integer_compute_strred_funque_neon(
     int norm_factor = 1, num_level;
     for(num_level = 0; num_level <= level; num_level++) norm_factor = num_level + 1;
 
-    strred_scores->spat_vals_cumsum += strred_scores->spat_vals[level];
     strred_scores->temp_vals_cumsum += strred_scores->temp_vals[level];
     strred_scores->spat_temp_vals_cumsum += strred_scores->spat_temp_vals[level];
 
-    strred_scores->srred_vals[level] = strred_scores->spat_vals_cumsum / norm_factor;
     strred_scores->trred_vals[level] = strred_scores->temp_vals_cumsum / norm_factor;
     strred_scores->strred_vals[level] = strred_scores->spat_temp_vals_cumsum / norm_factor;
-
-    free(scales_spat_x);
-    free(scales_spat_y);
 
     ret = 0;
     return ret;
